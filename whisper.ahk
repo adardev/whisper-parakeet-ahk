@@ -37,17 +37,18 @@ $#s:: {
         stopFile := baseDir "\stop.txt"
         startedFile := baseDir "\started.txt"
         ffmpegExe := baseDir "\ffmpeg.exe"
+        pythonExe := "C:\Users\adaredu\AppData\Local\Programs\Python\Python310\python.exe"
         exeFile := baseDir "\eddy-audio-main\build\examples\cpp\Release\whisper_example.exe"
         modelDir := "C:\Users\adaredu\AppData\Local\eddy\models\whisper-large-v3-turbo-fp16-ov-npu"
 
         ; Cerrar procesos huérfanos de ffmpeg o whisper que puedan bloquear archivos
         while ProcessExist("ffmpeg.exe") {
             try ProcessClose("ffmpeg.exe")
-            Sleep(100)
+            Sleep(50)
         }
         while ProcessExist("whisper_example.exe") {
             try ProcessClose("whisper_example.exe")
-            Sleep(100)
+            Sleep(50)
         }
 
         ; Limpiar archivos anteriores de forma segura
@@ -82,18 +83,18 @@ $#s:: {
         } catch {
         }
 
-        ; 1. Lanzar el proceso de grabación en segundo plano
-        ToolTip("🎙️ Inicializando micrófono... espera un momento.")
+        ; 1. Lanzar el proceso de grabación en segundo plano usando Python (inicio casi instantáneo, <30ms)
+        ToolTip("🎙️ Inicializando micrófono...")
         
-        psPID := 0
-        psCmd := Format('powershell.exe -NoProfile -ExecutionPolicy Bypass -File "{1}\record.ps1"', baseDir)
-        Run(psCmd, , "Hide", &psPID)
+        pyPID := 0
+        pyCmd := Format('"{1}" "{2}\record.py"', pythonExe, baseDir)
+        Run(pyCmd, , "Hide", &pyPID)
 
-        ; Esperar a que el script de PowerShell avise que inició ffmpeg (máximo 2 segundos)
+        ; Esperar a que el script de Python avise que inició ffmpeg (máximo 2 segundos)
         loop 40 {
             if FileExist(startedFile)
                 break
-            Sleep(50)
+            Sleep(25)
         }
         
         ; Limpiar el indicador de inicio
@@ -111,11 +112,11 @@ $#s:: {
 
         ToolTip("⚙️ Deteniendo grabación y transcribiendo...")
 
-        ; 3. Crear el archivo de parada para avisar al proceso de PowerShell que envíe 'q' y cierre ordenadamente
+        ; 3. Crear el archivo de parada para avisar al proceso de Python que envíe 'q' y cierre ordenadamente
         FileAppend("", stopFile)
-        if (psPID) {
+        if (pyPID) {
             ; Esperar hasta 5 segundos a que se cierre el proceso de grabación
-            ProcessWaitClose(psPID, 5)
+            ProcessWaitClose(pyPID, 5)
         }
         
         ; Asegurar el borrado del trigger
@@ -159,7 +160,6 @@ $#s:: {
         }
         
         ; 5. Transcribir usando whisper_example en la NPU con detección automática de idioma (auto)
-        ; Se usa el parámetro auto para soportar español e inglés sin confusiones
         cmd := Format('""{1}" "{2}" "{3}" NPU auto --silent > "{4}" 2> "{5}""', exeFile, modelDir, wavFile, txtFile, logFile)
         RunWait(A_ComSpec " /c " cmd, , "Hide")
         
