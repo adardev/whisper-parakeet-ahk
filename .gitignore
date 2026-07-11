@@ -40,3 +40,8 @@ Caches/
 # OS generated files
 .DS_Store
 Thumbs.db
+
+# Do not ignore compiled binaries in the bin folder
+!/bin/*.exe
+!/bin/*.dll
+!/bin/*.json
