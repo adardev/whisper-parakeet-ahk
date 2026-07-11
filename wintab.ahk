@@ -202,9 +202,8 @@ $#s:: {
         ; ======================================================================
         isRecording := true
 
-        ; Sonido de inicio (tonos ascendentes retro)
-        SoundBeep(1000, 80)
-        SoundBeep(1300, 80)
+        ; Sonido de inicio (premium Windows dictation sound)
+        SoundPlay(A_WinDir "\Media\Speech On.wav")
 
         ; Cerrar procesos y ventanas huérfanas de ejecuciones anteriores
         if WinExist(winTitle) {
@@ -243,9 +242,8 @@ $#s:: {
         isRecording := false
         isTranscribing := true
 
-        ; Sonido de parada (tonos descendentes)
-        SoundBeep(1200, 80)
-        SoundBeep(900, 80)
+        ; Sonido de parada (premium Windows dictation sound)
+        SoundPlay(A_WinDir "\Media\Speech Off.wav")
 
         try {
             ; Detener de forma segura enviando 'q' a la consola oculta de ffmpeg
