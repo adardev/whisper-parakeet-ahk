@@ -21,7 +21,7 @@ if not A_IsAdmin {
 ; - NPU: Excelente para procesadores Intel Core Ultra (Meteor Lake o superior).
 ; - GPU: Excelente para Intel Iris Xe o gráficas integradas/dedicadas.
 ; - CPU: Modo seguro, compatible con cualquier procesador de cualquier generación.
-global targetDevice := "NPU"
+global targetDevice := "GPU"
 global isRecording := false
 global isTranscribing := false
 
@@ -82,7 +82,7 @@ HideCursors() {
     static BlankCursor := CreateBlankCursor()
     ; IDs de los cursores de Windows (flecha regular, selección de texto, mano, carga, etc.)
     CursorIDs := [32512, 32513, 32514, 32515, 32516, 32642, 32643, 32644, 32645, 32646, 32648, 32649, 32650]
-    
+
     for id in CursorIDs {
         ; Sobrescribe los punteros activos del sistema con el cursor vacío
         DllCall("SetSystemCursor", "Ptr", DllCall("CopyIcon", "Ptr", BlankCursor), "UInt", id)
@@ -110,7 +110,7 @@ LanzarApp(nombre, ruta) {
 
 ControlarBarreraMouse() {
     global PermitirMouse
-    
+
     if (PermitirMouse) {
         DllCall("ClipCursor", "Ptr", 0) ; Liberación total si se activa un shortcut legítimo
         return
@@ -123,7 +123,7 @@ ControlarBarreraMouse() {
         NumPut("Int", 0, rect, 4)                  ; Top
         NumPut("Int", A_ScreenWidth, rect, 8)       ; Right
         NumPut("Int", A_ScreenHeight - 2, rect, 12) ; Bottom
-        
+
         DllCall("ClipCursor", "Ptr", rect)
     } else {
         DllCall("ClipCursor", "Ptr", 0)
@@ -136,11 +136,11 @@ RCtrlSingleAction() {
 
 LShiftAction() {
     global lShiftClicks
-    
+
     if (lShiftClicks = 2) {
-        Run("D:\tempfiles\tempfiles.vbs")
+        Run("F:\tempfiles\tempfiles.vbs")
     }
-    
+
     lShiftClicks := 0
 }
 
@@ -178,20 +178,27 @@ MonitorearCierre() {
 ; --- LÓGICA DE DICTADO LOCAL PARAKEET-V3 (Win + S) ---
 $#s:: {
     global isRecording, isTranscribing, targetDevice
-    
+
     if (isTranscribing) {
         return
     }
 
-    baseDir := "D:\autohotkey"
+    baseDir := "F:\autohotkey"
     audioFile := baseDir "\temp_audio.mp3"
     wavFile := baseDir "\temp_clean.wav"
     txtFile := baseDir "\temp_clean.txt"
     logFile := baseDir "\conversion_log.txt"
     ffmpegExe := baseDir "\bin\ffmpeg.exe"
-    exeFile := baseDir "\bin\parakeet_cli.exe"
-    modelDir := "C:\Users\adaredu\AppData\Local\eddy\models\parakeet-v3\files"
-    audioDevice := "@device_cm_{33D9A762-90C8-11D0-BD43-00A0C911CE86}\wave_{66E16202-66F3-4D6B-A7B8-8564C5377AC0}"
+    exeFile := baseDir "\bin\whisper_example.exe"
+    
+    ; Available Whisper Models:
+    ; - "whisper-tiny-int8-ov"           (42 MB,  ~0.5s inference)
+    ; - "whisper-base-int8-ov"           (75 MB,  ~0.8s inference)
+    ; - "whisper-small-int8-ov"          (246 MB, ~1.5s inference) -> Default (Best Balance)
+    ; - "whisper-large-v3-turbo-int8-ov" (780 MB, ~4.2s inference)
+    modelName := "whisper-small-int8-ov"
+    modelDir := baseDir "\models\" modelName
+    audioDevice := "@device_cm_{33D9A762-90C8-11D0-BD43-00A0C911CE86}\wave_{08E80C7F-338C-4C96-9F52-06121768C053}"
     winTitle := "ffmpeg_rec_window"
 
     DetectHiddenWindows(True)
@@ -202,9 +209,8 @@ $#s:: {
         ; ======================================================================
         isRecording := true
 
-        ; Sonido de inicio (tonos ascendentes retro)
-        SoundBeep(1000, 80)
-        SoundBeep(1300, 80)
+        ; Sonido de inicio (premium Windows dictation sound)
+        SoundPlay(A_WinDir "\Media\Speech On.wav")
 
         ; Cerrar procesos y ventanas huérfanas de ejecuciones anteriores
         if WinExist(winTitle) {
@@ -229,7 +235,7 @@ $#s:: {
         ; Iniciar grabación directamente usando cmd minimizado para velocidad instantánea (<10ms)
         ffmpegCmd := Format('"{1}" -y -f dshow -i audio="{2}" -t 60 -q:a 9 -acodec libmp3lame -b:a 192k "{3}"', ffmpegExe, audioDevice, audioFile)
         fullCmd := A_ComSpec ' /c "title ' winTitle ' && ' ffmpegCmd '"'
-        
+
         Run(fullCmd, , "Min")
 
         ; Esperar brevemente a que la ventana de consola se registre y ocultarla de inmediato
@@ -243,9 +249,8 @@ $#s:: {
         isRecording := false
         isTranscribing := true
 
-        ; Sonido de parada (tonos descendentes)
-        SoundBeep(1200, 80)
-        SoundBeep(900, 80)
+        ; Sonido de parada (premium Windows dictation sound)
+        SoundPlay(A_WinDir "\Media\Speech Off.wav")
 
         try {
             ; Detener de forma segura enviando 'q' a la consola oculta de ffmpeg
@@ -270,7 +275,7 @@ $#s:: {
             ; 4. Convertir a formato requerido (16kHz mono WAV) y capturar log de errores
             convCmd := Format('""{1}" -y -i "{2}" -ar 16000 -ac 1 -c:a pcm_s16le "{3}" 2> "{4}""', ffmpegExe, audioFile, wavFile, logFile)
             RunWait(A_ComSpec " /c " convCmd, , "Hide")
-            
+
             if !FileExist(wavFile) {
                 logText := "No se pudo leer el archivo de log."
                 if FileExist(logFile)
@@ -282,11 +287,11 @@ $#s:: {
 
             ; Limpiar log anterior para capturar el de la transcripción
             try FileDelete(logFile)
-            
+
             ; 5. Transcribir usando parakeet_cli en modo silencioso y capturar errores de cmd.exe
-            cmd := Format('""{1}" "{2}" --model parakeet-v3 --model_dir "{3}" --device {4} --silent > "{5}" 2> "{6}""', exeFile, wavFile, modelDir, targetDevice, txtFile, logFile)
+            cmd := Format('""{1}" "{2}" "{3}" {4} auto --silent > "{5}" 2> "{6}""', exeFile, modelDir, wavFile, targetDevice, txtFile, logFile)
             RunWait(A_ComSpec " /c " cmd, , "Hide")
-            
+
             ; 6. Leer resultado, copiar al portapapeles y pegar (filtrando logs de la NPU)
             if FileExist(txtFile) {
                 textoRaw := FileRead(txtFile, "UTF-8")
@@ -301,11 +306,28 @@ $#s:: {
                     resultado .= (resultado = "" ? "" : "`n") . linea
                 }
                 resultado := Trim(resultado)
-                
+
                 if (resultado != "") {
+                    ; Esperar a que se suelten las teclas modificadoras para evitar conflictos con Ctrl+V
+                    KeyWait("LWin")
+                    KeyWait("RWin")
+                    KeyWait("LShift")
+                    KeyWait("RShift")
+                    KeyWait("Ctrl")
+                    Sleep(150)
+
+                    ; Guardar y respaldar portapapeles anterior
+                    ClipSaved := ClipboardAll()
+                    
                     A_Clipboard := resultado
+                    ClipWait(1)
+
                     ; Pegar el texto en la aplicación activa
                     Send("^v")
+                    Sleep(100)
+
+                    ; Restaurar portapapeles anterior
+                    A_Clipboard := ClipSaved
                 }
             } else {
                 logText := "No se pudo leer el archivo de log."
@@ -313,7 +335,7 @@ $#s:: {
                     logText := FileRead(logFile, "UTF-8")
                 MsgBox("Error: No se generó la transcripción.`n`nDetalles del error:`n" logText)
             }
-            
+
             ; Limpiar archivos temporales de forma segura
             try FileDelete(audioFile)
             try FileDelete(wavFile)
@@ -368,7 +390,7 @@ $RCtrl:: {
     global lShiftClicks
     if (A_PriorKey != "LShift")
         return
-    
+
     lShiftClicks++
     SetTimer(LShiftAction, -400)
 }
@@ -378,7 +400,7 @@ $RCtrl:: {
     global rShiftClicks
     if (A_PriorKey != "RShift")
         return
-    
+
     rShiftClicks++
     SetTimer(RShiftAction, -400)
 }
