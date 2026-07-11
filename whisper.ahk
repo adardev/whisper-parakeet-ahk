@@ -163,9 +163,21 @@ $#s:: {
         cmd := Format('""{1}" "{2}" --model parakeet-v3 --model_dir "{3}" --device NPU --silent > "{4}" 2> "{5}""', exeFile, wavFile, modelDir, txtFile, logFile)
         RunWait(A_ComSpec " /c " cmd, , "Hide")
         
-        ; 6. Leer resultado, copiar al portapapeles y pegar
+        ; 6. Leer resultado, copiar al portapapeles y pegar (filtrando logs de la NPU)
         if FileExist(txtFile) {
-            resultado := Trim(FileRead(txtFile, "UTF-8"))
+            textoRaw := FileRead(txtFile, "UTF-8")
+            resultado := ""
+            Loop Parse, textoRaw, "`n", "`r" {
+                linea := Trim(A_LoopField)
+                if (linea = "")
+                    continue
+                ; Omitir líneas de advertencias/errores del compilador de OpenVINO/NPU
+                if (SubStr(linea, 1, 1) = "[" || InStr(linea, "vpux-compiler") || InStr(linea, "AlignDimensionsForDPU") || InStr(linea, "Failed Pass"))
+                    continue
+                resultado .= (resultado = "" ? "" : "`n") . linea
+            }
+            resultado := Trim(resultado)
+            
             if (resultado != "") {
                 A_Clipboard := resultado
                 ; Pegar el texto en la aplicación activa
