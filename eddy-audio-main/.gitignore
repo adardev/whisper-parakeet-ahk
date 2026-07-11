@@ -1,0 +1,54 @@
+# Build directories
+build/
+cmake-build-*/
+
+# Model files (too large for git)
+models/**/*.bin
+models/**/*.blob
+
+
+# IDE
+.vscode/
+.vs/
+*.suo
+*.user
+
+# Compiled
+*.o
+*.obj
+*.so
+*.dll
+*.dylib
+*.a
+*.lib
+
+# Cache
+.cache/
+*.cache
+cache/
+
+# Build artifacts
+**/obj/
+**/bin/Debug/
+**/bin/Release/
+
+# IDE/Editor specific
+.claude/
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+
+# Test files
+test_*.wav
+test_*.py
+*_test.cpp
+
+# Large archives
+*.zip
+openvino_*/
+
+# Temporary scripts
+download_*.bat
+download_*.sh
+run_*.bat
