@@ -2,6 +2,12 @@
 Persistent ; Forzar a que el script se mantenga siempre activo en segundo plano
 SetWorkingDir "C:\Users\adaredu\Downloads\whisper"
 
+; CONFIGURACIÓN DE DISPOSITIVO: Opciones disponibles: "NPU", "GPU", "CPU"
+; - NPU: Excelente para procesadores Intel Core Ultra (Meteor Lake o superior).
+; - GPU: Excelente para Intel Iris Xe o gráficas integradas/dedicadas (utiliza la optimización FP32).
+; - CPU: Modo seguro, compatible con cualquier procesador i5/i7 de cualquier generación.
+global targetDevice := "NPU"
+
 ; Registramos un manejador global de errores para que cualquier error imprevisto
 ; no muestre el cuadro de diálogo de cierre de AHK y el script siga vivo en memoria.
 OnError(errorHandler)
@@ -22,7 +28,7 @@ global isTranscribing := false
 ; Usamos el prefijo "$" para forzar el uso del gancho del teclado (Keyboard Hook)
 ; y asegurar que AHK intercepte Win + S anulando el buscador de Windows.
 $#s:: {
-    global isRecording, isTranscribing
+    global isRecording, isTranscribing, targetDevice
     
     if (isTranscribing) {
         return
@@ -149,7 +155,7 @@ $#s:: {
             }
             
             ; 5. Transcribir usando parakeet_cli en modo silencioso y capturar errores de cmd.exe
-            cmd := Format('""{1}" "{2}" --model parakeet-v3 --model_dir "{3}" --device NPU --silent > "{4}" 2> "{5}""', exeFile, wavFile, modelDir, txtFile, logFile)
+            cmd := Format('""{1}" "{2}" --model parakeet-v3 --model_dir "{3}" --device {4} --silent > "{5}" 2> "{6}""', exeFile, wavFile, modelDir, targetDevice, txtFile, logFile)
             RunWait(A_ComSpec " /c " cmd, , "Hide")
             
             ; 6. Leer resultado, copiar al portapapeles y pegar (filtrando logs de la NPU)
