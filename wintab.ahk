@@ -183,7 +183,7 @@ $#s:: {
         return
     }
 
-    baseDir := "C:\Users\adaredu\Downloads\whisper"
+    baseDir := "D:\autohotkey"
     audioFile := baseDir "\temp_audio.mp3"
     wavFile := baseDir "\temp_clean.wav"
     txtFile := baseDir "\temp_clean.txt"
