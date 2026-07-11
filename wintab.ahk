@@ -49,6 +49,19 @@ SetTimer ControlarBarreraMouse, 10
 CheckState() {
     Global CursorHidden
 
+    ; Detectar si el escritorio activo es un escritorio seguro (como UAC o Bloqueo)
+    ; Si OpenInputDesktop falla, es porque no tenemos acceso al escritorio activo (Secure Desktop).
+    ; En ese caso, restauramos el cursor inmediatamente para que sea visible en la pantalla de UAC.
+    hDesk := DllCall("OpenInputDesktop", "UInt", 0, "Int", 0, "UInt", 0, "Ptr")
+    if (!hDesk) {
+        if (CursorHidden) {
+            RestoreCursors()
+            CursorHidden := false
+        }
+        return
+    }
+    DllCall("CloseDesktop", "Ptr", hDesk)
+
     ; Si el ratón se acaba de mover, restaura el cursor
     if (A_TimeIdleMouse < 50) {
         if (CursorHidden) {
