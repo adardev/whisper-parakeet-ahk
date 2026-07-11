@@ -34,20 +34,26 @@ $#s:: {
         wavFile := baseDir "\temp_clean.wav"
         txtFile := baseDir "\temp_clean.txt"
         logFile := baseDir "\conversion_log.txt"
-        stopFile := baseDir "\stop.txt"
-        startedFile := baseDir "\started.txt"
         ffmpegExe := baseDir "\ffmpeg.exe"
-        pythonExe := "C:\Users\adaredu\AppData\Local\Programs\Python\Python310\python.exe"
-        exeFile := baseDir "\eddy-audio-main\build\examples\cpp\Release\whisper_example.exe"
-        modelDir := "C:\Users\adaredu\AppData\Local\eddy\models\whisper-large-v3-turbo-fp16-ov-npu"
+        exeFile := baseDir "\eddy-audio-main\build\examples\cpp\Release\parakeet_cli.exe"
+        modelDir := "C:\Users\adaredu\AppData\Local\eddy\models\parakeet-v3\files"
+        audioDevice := "@device_cm_{33D9A762-90C8-11D0-BD43-00A0C911CE86}\wave_{66E16202-66F3-4D6B-A7B8-8564C5377AC0}"
+        winTitle := "ffmpeg_rec_window"
 
-        ; Cerrar procesos huérfanos de ffmpeg o whisper que puedan bloquear archivos
+        ; Activar búsqueda de ventanas ocultas para AHK
+        DetectHiddenWindows(True)
+
+        ; Cerrar procesos y ventanas huérfanas de ejecuciones anteriores
+        if WinExist(winTitle) {
+            WinClose(winTitle)
+            WinWaitClose(winTitle, , 2)
+        }
         while ProcessExist("ffmpeg.exe") {
             try ProcessClose("ffmpeg.exe")
             Sleep(50)
         }
-        while ProcessExist("whisper_example.exe") {
-            try ProcessClose("whisper_example.exe")
+        while ProcessExist("parakeet_cli.exe") {
+            try ProcessClose("parakeet_cli.exe")
             Sleep(50)
         }
 
@@ -72,39 +78,19 @@ $#s:: {
                 FileDelete(logFile)
         } catch {
         }
-        try {
-            if FileExist(stopFile)
-                FileDelete(stopFile)
-        } catch {
-        }
-        try {
-            if FileExist(startedFile)
-                FileDelete(startedFile)
-        } catch {
-        }
 
-        ; 1. Lanzar el proceso de grabación en segundo plano usando Python (inicio casi instantáneo, <30ms)
-        ToolTip("🎙️ Inicializando micrófono...")
+        ; 1. Iniciar grabación directamente usando cmd minimizado para velocidad instantánea (<10ms)
+        ffmpegCmd := Format('"{1}" -y -f dshow -i audio="{2}" -t 60 -q:a 9 -acodec libmp3lame -b:a 192k "{3}"', ffmpegExe, audioDevice, audioFile)
+        fullCmd := A_ComSpec ' /c "title ' winTitle ' && ' ffmpegCmd '"'
         
-        pyPID := 0
-        pyCmd := Format('"{1}" "{2}\record.py"', pythonExe, baseDir)
-        Run(pyCmd, , "Hide", &pyPID)
+        Run(fullCmd, , "Min")
 
-        ; Esperar a que el script de Python avise que inició ffmpeg (máximo 2 segundos)
-        loop 40 {
-            if FileExist(startedFile)
-                break
-            Sleep(25)
-        }
-        
-        ; Limpiar el indicador de inicio
-        try {
-            if FileExist(startedFile)
-                FileDelete(startedFile)
-        } catch {
+        ; Esperar brevemente a que la ventana de consola se registre y ocultarla de inmediato
+        if WinWait(winTitle, , 1.5) {
+            WinHide(winTitle)
         }
 
-        ; Cambiar el ToolTip para avisar al usuario que YA puede hablar
+        ; Informar al usuario que ya está grabando de forma instantánea
         ToolTip("🎙️ GRABANDO - ¡Habla ahora! (Suelta S al finalizar)")
 
         ; 2. Esperar a que se suelte la tecla 'S' (Push-to-Talk)
@@ -112,18 +98,10 @@ $#s:: {
 
         ToolTip("⚙️ Deteniendo grabación y transcribiendo...")
 
-        ; 3. Crear el archivo de parada para avisar al proceso de Python que envíe 'q' y cierre ordenadamente
-        FileAppend("", stopFile)
-        if (pyPID) {
-            ; Esperar hasta 5 segundos a que se cierre el proceso de grabación
-            ProcessWaitClose(pyPID, 5)
-        }
-        
-        ; Asegurar el borrado del trigger
-        try {
-            if FileExist(stopFile)
-                FileDelete(stopFile)
-        } catch {
+        ; 3. Detener de forma segura enviando 'q' a la consola oculta de ffmpeg
+        if WinExist(winTitle) {
+            ControlSend("q", , winTitle)
+            WinWaitClose(winTitle, , 4)
         }
 
         if !FileExist(audioFile) {
@@ -159,11 +137,11 @@ $#s:: {
         } catch {
         }
         
-        ; 5. Transcribir usando whisper_example en la NPU con detección automática de idioma (auto)
-        cmd := Format('""{1}" "{2}" "{3}" NPU auto --silent > "{4}" 2> "{5}""', exeFile, modelDir, wavFile, txtFile, logFile)
+        ; 5. Transcribir usando parakeet_cli en modo silencioso y capturar errores de cmd.exe
+        cmd := Format('""{1}" "{2}" --model parakeet-v3 --model_dir "{3}" --device NPU --silent > "{4}" 2> "{5}""', exeFile, wavFile, modelDir, txtFile, logFile)
         RunWait(A_ComSpec " /c " cmd, , "Hide")
         
-        ; 6. Leer resultado, copiar al portapapeles y pegar (filtrando logs de la NPU y de Eddy)
+        ; 6. Leer resultado, copiar al portapapeles y pegar (filtrando logs de la NPU)
         if FileExist(txtFile) {
             textoRaw := FileRead(txtFile, "UTF-8")
             resultado := ""
@@ -171,7 +149,7 @@ $#s:: {
                 linea := Trim(A_LoopField)
                 if (linea = "")
                     continue
-                ; Omitir líneas de advertencias/errores/logs de la NPU o de Eddy
+                ; Omitir líneas de advertencias/errores del compilador de OpenVINO/NPU
                 if (SubStr(linea, 1, 1) = "[" || InStr(linea, "vpux-compiler") || InStr(linea, "AlignDimensionsForDPU") || InStr(linea, "Failed Pass"))
                     continue
                 resultado .= (resultado = "" ? "" : "`n") . linea
