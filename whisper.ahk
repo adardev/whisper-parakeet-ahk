@@ -9,39 +9,52 @@ OnError(errorHandler)
 errorHandler(exception, mode) {
     ToolTip("⚠️ Error de ejecución: " exception.Message)
     SetTimer () => ToolTip(), -5000
-    return true ; Evita el diálogo por defecto de AHK y mantiene el script corriendo
+    
+    ; En caso de error crítico, nos aseguramos de restablecer los estados globales
+    global isRecording := false
+    global isTranscribing := false
+    return true
 }
 
 ; Hotkey para recargar el script rápidamente con Ctrl + Shift + R
 ^+r::Reload
 
-global isRunning := false
+global isRecording := false
+global isTranscribing := false
 
 ; Usamos el prefijo "$" para forzar el uso del gancho del teclado (Keyboard Hook)
 ; y asegurar que AHK intercepte Win + S anulando el buscador de Windows.
 $#s:: {
-    global isRunning
-    if (isRunning) {
+    global isRecording, isTranscribing
+    
+    if (isTranscribing) {
         ToolTip("⚠️ Transcripción en curso... espera un momento.")
         SetTimer () => ToolTip(), -2000
         return
     }
-    isRunning := true
 
-    try {
-        baseDir := "C:\Users\adaredu\Downloads\whisper"
-        audioFile := baseDir "\temp_audio.mp3"
-        wavFile := baseDir "\temp_clean.wav"
-        txtFile := baseDir "\temp_clean.txt"
-        logFile := baseDir "\conversion_log.txt"
-        ffmpegExe := baseDir "\ffmpeg.exe"
-        exeFile := baseDir "\eddy-audio-main\build\examples\cpp\Release\parakeet_cli.exe"
-        modelDir := "C:\Users\adaredu\AppData\Local\eddy\models\parakeet-v3\files"
-        audioDevice := "@device_cm_{33D9A762-90C8-11D0-BD43-00A0C911CE86}\wave_{66E16202-66F3-4D6B-A7B8-8564C5377AC0}"
-        winTitle := "ffmpeg_rec_window"
+    baseDir := "C:\Users\adaredu\Downloads\whisper"
+    audioFile := baseDir "\temp_audio.mp3"
+    wavFile := baseDir "\temp_clean.wav"
+    txtFile := baseDir "\temp_clean.txt"
+    logFile := baseDir "\conversion_log.txt"
+    ffmpegExe := baseDir "\ffmpeg.exe"
+    exeFile := baseDir "\eddy-audio-main\build\examples\cpp\Release\parakeet_cli.exe"
+    modelDir := "C:\Users\adaredu\AppData\Local\eddy\models\parakeet-v3\files"
+    audioDevice := "@device_cm_{33D9A762-90C8-11D0-BD43-00A0C911CE86}\wave_{66E16202-66F3-4D6B-A7B8-8564C5377AC0}"
+    winTitle := "ffmpeg_rec_window"
 
-        ; Activar búsqueda de ventanas ocultas para AHK
-        DetectHiddenWindows(True)
+    DetectHiddenWindows(True)
+
+    if (!isRecording) {
+        ; ======================================================================
+        ; INICIAR GRABACIÓN (MODO TOGGLE - PRIMER CLIC)
+        ; ======================================================================
+        isRecording := true
+
+        ; Sonido de inicio (tonos ascendentes retro)
+        SoundBeep(1000, 80)
+        SoundBeep(1300, 80)
 
         ; Cerrar procesos y ventanas huérfanas de ejecuciones anteriores
         if WinExist(winTitle) {
@@ -79,7 +92,7 @@ $#s:: {
         } catch {
         }
 
-        ; 1. Iniciar grabación directamente usando cmd minimizado para velocidad instantánea (<10ms)
+        ; Iniciar grabación directamente usando cmd minimizado para velocidad instantánea (<10ms)
         ffmpegCmd := Format('"{1}" -y -f dshow -i audio="{2}" -t 60 -q:a 9 -acodec libmp3lame -b:a 192k "{3}"', ffmpegExe, audioDevice, audioFile)
         fullCmd := A_ComSpec ' /c "title ' winTitle ' && ' ffmpegCmd '"'
         
@@ -90,111 +103,123 @@ $#s:: {
             WinHide(winTitle)
         }
 
-        ; Informar al usuario que ya está grabando de forma instantánea
-        ToolTip("🎙️ GRABANDO - ¡Habla ahora! (Suelta S al finalizar)")
+        ; Informar al usuario que ya está grabando
+        ToolTip("🎙️ GRABANDO... (Presiona Win+S de nuevo para detener)")
+    } else {
+        ; ======================================================================
+        ; DETENER GRABACIÓN Y TRANSCRIBIR (MODO TOGGLE - SEGUNDO CLIC)
+        ; ======================================================================
+        isRecording := false
+        isTranscribing := true
 
-        ; 2. Esperar a que se suelte la tecla 'S' (Push-to-Talk)
-        KeyWait("s")
+        ; Sonido de parada (tonos descendentes)
+        SoundBeep(1200, 80)
+        SoundBeep(900, 80)
 
         ToolTip("⚙️ Deteniendo grabación y transcribiendo...")
 
-        ; 3. Detener de forma segura enviando 'q' a la consola oculta de ffmpeg
-        if WinExist(winTitle) {
-            ControlSend("q", , winTitle)
-            WinWaitClose(winTitle, , 4)
-        }
-
-        if !FileExist(audioFile) {
-            ToolTip()
-            MsgBox("Error: No se pudo grabar el audio. Asegúrate de que el micrófono esté conectado.")
-            return
-        }
-
-        audioSize := FileGetSize(audioFile)
-        if (audioSize = 0) {
-            ToolTip()
-            MsgBox("Error: El archivo de audio grabado está vacío (0 bytes).")
-            return
-        }
-
-        ; 4. Convertir a formato requerido (16kHz mono WAV) y capturar log de errores
-        convCmd := Format('""{1}" -y -i "{2}" -ar 16000 -ac 1 -c:a pcm_s16le "{3}" 2> "{4}""', ffmpegExe, audioFile, wavFile, logFile)
-        RunWait(A_ComSpec " /c " convCmd, , "Hide")
-        
-        if !FileExist(wavFile) {
-            ToolTip()
-            logText := "No se pudo leer el archivo de log."
-            if FileExist(logFile)
-                logText := FileRead(logFile, "UTF-8")
-            MsgBox("Error: Falló la conversión a WAV con ffmpeg.`n`nTamaño MP3: " audioSize " bytes.`n`nDetalles de ffmpeg:`n" logText)
-            return
-        }
-
-        ; Limpiar log anterior para capturar el de la transcripción
         try {
-            if FileExist(logFile)
-                FileDelete(logFile)
-        } catch {
-        }
-        
-        ; 5. Transcribir usando parakeet_cli en modo silencioso y capturar errores de cmd.exe
-        cmd := Format('""{1}" "{2}" --model parakeet-v3 --model_dir "{3}" --device NPU --silent > "{4}" 2> "{5}""', exeFile, wavFile, modelDir, txtFile, logFile)
-        RunWait(A_ComSpec " /c " cmd, , "Hide")
-        
-        ; 6. Leer resultado, copiar al portapapeles y pegar (filtrando logs de la NPU)
-        if FileExist(txtFile) {
-            textoRaw := FileRead(txtFile, "UTF-8")
-            resultado := ""
-            Loop Parse, textoRaw, "`n", "`r" {
-                linea := Trim(A_LoopField)
-                if (linea = "")
-                    continue
-                ; Omitir líneas de advertencias/errores del compilador de OpenVINO/NPU
-                if (SubStr(linea, 1, 1) = "[" || InStr(linea, "vpux-compiler") || InStr(linea, "AlignDimensionsForDPU") || InStr(linea, "Failed Pass"))
-                    continue
-                resultado .= (resultado = "" ? "" : "`n") . linea
+            ; Detener de forma segura enviando 'q' a la consola oculta de ffmpeg
+            if WinExist(winTitle) {
+                ControlSend("q", , winTitle)
+                WinWaitClose(winTitle, , 4)
             }
-            resultado := Trim(resultado)
+
+            if !FileExist(audioFile) {
+                ToolTip()
+                MsgBox("Error: No se pudo grabar el audio. Asegúrate de que el micrófono esté conectado.")
+                isTranscribing := false
+                return
+            }
+
+            audioSize := FileGetSize(audioFile)
+            if (audioSize = 0) {
+                ToolTip()
+                MsgBox("Error: El archivo de audio grabado está vacío (0 bytes).")
+                isTranscribing := false
+                return
+            }
+
+            ; 4. Convertir a formato requerido (16kHz mono WAV) y capturar log de errores
+            convCmd := Format('""{1}" -y -i "{2}" -ar 16000 -ac 1 -c:a pcm_s16le "{3}" 2> "{4}""', ffmpegExe, audioFile, wavFile, logFile)
+            RunWait(A_ComSpec " /c " convCmd, , "Hide")
             
-            if (resultado != "") {
-                A_Clipboard := resultado
-                ; Pegar el texto en la aplicación activa
-                Send("^v")
-                ToolTip("✅ Transcripción pegada!")
-            } else {
-                ToolTip("⚠️ Transcripción vacía.")
+            if !FileExist(wavFile) {
+                ToolTip()
+                logText := "No se pudo leer el archivo de log."
+                if FileExist(logFile)
+                    logText := FileRead(logFile, "UTF-8")
+                MsgBox("Error: Falló la conversión a WAV con ffmpeg.`n`nTamaño MP3: " audioSize " bytes.`n`nDetalles de ffmpeg:`n" logText)
+                isTranscribing := false
+                return
             }
-        } else {
-            ToolTip()
-            logText := "No se pudo leer el archivo de log."
-            if FileExist(logFile)
-                logText := FileRead(logFile, "UTF-8")
-            MsgBox("Error: No se generó la transcripción.`n`nDetalles del error:`n" logText)
+
+            ; Limpiar log anterior para capturar el de la transcripción
+            try {
+                if FileExist(logFile)
+                    FileDelete(logFile)
+            } catch {
+            }
+            
+            ; 5. Transcribir usando parakeet_cli en modo silencioso y capturar errores de cmd.exe
+            cmd := Format('""{1}" "{2}" --model parakeet-v3 --model_dir "{3}" --device NPU --silent > "{4}" 2> "{5}""', exeFile, wavFile, modelDir, txtFile, logFile)
+            RunWait(A_ComSpec " /c " cmd, , "Hide")
+            
+            ; 6. Leer resultado, copiar al portapapeles y pegar (filtrando logs de la NPU)
+            if FileExist(txtFile) {
+                textoRaw := FileRead(txtFile, "UTF-8")
+                resultado := ""
+                Loop Parse, textoRaw, "`n", "`r" {
+                    linea := Trim(A_LoopField)
+                    if (linea = "")
+                        continue
+                    ; Omitir líneas de advertencias/errores del compilador de OpenVINO/NPU
+                    if (SubStr(linea, 1, 1) = "[" || InStr(linea, "vpux-compiler") || InStr(linea, "AlignDimensionsForDPU") || InStr(linea, "Failed Pass"))
+                        continue
+                    resultado .= (resultado = "" ? "" : "`n") . linea
+                }
+                resultado := Trim(resultado)
+                
+                if (resultado != "") {
+                    A_Clipboard := resultado
+                    ; Pegar el texto en la aplicación activa
+                    Send("^v")
+                    ToolTip("✅ Transcripción pegada!")
+                } else {
+                    ToolTip("⚠️ Transcripción vacía.")
+                }
+            } else {
+                ToolTip()
+                logText := "No se pudo leer el archivo de log."
+                if FileExist(logFile)
+                    logText := FileRead(logFile, "UTF-8")
+                MsgBox("Error: No se generó la transcripción.`n`nDetalles del error:`n" logText)
+            }
+            
+            ; Limpiar archivos temporales de forma segura
+            try {
+                if FileExist(audioFile)
+                    FileDelete(audioFile)
+            } catch {
+            }
+            try {
+                if FileExist(wavFile)
+                    FileDelete(wavFile)
+            } catch {
+            }
+            try {
+                if FileExist(txtFile)
+                    FileDelete(txtFile)
+            } catch {
+            }
+            try {
+                if FileExist(logFile)
+                    FileDelete(logFile)
+            } catch {
+            }
+        } finally {
+            isTranscribing := false
+            SetTimer () => ToolTip(), -3000
         }
-        
-        ; Limpiar archivos temporales de forma segura
-        try {
-            if FileExist(audioFile)
-                FileDelete(audioFile)
-        } catch {
-        }
-        try {
-            if FileExist(wavFile)
-                FileDelete(wavFile)
-        } catch {
-        }
-        try {
-            if FileExist(txtFile)
-                FileDelete(txtFile)
-        } catch {
-        }
-        try {
-            if FileExist(logFile)
-                FileDelete(logFile)
-        } catch {
-        }
-    } finally {
-        isRunning := false
-        SetTimer () => ToolTip(), -3000
     }
 }
