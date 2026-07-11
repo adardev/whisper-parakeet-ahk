@@ -37,17 +37,16 @@ $#s:: {
         stopFile := baseDir "\stop.txt"
         startedFile := baseDir "\started.txt"
         ffmpegExe := baseDir "\ffmpeg.exe"
-        exeFile := baseDir "\eddy-audio-main\build\examples\cpp\Release\parakeet_cli.exe"
-        modelDir := "C:\Users\adaredu\AppData\Local\eddy\models\parakeet-v3\files"
-        audioDevice := "@device_cm_{33D9A762-90C8-11D0-BD43-00A0C911CE86}\wave_{66E16202-66F3-4D6B-A7B8-8564C5377AC0}"
+        exeFile := baseDir "\eddy-audio-main\build\examples\cpp\Release\whisper_example.exe"
+        modelDir := "C:\Users\adaredu\AppData\Local\eddy\models\whisper-large-v3-turbo-fp16-ov-npu"
 
-        ; Cerrar procesos huérfanos de ffmpeg o parakeet que puedan bloquear archivos
+        ; Cerrar procesos huérfanos de ffmpeg o whisper que puedan bloquear archivos
         while ProcessExist("ffmpeg.exe") {
             try ProcessClose("ffmpeg.exe")
             Sleep(100)
         }
-        while ProcessExist("parakeet_cli.exe") {
-            try ProcessClose("parakeet_cli.exe")
+        while ProcessExist("whisper_example.exe") {
+            try ProcessClose("whisper_example.exe")
             Sleep(100)
         }
 
@@ -159,11 +158,12 @@ $#s:: {
         } catch {
         }
         
-        ; 5. Transcribir usando parakeet_cli en modo silencioso y capturar errores de cmd.exe
-        cmd := Format('""{1}" "{2}" --model parakeet-v3 --model_dir "{3}" --device NPU --silent > "{4}" 2> "{5}""', exeFile, wavFile, modelDir, txtFile, logFile)
+        ; 5. Transcribir usando whisper_example en la NPU con detección automática de idioma (auto)
+        ; Se usa el parámetro auto para soportar español e inglés sin confusiones
+        cmd := Format('""{1}" "{2}" "{3}" NPU auto --silent > "{4}" 2> "{5}""', exeFile, modelDir, wavFile, txtFile, logFile)
         RunWait(A_ComSpec " /c " cmd, , "Hide")
         
-        ; 6. Leer resultado, copiar al portapapeles y pegar (filtrando logs de la NPU)
+        ; 6. Leer resultado, copiar al portapapeles y pegar (filtrando logs de la NPU y de Eddy)
         if FileExist(txtFile) {
             textoRaw := FileRead(txtFile, "UTF-8")
             resultado := ""
@@ -171,7 +171,7 @@ $#s:: {
                 linea := Trim(A_LoopField)
                 if (linea = "")
                     continue
-                ; Omitir líneas de advertencias/errores del compilador de OpenVINO/NPU
+                ; Omitir líneas de advertencias/errores/logs de la NPU o de Eddy
                 if (SubStr(linea, 1, 1) = "[" || InStr(linea, "vpux-compiler") || InStr(linea, "AlignDimensionsForDPU") || InStr(linea, "Failed Pass"))
                     continue
                 resultado .= (resultado = "" ? "" : "`n") . linea

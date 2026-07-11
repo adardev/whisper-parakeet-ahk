@@ -10,22 +10,36 @@
 int main(int argc, char* argv[]) {
     try {
         if (argc < 3) {
-            std::cerr << "Usage: " << argv[0] << " <MODEL_DIR> <WAV_FILE> [DEVICE] [LANGUAGE]" << std::endl;
-            std::cerr << "Example: " << argv[0] << " ./models/whisper-v3-turbo ./audio.wav NPU en" << std::endl;
+            std::cerr << "Usage: " << argv[0] << " <MODEL_DIR> <WAV_FILE> [DEVICE] [LANGUAGE] [--silent]" << std::endl;
+            std::cerr << "Example: " << argv[0] << " ./models/whisper-v3-turbo ./audio.wav NPU en --silent" << std::endl;
             return 1;
         }
 
         std::string model_path = argv[1];
         std::string wav_file = argv[2];
-        std::string device = argc > 3 ? argv[3] : "NPU";
-        std::string language = argc > 4 ? argv[4] : "en";
+        std::string device = "NPU";
+        std::string language = "en";
+        bool silent = false;
 
-        std::cout << "=== Eddy Whisper Example ===" << std::endl;
-        std::cout << "Model: " << model_path << std::endl;
-        std::cout << "Audio: " << wav_file << std::endl;
-        std::cout << "Device: " << device << std::endl;
-        std::cout << "Language: " << language << std::endl;
-        std::cout << std::endl;
+        for (int i = 3; i < argc; ++i) {
+            std::string arg = argv[i];
+            if (arg == "--silent") {
+                silent = true;
+            } else if (i == 3) {
+                device = arg;
+            } else if (i == 4) {
+                language = arg;
+            }
+        }
+
+        if (!silent) {
+            std::cout << "=== Eddy Whisper Example ===" << std::endl;
+            std::cout << "Model: " << model_path << std::endl;
+            std::cout << "Audio: " << wav_file << std::endl;
+            std::cout << "Device: " << device << std::endl;
+            std::cout << "Language: " << language << std::endl;
+            std::cout << std::endl;
+        }
 
         // Configure Whisper pipeline
         eddy::WhisperConfig config;
@@ -38,37 +52,41 @@ int main(int argc, char* argv[]) {
         config.cache_dir = "./cache";
 
         // Create pipeline
-        std::cout << "Creating Whisper pipeline..." << std::endl;
+        if (!silent) std::cout << "Creating Whisper pipeline..." << std::endl;
         eddy::WhisperPipeline pipeline(config);
-        std::cout << std::endl;
+        if (!silent) std::cout << std::endl;
 
         // Transcribe
-        std::cout << "Transcribing audio..." << std::endl;
+        if (!silent) std::cout << "Transcribing audio..." << std::endl;
         auto result = pipeline.transcribe(wav_file);
-        std::cout << std::endl;
+        if (!silent) std::cout << std::endl;
 
         // Print results
-        std::cout << "=== Transcription Result ===" << std::endl;
-        std::cout << "Text: " << result.text << std::endl;
-        std::cout << "Confidence: " << std::fixed << std::setprecision(2)
-                  << (result.confidence * 100.0f) << "%" << std::endl;
-        std::cout << "Inference Time: " << std::fixed << std::setprecision(2)
-                  << result.inference_duration_ms << " ms" << std::endl;
-        std::cout << std::endl;
+        if (!silent) {
+            std::cout << "=== Transcription Result ===" << std::endl;
+            std::cout << "Text: " << result.text << std::endl;
+            std::cout << "Confidence: " << std::fixed << std::setprecision(2)
+                      << (result.confidence * 100.0f) << "%" << std::endl;
+            std::cout << "Inference Time: " << std::fixed << std::setprecision(2)
+                      << result.inference_duration_ms << " ms" << std::endl;
+            std::cout << std::endl;
 
-        // Print timestamps if available
-        if (!result.chunks.empty()) {
-            std::cout << "=== Timestamps ===" << std::endl;
-            for (const auto& chunk : result.chunks) {
-                std::cout << "[" << std::fixed << std::setprecision(2)
-                          << chunk.start_ts << " -> ";
-                if (chunk.end_ts >= 0) {
-                    std::cout << chunk.end_ts;
-                } else {
-                    std::cout << "?";
+            // Print timestamps if available
+            if (!result.chunks.empty()) {
+                std::cout << "=== Timestamps ===" << std::endl;
+                for (const auto& chunk : result.chunks) {
+                    std::cout << "[" << std::fixed << std::setprecision(2)
+                              << chunk.start_ts << " -> ";
+                    if (chunk.end_ts >= 0) {
+                        std::cout << chunk.end_ts;
+                    } else {
+                        std::cout << "?";
+                    }
+                    std::cout << "] " << chunk.text << std::endl;
                 }
-                std::cout << "] " << chunk.text << std::endl;
             }
+        } else {
+            std::cout << result.text << std::endl;
         }
 
         return 0;
