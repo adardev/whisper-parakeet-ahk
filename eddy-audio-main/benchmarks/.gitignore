@@ -1,7 +1,0 @@
-# Benchmark result files
-*.json
-
-# Python virtual environment
-.venv/
-__pycache__/
-*.pyc
