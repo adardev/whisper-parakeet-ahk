@@ -160,7 +160,7 @@ $#s:: {
         }
         
         ; 5. Transcribir usando parakeet_cli en modo silencioso y capturar errores de cmd.exe
-        cmd := Format('""{1}" "{2}" --model parakeet-v3 --model_dir "{3}" --device GPU --silent > "{4}" 2> "{5}""', exeFile, wavFile, modelDir, txtFile, logFile)
+        cmd := Format('""{1}" "{2}" --model parakeet-v3 --model_dir "{3}" --device NPU --silent > "{4}" 2> "{5}""', exeFile, wavFile, modelDir, txtFile, logFile)
         RunWait(A_ComSpec " /c " cmd, , "Hide")
         
         ; 6. Leer resultado, copiar al portapapeles y pegar
