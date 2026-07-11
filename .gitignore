@@ -1,6 +1,7 @@
 # Large dependency directories
 vcpkg-master/
 openvino_toolkit_windows_*/
+openvino_genai/
 
 # Executables and large binaries
 ffmpeg.exe
