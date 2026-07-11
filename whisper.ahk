@@ -7,9 +7,6 @@ SetWorkingDir "C:\Users\adaredu\Downloads\whisper"
 OnError(errorHandler)
 
 errorHandler(exception, mode) {
-    ToolTip("⚠️ Error de ejecución: " exception.Message)
-    SetTimer () => ToolTip(), -5000
-    
     ; En caso de error crítico, nos aseguramos de restablecer los estados globales
     global isRecording := false
     global isTranscribing := false
@@ -28,8 +25,6 @@ $#s:: {
     global isRecording, isTranscribing
     
     if (isTranscribing) {
-        ToolTip("⚠️ Transcripción en curso... espera un momento.")
-        SetTimer () => ToolTip(), -2000
         return
     }
 
@@ -102,9 +97,6 @@ $#s:: {
         if WinWait(winTitle, , 1.5) {
             WinHide(winTitle)
         }
-
-        ; Informar al usuario que ya está grabando
-        ToolTip("🎙️ GRABANDO... (Presiona Win+S de nuevo para detener)")
     } else {
         ; ======================================================================
         ; DETENER GRABACIÓN Y TRANSCRIBIR (MODO TOGGLE - SEGUNDO CLIC)
@@ -116,8 +108,6 @@ $#s:: {
         SoundBeep(1200, 80)
         SoundBeep(900, 80)
 
-        ToolTip("⚙️ Deteniendo grabación y transcribiendo...")
-
         try {
             ; Detener de forma segura enviando 'q' a la consola oculta de ffmpeg
             if WinExist(winTitle) {
@@ -126,7 +116,6 @@ $#s:: {
             }
 
             if !FileExist(audioFile) {
-                ToolTip()
                 MsgBox("Error: No se pudo grabar el audio. Asegúrate de que el micrófono esté conectado.")
                 isTranscribing := false
                 return
@@ -134,7 +123,6 @@ $#s:: {
 
             audioSize := FileGetSize(audioFile)
             if (audioSize = 0) {
-                ToolTip()
                 MsgBox("Error: El archivo de audio grabado está vacío (0 bytes).")
                 isTranscribing := false
                 return
@@ -145,7 +133,6 @@ $#s:: {
             RunWait(A_ComSpec " /c " convCmd, , "Hide")
             
             if !FileExist(wavFile) {
-                ToolTip()
                 logText := "No se pudo leer el archivo de log."
                 if FileExist(logFile)
                     logText := FileRead(logFile, "UTF-8")
@@ -184,12 +171,8 @@ $#s:: {
                     A_Clipboard := resultado
                     ; Pegar el texto en la aplicación activa
                     Send("^v")
-                    ToolTip("✅ Transcripción pegada!")
-                } else {
-                    ToolTip("⚠️ Transcripción vacía.")
                 }
             } else {
-                ToolTip()
                 logText := "No se pudo leer el archivo de log."
                 if FileExist(logFile)
                     logText := FileRead(logFile, "UTF-8")
@@ -219,7 +202,6 @@ $#s:: {
             }
         } finally {
             isTranscribing := false
-            SetTimer () => ToolTip(), -3000
         }
     }
 }
