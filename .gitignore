@@ -34,6 +34,7 @@ scratch/
 
 # Compiled models and cache files
 Caches/
+cache/
 *.blob
 *.cl_cache
 
@@ -45,3 +46,4 @@ Thumbs.db
 !/bin/*.exe
 !/bin/*.dll
 !/bin/*.json
+!/bin/*.wav

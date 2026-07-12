@@ -138,7 +138,10 @@ LShiftAction() {
     global lShiftClicks
 
     if (lShiftClicks = 2) {
-        Run("D:\tempfiles\tempfiles.vbs")
+        if FileExist("F:\tempfiles\tempfiles.vbs")
+            Run("F:\tempfiles\tempfiles.vbs")
+        else
+            Run("D:\tempfiles\tempfiles.vbs")
     }
 
     lShiftClicks := 0
@@ -200,7 +203,19 @@ Dictar(lang) {
     
     modelName := "whisper-small-int8-ov"
     modelDir := baseDir "\models\" modelName
-    audioDevice := "@device_cm_{33D9A762-90C8-11D0-BD43-00A0C911CE86}\wave_{66E16202-66F3-4D6B-A7B8-8564C5377AC0}"
+    if (!DirExist(modelDir)) {
+        modelDir := EnvGet("LOCALAPPDATA") "\eddy\models\" modelName
+    }
+    
+    ; Detectar cuál micrófono DirectShow está presente en el sistema (soporta ambas laptops)
+    friendlyName1 := RegRead("HKLM\System\CurrentControlSet\Control\DeviceClasses\{2eef81be-33fa-4800-9670-1cd474972c3f}\##?#SWD#MMDEVAPI#{0.0.1.00000000}.{08e80c7f-338c-4c96-9f52-06121768c053}#{2eef81be-33fa-4800-9670-1cd474972c3f}\#\Device Parameters", "FriendlyName", "")
+    friendlyName2 := RegRead("HKLM\System\CurrentControlSet\Control\DeviceClasses\{2eef81be-33fa-4800-9670-1cd474972c3f}\##?#SWD#MMDEVAPI#{0.0.1.00000000}.{66e16202-66f3-4d6b-a7b8-8564c5377ac0}#{2eef81be-33fa-4800-9670-1cd474972c3f}\#\Device Parameters", "FriendlyName", "")
+    
+    if (friendlyName2 != "") {
+        audioDevice := "@device_cm_{33D9A762-90C8-11D0-BD43-00A0C911CE86}\wave_{66E16202-66F3-4D6B-A7B8-8564C5377AC0}"
+    } else {
+        audioDevice := "@device_cm_{33D9A762-90C8-11D0-BD43-00A0C911CE86}\wave_{08E80C7F-338C-4C96-9F52-06121768C053}"
+    }
     winTitle := "ffmpeg_rec_window"
 
     DetectHiddenWindows(True)
@@ -236,7 +251,7 @@ Dictar(lang) {
 
         Run(fullCmd, , "Min")
 
-        dummyWav := baseDir "\scratch\silent_test.wav"
+        dummyWav := baseDir "\bin\silent_test.wav"
         if FileExist(dummyWav) {
             warmCmd := Format('""{1}" "{2}" "{3}" {4} {5} --silent > nul 2> nul"', exeFile, modelDir, dummyWav, targetDevice, lang)
             Run(A_ComSpec " /c " warmCmd, baseDir, "Hide")
