@@ -138,7 +138,7 @@ LShiftAction() {
     global lShiftClicks
 
     if (lShiftClicks = 2) {
-        Run("F:\tempfiles\tempfiles.vbs")
+        Run("D:\tempfiles\tempfiles.vbs")
     }
 
     lShiftClicks := 0
@@ -190,7 +190,7 @@ Dictar(lang) {
         return
     }
 
-    baseDir := "F:\autohotkey"
+    baseDir := A_ScriptDir
     audioFile := baseDir "\temp_audio.mp3"
     wavFile := baseDir "\temp_clean.wav"
     txtFile := baseDir "\temp_clean.txt"
@@ -200,7 +200,7 @@ Dictar(lang) {
     
     modelName := "whisper-small-int8-ov"
     modelDir := baseDir "\models\" modelName
-    audioDevice := "@device_cm_{33D9A762-90C8-11D0-BD43-00A0C911CE86}\wave_{08E80C7F-338C-4C96-9F52-06121768C053}"
+    audioDevice := "@device_cm_{33D9A762-90C8-11D0-BD43-00A0C911CE86}\wave_{66E16202-66F3-4D6B-A7B8-8564C5377AC0}"
     winTitle := "ffmpeg_rec_window"
 
     DetectHiddenWindows(True)
