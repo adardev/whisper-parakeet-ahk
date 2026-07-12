@@ -17,11 +17,6 @@ if not A_IsAdmin {
 }
 
 ; --- LOCAL DICTATION CONFIGURATION ---
-; Backends available:
-; - "Whisper": High precision. whisper-small-int8-ov on NPU is fast (~2.5s) and handles Spanglish.
-; - "Nemotron": Fast streaming model on NPU (~2.1s).
-; - "Parakeet": Fast, but no language lock.
-global activeBackend := "Whisper"
 global targetDevice := "NPU"
 global isRecording := false
 global isTranscribing := false
@@ -184,8 +179,8 @@ MonitorearCierre() {
 ;   Win + S       → Dictar en Español
 ;   Win + S, S    → Dictar en Inglés (doble pulsación de S)
 ; ======================================================================
-Dictar(lang) {
-    global isRecording, isTranscribing, targetDevice, activeBackend
+Dictar(backend, lang) {
+    global isRecording, isTranscribing, targetDevice
     
     if (isTranscribing) {
         return
@@ -198,10 +193,10 @@ Dictar(lang) {
     logFile := baseDir "\conversion_log.txt"
     ffmpegExe := baseDir "\bin\ffmpeg.exe"
     
-    if (activeBackend = "Nemotron") {
+    if (backend = "Nemotron") {
         exeFile := baseDir "\bin\nemotron_cli.exe"
         modelDir := EnvGet("LOCALAPPDATA") "\eddy\models\nemotron-streaming-int8\files"
-    } else if (activeBackend = "Whisper") {
+    } else if (backend = "Whisper") {
         exeFile := baseDir "\bin\whisper_example.exe"
         modelDir := EnvGet("LOCALAPPDATA") "\eddy\models\whisper-small-int8-ov"
     } else {
@@ -304,12 +299,12 @@ Dictar(lang) {
             try FileDelete(logFile)
             
             ; Transcribir usando el motor seleccionado y capturar logs de la consola
-            if (activeBackend = "Nemotron") {
+            if (backend = "Nemotron") {
                 ; nemotron_cli: --lang acepta es-MX, en-US, etc.
                 ; Mapeamos "es" -> "es-MX" y "en" -> "en-US"
                 nemLang := (lang = "es") ? "es-MX" : (lang = "en") ? "en-US" : lang
                 cmd := Format('""{1}" "{2}" --device {3} --lang {4} --model nemotron-streaming-int8 --model-dir "{5}" > "{6}" 2> "{7}""', exeFile, wavFile, targetDevice, nemLang, modelDir, txtFile, logFile)
-            } else if (activeBackend = "Whisper") {
+            } else if (backend = "Whisper") {
                 cmd := Format('""{1}" "{2}" "{3}" {4} {5} --silent > "{6}" 2> "{7}""', exeFile, modelDir, wavFile, targetDevice, lang, txtFile, logFile)
             } else {
                 cmd := Format('""{1}" "{2}" --model parakeet-v3 --model_dir "{3}" --device {4} --silent > "{5}" 2> "{6}""', exeFile, wavFile, modelDir, targetDevice, txtFile, logFile)
@@ -324,7 +319,7 @@ Dictar(lang) {
                 textoRaw := FileRead(txtFile, "UTF-8")
                 resultado := ""
                 
-                if (activeBackend = "Nemotron") {
+                if (backend = "Nemotron") {
                     ; Nemotron imprime el resultado entre dos lineas de guiones: "------..."
                     ; Extraemos el bloque entre la primera y segunda linea de guiones
                     inResult := false
@@ -400,33 +395,42 @@ global currentLang := "es"
 
 ; --- ATAJOS DE DICTADO (Win + S) ---
 
-; Win + S = Dictar (Toque simple: Auto-detección para Spanglish | Doble toque: Inglés forzado)
+global currentBackend := "Whisper"
+global currentLang := "auto"
+
+; --- ATAJOS DE DICTADO (Win + S) ---
+
+; Win + S = Dictar
+; - Un toque: Whisper Small (auto-detect)
+; - Doble toque en <500ms: Parakeet-v3 (auto-detect)
 $#s:: {
-    global isRecording, currentLang
+    global isRecording, currentBackend, currentLang
     
-    ; Si YA está grabando, detener de inmediato con una sola pulsación usando el mismo idioma
+    ; Si YA está grabando, detener de inmediato con una sola pulsación usando el mismo backend e idioma
     if (isRecording) {
-        Dictar(currentLang)
+        Dictar(currentBackend, currentLang)
         return
     }
     
-    ; Si NO está grabando, detectar si es toque simple o doble
+    ; Si NO está grabando, detectar si es toque simple (Whisper) o doble (Parakeet)
     static lastS := 0
     if (A_TickCount - lastS < 500) {
         lastS := 0
-        SetTimer(IniciarDictadoAuto, 0)  ; Cancelar el timer de auto
-        currentLang := "en"
-        Dictar("en")
+        SetTimer(IniciarDictadoWhisper, 0)  ; Cancelar el timer de Whisper
+        currentBackend := "Parakeet"
+        currentLang := "auto"
+        Dictar("Parakeet", "auto")
         return
     }
     lastS := A_TickCount
-    SetTimer(IniciarDictadoAuto, -500)
+    SetTimer(IniciarDictadoWhisper, -500)
 }
 
-IniciarDictadoAuto() {
-    global currentLang
+IniciarDictadoWhisper() {
+    global currentBackend, currentLang
+    currentBackend := "Whisper"
     currentLang := "auto"
-    Dictar("auto")
+    Dictar("Whisper", "auto")
 }
 
 ; --- ACCESOS RÁPIDOS GENERALES ---
