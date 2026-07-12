@@ -186,7 +186,7 @@ Dictar(lang) {
         return
     }
 
-    baseDir := "C:\autohotkey"
+    baseDir := A_ScriptDir
     audioFile := baseDir "\temp_audio.mp3"
     wavFile := baseDir "\temp_clean.wav"
     txtFile := baseDir "\temp_clean.txt"
@@ -292,8 +292,8 @@ Dictar(lang) {
             ; Transcribir usando Whisper y capturar logs de la consola
             cmd := Format('""{1}" "{2}" "{3}" {4} {5} --silent > "{6}" 2> "{7}""', exeFile, modelDir, wavFile, targetDevice, lang, txtFile, logFile)
             
-            ; Ejecutar con working directory en C:\autohotkey para que OpenVINO
-            ; siempre escriba y lea la caché de compilación NPU desde C:\autohotkey\cache
+            ; Ejecutar con working directory en baseDir para que OpenVINO
+            ; siempre escriba y lea la caché de compilación NPU desde baseDir\cache
             RunWait(A_ComSpec " /c " cmd, baseDir, "Hide")
             
             ; Leer resultado, copiar al portapapeles y pegar
