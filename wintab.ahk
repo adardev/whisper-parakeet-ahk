@@ -334,11 +334,11 @@ Dictar(lang) {
     }
 }
 
-global currentLang := "es"
+global currentLang := "auto"
 
 ; --- ATAJOS DE DICTADO (Win + S) ---
 
-; Win + S = Dictar (Toque simple: Español | Doble toque en <500ms: Inglés)
+; Win + S = Dictar (Toque simple: Auto-detección para Spanglish | Doble toque en <500ms: Inglés)
 $#s:: {
     global isRecording, currentLang
     
@@ -352,19 +352,19 @@ $#s:: {
     static lastS := 0
     if (A_TickCount - lastS < 500) {
         lastS := 0
-        SetTimer(IniciarDictadoEspanol, 0)  ; Cancelar el timer de español
+        SetTimer(IniciarDictadoAuto, 0)  ; Cancelar el timer de auto-detect
         currentLang := "en"
         Dictar("en")
         return
     }
     lastS := A_TickCount
-    SetTimer(IniciarDictadoEspanol, -500)
+    SetTimer(IniciarDictadoAuto, -500)
 }
 
-IniciarDictadoEspanol() {
+IniciarDictadoAuto() {
     global currentLang
-    currentLang := "es"
-    Dictar("es")
+    currentLang := "auto"
+    Dictar("auto")
 }
 
 ; --- ACCESOS RÁPIDOS GENERALES ---
