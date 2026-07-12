@@ -334,22 +334,36 @@ Dictar(lang) {
     }
 }
 
+global currentLang := "es"
+
 ; --- ATAJOS DE DICTADO (Win + S) ---
 
-; Win + S = Dictar en ESPAÑOL (idioma fijo)
+; Win + S = Dictar (Toque simple: Español | Doble toque en <500ms: Inglés)
 $#s:: {
+    global isRecording, currentLang
+    
+    ; Si YA está grabando, detener de inmediato con una sola pulsación usando el mismo idioma
+    if (isRecording) {
+        Dictar(currentLang)
+        return
+    }
+    
+    ; Si NO está grabando, detectar si es toque simple o doble
     static lastS := 0
     if (A_TickCount - lastS < 500) {
         lastS := 0
-        SetTimer(DictarEspanol, 0)
+        SetTimer(IniciarDictadoEspanol, 0)  ; Cancelar el timer de español
+        currentLang := "en"
         Dictar("en")
         return
     }
     lastS := A_TickCount
-    SetTimer(DictarEspanol, -500)
+    SetTimer(IniciarDictadoEspanol, -500)
 }
 
-DictarEspanol() {
+IniciarDictadoEspanol() {
+    global currentLang
+    currentLang := "es"
     Dictar("es")
 }
 
