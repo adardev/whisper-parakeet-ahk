@@ -16,11 +16,12 @@ if not A_IsAdmin {
     ExitApp
 }
 
-; --- CONFIGURACIÓN DE DICTADO LOCAL PARAKEET-V3 ---
-; Opciones disponibles: "NPU", "GPU", "CPU"
-; - NPU: Excelente para procesadores Intel Core Ultra (Meteor Lake o superior).
-; - GPU: Excelente para Intel Iris Xe o gráficas integradas/dedicadas.
-; - CPU: Modo seguro, compatible con cualquier procesador de cualquier generación.
+; --- LOCAL DICTATION CONFIGURATION ---
+; Backends available:
+; - "Nemotron": Fastest. Multilingue, ~2s total en NPU. RECOMENDADO.
+; - "Whisper":  Alta precision. whisper-large-v3-turbo-int4 en NPU, ~8s total.
+; - "Parakeet": Ultra-rapido pero sin bloqueo de idioma (se confunde).
+global activeBackend := "Nemotron"
 global targetDevice := "NPU"
 global isRecording := false
 global isTranscribing := false
@@ -175,22 +176,39 @@ MonitorearCierre() {
     SetTimer(, 0)
 }
 
-; --- LÓGICA DE DICTADO LOCAL PARAKEET-V3 (Win + S) ---
-$#s:: {
-    global isRecording, isTranscribing, targetDevice
+; ======================================================================
+; FUNCIÓN REUTILIZABLE DE DICTADO LOCAL
+; Parámetros:
+;   lang - Código de idioma para Whisper: "es" (español), "en" (inglés), "auto" (auto)
+; Atajos:
+;   Win + S       → Dictar en Español
+;   Win + S, S    → Dictar en Inglés (doble pulsación de S)
+; ======================================================================
+Dictar(lang) {
+    global isRecording, isTranscribing, targetDevice, activeBackend
     
     if (isTranscribing) {
         return
     }
 
-    baseDir := "D:\autohotkey"
+    baseDir := "C:\autohotkey"
     audioFile := baseDir "\temp_audio.mp3"
     wavFile := baseDir "\temp_clean.wav"
     txtFile := baseDir "\temp_clean.txt"
     logFile := baseDir "\conversion_log.txt"
     ffmpegExe := baseDir "\bin\ffmpeg.exe"
-    exeFile := baseDir "\bin\parakeet_cli.exe"
-    modelDir := "C:\Users\adaredu\AppData\Local\eddy\models\parakeet-v3\files"
+    
+    if (activeBackend = "Nemotron") {
+        exeFile := baseDir "\bin\nemotron_cli.exe"
+        modelDir := EnvGet("LOCALAPPDATA") "\eddy\models\nemotron-streaming-int8\files"
+    } else if (activeBackend = "Whisper") {
+        exeFile := baseDir "\bin\whisper_example.exe"
+        modelDir := EnvGet("LOCALAPPDATA") "\eddy\models\whisper-large-v3-turbo-int4-ov-npu"
+    } else {
+        exeFile := baseDir "\bin\parakeet_cli.exe"
+        modelDir := EnvGet("LOCALAPPDATA") "\eddy\models\parakeet-v3\files"
+    }
+    
     audioDevice := "@device_cm_{33D9A762-90C8-11D0-BD43-00A0C911CE86}\wave_{66E16202-66F3-4D6B-A7B8-8564C5377AC0}"
     winTitle := "ffmpeg_rec_window"
 
@@ -216,6 +234,10 @@ $#s:: {
         }
         while ProcessExist("parakeet_cli.exe") {
             try ProcessClose("parakeet_cli.exe")
+            Sleep(50)
+        }
+        while ProcessExist("whisper_example.exe") {
+            try ProcessClose("whisper_example.exe")
             Sleep(50)
         }
 
@@ -265,7 +287,7 @@ $#s:: {
                 return
             }
 
-            ; 4. Convertir a formato requerido (16kHz mono WAV) y capturar log de errores
+            ; Convertir a formato requerido (16kHz mono WAV) y capturar log de errores
             convCmd := Format('""{1}" -y -i "{2}" -ar 16000 -ac 1 -c:a pcm_s16le "{3}" 2> "{4}""', ffmpegExe, audioFile, wavFile, logFile)
             RunWait(A_ComSpec " /c " convCmd, , "Hide")
             
@@ -281,29 +303,78 @@ $#s:: {
             ; Limpiar log anterior para capturar el de la transcripción
             try FileDelete(logFile)
             
-            ; 5. Transcribir usando parakeet_cli en modo silencioso y capturar errores de cmd.exe
-            cmd := Format('""{1}" "{2}" --model parakeet-v3 --model_dir "{3}" --device {4} --silent > "{5}" 2> "{6}""', exeFile, wavFile, modelDir, targetDevice, txtFile, logFile)
-            RunWait(A_ComSpec " /c " cmd, , "Hide")
+            ; Transcribir usando el motor seleccionado y capturar logs de la consola
+            if (activeBackend = "Nemotron") {
+                ; nemotron_cli: --lang acepta es-MX, en-US, etc.
+                ; Mapeamos "es" -> "es-MX" y "en" -> "en-US"
+                nemLang := (lang = "es") ? "es-MX" : (lang = "en") ? "en-US" : lang
+                cmd := Format('""{1}" "{2}" --device {3} --lang {4} --model nemotron-streaming-int8 --model-dir "{5}" > "{6}" 2> "{7}""', exeFile, wavFile, targetDevice, nemLang, modelDir, txtFile, logFile)
+            } else if (activeBackend = "Whisper") {
+                cmd := Format('""{1}" "{2}" "{3}" {4} {5} --silent > "{6}" 2> "{7}""', exeFile, modelDir, wavFile, targetDevice, lang, txtFile, logFile)
+            } else {
+                cmd := Format('""{1}" "{2}" --model parakeet-v3 --model_dir "{3}" --device {4} --silent > "{5}" 2> "{6}""', exeFile, wavFile, modelDir, targetDevice, txtFile, logFile)
+            }
             
-            ; 6. Leer resultado, copiar al portapapeles y pegar (filtrando logs de la NPU)
+            ; Ejecutar con working directory en C:\autohotkey para que OpenVINO
+            ; siempre escriba y lea la caché de compilación NPU desde C:\autohotkey\cache
+            RunWait(A_ComSpec " /c " cmd, baseDir, "Hide")
+            
+            ; Leer resultado, copiar al portapapeles y pegar
             if FileExist(txtFile) {
                 textoRaw := FileRead(txtFile, "UTF-8")
                 resultado := ""
-                Loop Parse, textoRaw, "`n", "`r" {
-                    linea := Trim(A_LoopField)
-                    if (linea = "")
-                        continue
-                    ; Omitir líneas de advertencias/errores del compilador de OpenVINO/NPU
-                    if (SubStr(linea, 1, 1) = "[" || InStr(linea, "vpux-compiler") || InStr(linea, "AlignDimensionsForDPU") || InStr(linea, "Failed Pass"))
-                        continue
-                    resultado .= (resultado = "" ? "" : "`n") . linea
+                
+                if (activeBackend = "Nemotron") {
+                    ; Nemotron imprime el resultado entre dos lineas de guiones: "------..."
+                    ; Extraemos el bloque entre la primera y segunda linea de guiones
+                    inResult := false
+                    Loop Parse, textoRaw, "`n", "`r" {
+                        linea := Trim(A_LoopField)
+                        if (SubStr(linea, 1, 6) = "------") {
+                            if (!inResult) {
+                                inResult := true  ; Primera linea de guiones: empieza el resultado
+                            } else {
+                                break             ; Segunda linea de guiones: fin del resultado
+                            }
+                            continue
+                        }
+                        if (inResult && linea != "")
+                            resultado .= (resultado = "" ? "" : "`n") . linea
+                    }
+                } else {
+                    ; Parakeet / Whisper: filtrar logs de OpenVINO/NPU
+                    Loop Parse, textoRaw, "`n", "`r" {
+                        linea := Trim(A_LoopField)
+                        if (linea = "")
+                            continue
+                        if (SubStr(linea, 1, 1) = "[" || InStr(linea, "vpux-compiler") || InStr(linea, "AlignDimensionsForDPU") || InStr(linea, "Failed Pass"))
+                            continue
+                        resultado .= (resultado = "" ? "" : "`n") . linea
+                    }
                 }
                 resultado := Trim(resultado)
                 
                 if (resultado != "") {
+                    ; Esperar a que se suelten las teclas modificadoras para evitar conflictos con Ctrl+V
+                    KeyWait("LWin")
+                    KeyWait("RWin")
+                    KeyWait("LShift")
+                    KeyWait("RShift")
+                    KeyWait("Ctrl")
+                    Sleep(150)
+
+                    ; Guardar y respaldar portapapeles anterior
+                    ClipSaved := ClipboardAll()
+                    
                     A_Clipboard := resultado
+                    ClipWait(1)
+
                     ; Pegar el texto en la aplicación activa
                     Send("^v")
+                    Sleep(100)
+
+                    ; Restaurar portapapeles anterior
+                    A_Clipboard := ClipSaved
                 }
             } else {
                 logText := "No se pudo leer el archivo de log."
@@ -323,6 +394,26 @@ $#s:: {
             isTranscribing := false
         }
     }
+}
+
+; --- ATAJOS DE DICTADO (Win + S) ---
+
+; Win + S = Dictar en ESPAÑOL (idioma fijo)
+$#s:: {
+    static lastS := 0
+    ; Si se pulsa Win+S dos veces en menos de 500ms → inglés
+    if (A_TickCount - lastS < 500) {
+        lastS := 0
+        SetTimer(DictarEspanol, 0)  ; Cancelar el timer pendiente
+        Dictar("en")
+        return
+    }
+    lastS := A_TickCount
+    SetTimer(DictarEspanol, -500)
+}
+
+DictarEspanol() {
+    Dictar("es")
 }
 
 ; --- ACCESOS RÁPIDOS GENERALES ---
