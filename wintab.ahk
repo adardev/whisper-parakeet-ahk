@@ -18,10 +18,10 @@ if not A_IsAdmin {
 
 ; --- LOCAL DICTATION CONFIGURATION ---
 ; Backends available:
-; - "Nemotron": Fastest. Multilingue, ~2s total en NPU. RECOMENDADO.
-; - "Whisper":  Alta precision. whisper-large-v3-turbo-int4 en NPU, ~8s total.
-; - "Parakeet": Ultra-rapido pero sin bloqueo de idioma (se confunde).
-global activeBackend := "Nemotron"
+; - "Whisper": High precision. whisper-small-int8-ov on NPU is fast (~2.5s) and handles Spanglish.
+; - "Nemotron": Fast streaming model on NPU (~2.1s).
+; - "Parakeet": Fast, but no language lock.
+global activeBackend := "Whisper"
 global targetDevice := "NPU"
 global isRecording := false
 global isTranscribing := false
@@ -203,7 +203,7 @@ Dictar(lang) {
         modelDir := EnvGet("LOCALAPPDATA") "\eddy\models\nemotron-streaming-int8\files"
     } else if (activeBackend = "Whisper") {
         exeFile := baseDir "\bin\whisper_example.exe"
-        modelDir := EnvGet("LOCALAPPDATA") "\eddy\models\whisper-large-v3-turbo-int4-ov-npu"
+        modelDir := EnvGet("LOCALAPPDATA") "\eddy\models\whisper-small-int8-ov"
     } else {
         exeFile := baseDir "\bin\parakeet_cli.exe"
         modelDir := EnvGet("LOCALAPPDATA") "\eddy\models\parakeet-v3\files"
@@ -400,7 +400,7 @@ global currentLang := "es"
 
 ; --- ATAJOS DE DICTADO (Win + S) ---
 
-; Win + S = Dictar (Toque simple: Español | Doble toque en <500ms: Inglés)
+; Win + S = Dictar (Toque simple: Auto-detección para Spanglish | Doble toque: Inglés forzado)
 $#s:: {
     global isRecording, currentLang
     
@@ -414,19 +414,19 @@ $#s:: {
     static lastS := 0
     if (A_TickCount - lastS < 500) {
         lastS := 0
-        SetTimer(IniciarDictadoEspanol, 0)  ; Cancelar el timer de español
+        SetTimer(IniciarDictadoAuto, 0)  ; Cancelar el timer de auto
         currentLang := "en"
         Dictar("en")
         return
     }
     lastS := A_TickCount
-    SetTimer(IniciarDictadoEspanol, -500)
+    SetTimer(IniciarDictadoAuto, -500)
 }
 
-IniciarDictadoEspanol() {
+IniciarDictadoAuto() {
     global currentLang
-    currentLang := "es"
-    Dictar("es")
+    currentLang := "auto"
+    Dictar("auto")
 }
 
 ; --- ACCESOS RÁPIDOS GENERALES ---
