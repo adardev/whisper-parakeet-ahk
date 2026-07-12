@@ -175,8 +175,15 @@ MonitorearCierre() {
     SetTimer(, 0)
 }
 
-; --- LÓGICA DE DICTADO LOCAL PARAKEET-V3 (Win + S) ---
-$#s:: {
+; ======================================================================
+; FUNCIÓN REUTILIZABLE DE DICTADO LOCAL (WHISPER EN GPU)
+; Parámetros:
+;   lang - Código de idioma para Whisper: "es" (español), "en" (inglés), "auto" (auto)
+; Atajos:
+;   Win + S       → Dictar en Español
+;   Win + S, S    → Dictar en Inglés (doble pulsación de S)
+; ======================================================================
+Dictar(lang) {
     global isRecording, isTranscribing, targetDevice
 
     if (isTranscribing) {
@@ -191,11 +198,6 @@ $#s:: {
     ffmpegExe := baseDir "\bin\ffmpeg.exe"
     exeFile := baseDir "\bin\whisper_example.exe"
     
-    ; Available Whisper Models:
-    ; - "whisper-tiny-int8-ov"           (42 MB,  ~0.5s inference)
-    ; - "whisper-base-int8-ov"           (75 MB,  ~0.8s inference)
-    ; - "whisper-small-int8-ov"          (246 MB, ~1.5s inference) -> Default (Best Balance)
-    ; - "whisper-large-v3-turbo-int8-ov" (780 MB, ~4.2s inference)
     modelName := "whisper-small-int8-ov"
     modelDir := baseDir "\models\" modelName
     audioDevice := "@device_cm_{33D9A762-90C8-11D0-BD43-00A0C911CE86}\wave_{08E80C7F-338C-4C96-9F52-06121768C053}"
@@ -204,15 +206,9 @@ $#s:: {
     DetectHiddenWindows(True)
 
     if (!isRecording) {
-        ; ======================================================================
-        ; INICIAR GRABACIÓN (MODO TOGGLE - PRIMER CLIC)
-        ; ======================================================================
         isRecording := true
-
-        ; Sonido de inicio (premium Windows dictation sound)
         SoundPlay(A_WinDir "\Media\Speech On.wav")
 
-        ; Cerrar procesos y ventanas huérfanas de ejecuciones anteriores
         if WinExist(winTitle) {
             WinClose(winTitle)
             WinWaitClose(winTitle, , 2)
@@ -225,35 +221,37 @@ $#s:: {
             try ProcessClose("parakeet_cli.exe")
             Sleep(50)
         }
+        while ProcessExist("whisper_example.exe") {
+            try ProcessClose("whisper_example.exe")
+            Sleep(50)
+        }
 
-        ; Limpiar archivos anteriores de forma segura
         try FileDelete(audioFile)
         try FileDelete(wavFile)
         try FileDelete(txtFile)
         try FileDelete(logFile)
 
-        ; Iniciar grabación directamente usando cmd minimizado para velocidad instantánea (<10ms)
         ffmpegCmd := Format('"{1}" -y -f dshow -i audio="{2}" -t 60 -q:a 9 -acodec libmp3lame -b:a 192k "{3}"', ffmpegExe, audioDevice, audioFile)
         fullCmd := A_ComSpec ' /c "title ' winTitle ' && ' ffmpegCmd '"'
 
         Run(fullCmd, , "Min")
 
-        ; Esperar brevemente a que la ventana de consola se registre y ocultarla de inmediato
+        dummyWav := baseDir "\scratch\silent_test.wav"
+        if FileExist(dummyWav) {
+            warmCmd := Format('""{1}" "{2}" "{3}" {4} {5} --silent > nul 2> nul"', exeFile, modelDir, dummyWav, targetDevice, lang)
+            Run(A_ComSpec " /c " warmCmd, baseDir, "Hide")
+        }
+
         if WinWait(winTitle, , 1.5) {
             WinHide(winTitle)
         }
     } else {
-        ; ======================================================================
-        ; DETENER GRABACIÓN Y TRANSCRIBIR (MODO TOGGLE - SEGUNDO CLIC)
-        ; ======================================================================
         isRecording := false
         isTranscribing := true
 
-        ; Sonido de parada (premium Windows dictation sound)
         SoundPlay(A_WinDir "\Media\Speech Off.wav")
 
         try {
-            ; Detener de forma segura enviando 'q' a la consola oculta de ffmpeg
             if WinExist(winTitle) {
                 ControlSend("q", , winTitle)
                 WinWaitClose(winTitle, , 4)
@@ -272,7 +270,6 @@ $#s:: {
                 return
             }
 
-            ; 4. Convertir a formato requerido (16kHz mono WAV) y capturar log de errores
             convCmd := Format('""{1}" -y -i "{2}" -ar 16000 -ac 1 -c:a pcm_s16le "{3}" 2> "{4}""', ffmpegExe, audioFile, wavFile, logFile)
             RunWait(A_ComSpec " /c " convCmd, , "Hide")
 
@@ -285,14 +282,11 @@ $#s:: {
                 return
             }
 
-            ; Limpiar log anterior para capturar el de la transcripción
             try FileDelete(logFile)
 
-            ; 5. Transcribir usando parakeet_cli en modo silencioso y capturar errores de cmd.exe
-            cmd := Format('""{1}" "{2}" "{3}" {4} auto --silent > "{5}" 2> "{6}""', exeFile, modelDir, wavFile, targetDevice, txtFile, logFile)
-            RunWait(A_ComSpec " /c " cmd, , "Hide")
+            cmd := Format('""{1}" "{2}" "{3}" {4} {5} --silent > "{6}" 2> "{7}""', exeFile, modelDir, wavFile, targetDevice, lang, txtFile, logFile)
+            RunWait(A_ComSpec " /c " cmd, baseDir, "Hide")
 
-            ; 6. Leer resultado, copiar al portapapeles y pegar (filtrando logs de la NPU)
             if FileExist(txtFile) {
                 textoRaw := FileRead(txtFile, "UTF-8")
                 resultado := ""
@@ -300,15 +294,13 @@ $#s:: {
                     linea := Trim(A_LoopField)
                     if (linea = "")
                         continue
-                    ; Omitir líneas de advertencias/errores del compilador de OpenVINO/NPU
-                    if (SubStr(linea, 1, 1) = "[" || InStr(linea, "vpux-compiler") || InStr(linea, "AlignDimensionsForDPU") || InStr(linea, "Failed Pass"))
+                    if (SubStr(linea, 1, 1) = "[" || InStr(linea, "vpux-compiler") || InStr(linea, "AlignDimensionsForDPU") || InStr(linea, "Failed Pass") || InStr(linea, "onednn_verbose"))
                         continue
                     resultado .= (resultado = "" ? "" : "`n") . linea
                 }
                 resultado := Trim(resultado)
 
                 if (resultado != "") {
-                    ; Esperar a que se suelten las teclas modificadoras para evitar conflictos con Ctrl+V
                     KeyWait("LWin")
                     KeyWait("RWin")
                     KeyWait("LShift")
@@ -316,17 +308,11 @@ $#s:: {
                     KeyWait("Ctrl")
                     Sleep(150)
 
-                    ; Guardar y respaldar portapapeles anterior
                     ClipSaved := ClipboardAll()
-                    
                     A_Clipboard := resultado
                     ClipWait(1)
-
-                    ; Pegar el texto en la aplicación activa
                     Send("^v")
                     Sleep(100)
-
-                    ; Restaurar portapapeles anterior
                     A_Clipboard := ClipSaved
                 }
             } else {
@@ -336,7 +322,6 @@ $#s:: {
                 MsgBox("Error: No se generó la transcripción.`n`nDetalles del error:`n" logText)
             }
 
-            ; Limpiar archivos temporales de forma segura
             try FileDelete(audioFile)
             try FileDelete(wavFile)
             try FileDelete(txtFile)
@@ -347,6 +332,25 @@ $#s:: {
             isTranscribing := false
         }
     }
+}
+
+; --- ATAJOS DE DICTADO (Win + S) ---
+
+; Win + S = Dictar en ESPAÑOL (idioma fijo)
+$#s:: {
+    static lastS := 0
+    if (A_TickCount - lastS < 500) {
+        lastS := 0
+        SetTimer(DictarEspanol, 0)
+        Dictar("en")
+        return
+    }
+    lastS := A_TickCount
+    SetTimer(DictarEspanol, -500)
+}
+
+DictarEspanol() {
+    Dictar("es")
 }
 
 ; --- ACCESOS RÁPIDOS GENERALES ---
