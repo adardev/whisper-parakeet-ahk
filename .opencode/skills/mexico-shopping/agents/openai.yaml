@@ -1,0 +1,4 @@
+interface:
+  display_name: "Compras México"
+  short_description: "Busca productos para México en MXN."
+  default_prompt: "Busca este producto en México, en pesos mexicanos."
