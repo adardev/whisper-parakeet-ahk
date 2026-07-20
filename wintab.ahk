@@ -864,7 +864,8 @@ OpenCodeDictarHandy() {
         outFile := A_Temp "\opencode_output_" A_TickCount ".txt"
         FileAppend(transcripcion, promptFile, "UTF-8-RAW")
         runner := voicePackageDir "\run_opencode_tts\run_opencode_tts.exe"
-        RunWait('"' runner '" --output-file "' outFile '" "@' promptFile '"', , "Hide")
+        speakFlag := voiceForCurrentRequest ? " --speak" : ""
+        RunWait('"' runner '" --output-file "' outFile '"' speakFlag ' "@' promptFile '"', , "Hide")
         ProgramarCierreOpenCode()
     if FileExist(outFile) {
             resultado := Trim(FileRead(outFile, "UTF-8"))
@@ -875,8 +876,6 @@ OpenCodeDictarHandy() {
                     WinActivate("ahk_id " openCodeTargetHwnd)
                 Send("^v")
                 Sleep(100)
-                if voiceForCurrentRequest
-                    ReproducirVoz(resultado)
             }
         }
         try FileDelete(promptFile)
@@ -887,16 +886,6 @@ OpenCodeDictarHandy() {
         A_Clipboard := savedClipboard
         openCodeIsTranscribing := false
         ProgramarCierreHandy()
-    }
-}
-
-ReproducirVoz(texto) {
-    ; Voz local de Windows, sin depender de un runtime TTS externo.
-    try {
-        voz := ComObject("SAPI.SpVoice")
-        voz.Rate := 0
-        voz.Volume := 100
-        voz.Speak(texto, 1) ; SVSFlagsAsync: no bloquea el agente.
     }
 }
 
