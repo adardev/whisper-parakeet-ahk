@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory
+        app:icon="@drawable/ic_launcher_foreground"
+        app:title="NVIDIA NIM">
+
+        <EditTextPreference
+            app:key="api_key"
+            app:title="@string/settings_api_key"
+            app:summary="@string/settings_api_key_summary"
+            app:useSimpleSummaryProvider="false"
+            app:dialogMessage="@string/api_key_help" />
+
+        <EditTextPreference
+            app:key="model"
+            app:title="@string/settings_model"
+            app:defaultValue="@string/settings_model_default" />
+
+        <EditTextPreference
+            app:key="system_prompt"
+            app:title="@string/settings_system_prompt"
+            app:defaultValue="@string/settings_system_prompt_default"
+            app:dialogMessage="Indica al modelo cómo transcribir" />
+
+        <ListPreference
+            app:key="dict_locale"
+            app:title="@string/settings_locale"
+            app:entries="@array/locales_entries"
+            app:entryValues="@array/locales_values"
+            app:defaultValue="es_ES" />
+
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="Estado">
+        <Preference
+            app:key="status"
+            app:title="Estado"
+            app:summary="API key no configurada" />
+    </PreferenceCategory>
+
+</PreferenceScreen>

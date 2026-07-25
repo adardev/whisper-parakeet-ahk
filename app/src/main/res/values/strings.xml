@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Nemotron</string>
+    <string name="voice_service_label">Nemotron</string>
+    <string name="settings_title">Ajustes</string>
+    <string name="subtype_es">Voz (Español)</string>
+    <string name="subtype_en">Voice (English)</string>
+
+    <!-- Main activity -->
+    <string name="welcome_title">Nemotron</string>
+    <string name="welcome_desc">Voice input con IA streaming (NVIDIA NIM). Configura el boton lateral de Samsung para grabar con doble pulsacion.\n\nPasos para activarlo:</string>
+    <string name="step_1">1. Pulsa \"Permisos\" y concede acceso al micrófono</string>
+    <string name="step_4">2. Pulsa \"Configurar API\" y pega tu API key de NVIDIA NIM</string>
+    <string name="step_5">3. Pulsa el boton lateral de Samsung para grabar/parar</string>
+    <string name="btn_permissions">Permisos</string>
+    <string name="btn_settings">Configurar API</string>
+    <string name="hint_test">Pulsa el botón y prueba tu voz:</string>
+    <string name="btn_test">Probar transcripción</string>
+
+    <!-- Settings -->
+    <string name="settings_api_key">API Key de NVIDIA NIM</string>
+    <string name="settings_api_key_summary">Pegar la key obtenida en build.nvidia.com</string>
+    <string name="settings_model">Modelo</string>
+    <string name="settings_model_default">nvidia/nemotron-3-nano-30b-a3b</string>
+    <string name="settings_system_prompt">System prompt</string>
+    <string name="settings_system_prompt_default">Eres un transcriptor de voz a texto. El usuario dicta en su idioma. Devuelve SOLO la transcripción limpia, sin comillas, sin markdown, sin explicaciones. Corrige puntuación y mayúsculas automáticamente. No añadas texto extra ni comentaries lo que haces.</string>
+    <string name="settings_locale">Idioma de dictado</string>
+    <string name="api_key_help">Consigue una key gratuita en: https://build.nvidia.com/nvidia/nemotron-3-nano-30b-a3b\nInicia sesión con cuenta NVIDIA y pulsa Get API Key.</string>
+
+    <!-- Accessibility -->
+    <string name="a11y_label">Nemotron Pegar en Input</string>
+    <string name="btn_a11y">Accesibilidad</string>
+    <string name="a11y_not_enabled">Accesibilidad inactiva (el servicio se activa automaticamente al grabar). Ejecuta el comando ADB la primera vez.</string>
+    <string name="a11y_enabled">Accesibilidad configurada (WRITE_SECURE_SETTINGS concedido)</string>
+
+    <!-- Side Key wizard -->
+    <string name="section_sidekey">Configurar Boton Lateral</string>
+    <string name="sidekey_step">1. Pulsa \"Abrir Side Key\" -> abrir ajustes\\n2. Activar: doble pulsacion -> Abrir aplicacion -> elegir Nemotron\\n3. A partir de ahora, doble pulsacion del boton lateral = graba/para de grabar\\n(la app se abre invisible y dispara el toggle)</string>
+    <string name="btn_sidekey">Abrir Side Key settings</string>
+    <string name="sidekey_uninstall_hint">Si pones como default launcher al boton lateral hay que ELEGIR Nemotron aunque tenga icono igual</string>
+    <string name="sidekey_status_unknown">Aun no configurado (prueba el doble-press del boton lateral)</string>
+</resources>

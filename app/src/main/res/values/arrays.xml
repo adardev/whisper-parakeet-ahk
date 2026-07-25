@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="locales_entries">
+        <item>Español (España)</item>
+        <item>Español (Latam)</item>
+        <item>Inglés (EE.UU.)</item>
+        <item>Inglés (Reino Unido)</item>
+        <item>Francés</item>
+        <item>Alemán</item>
+        <item>Italiano</item>
+        <item>Portugués (Brasil)</item>
+    </string-array>
+    <string-array name="locales_values">
+        <item>es_ES</item>
+        <item>es_US</item>
+        <item>en_US</item>
+        <item>en_GB</item>
+        <item>fr_FR</item>
+        <item>de_DE</item>
+        <item>it_IT</item>
+        <item>pt_BR</item>
+    </string-array>
+</resources>

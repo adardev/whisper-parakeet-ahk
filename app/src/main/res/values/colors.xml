@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg_primary">#1A1A2E</color>
+    <color name="bg_secondary">#16213E</color>
+    <color name="accent">#76B900</color>
+    <color name="accent_dark">#5A8C00</color>
+    <color name="text_light">#FFFFFF</color>
+    <color name="text_dim">#B0B0C0</color>
+    <color name="error">#FF5252</color>
+    <color name="key_bg">#2A2A4A</color>
+    <color name="key_bg_pressed">#3A3A6A</color>
+    <color name="status_ok">#2E7D32</color>
+    <color name="status_bad">#C62828</color>
+    <color name="status_pending">#F57C00</color>
+</resources>
