@@ -99,10 +99,11 @@
             android:exported="false"
             android:foregroundServiceType="microphone" />
 
-        <!-- Foreground service para auto-freeze (escucha SCREEN_OFF/USER_PRESENT) -->
+        <!-- Foreground service para auto-freeze (proceso separado, sin whisper) -->
         <service
             android:name=".dhizuku.AutoFreezeService"
             android:exported="false"
+            android:process=":autofreeze"
             android:foregroundServiceType="specialUse" />
 
         <!-- AccessibilityService para pegar en el campo enfocado -->
