@@ -132,7 +132,7 @@ object DhizukuManager {
         if (apps.isEmpty()) return 0
         var success = 0
         for (pkg in apps) {
-            if (hideApp(context, pkg)) success++
+            if (hideAppRaw(context, pkg)) success++
         }
         Log.d(TAG, "freezeAll: $success/${apps.size}")
         return success
@@ -143,7 +143,7 @@ object DhizukuManager {
         if (apps.isEmpty()) return 0
         var success = 0
         for (pkg in apps) {
-            if (unhideApp(context, pkg)) success++
+            if (unhideAppRaw(context, pkg)) success++
         }
         Log.d(TAG, "unfreezeAll: $success/${apps.size}")
         return success
