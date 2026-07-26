@@ -7,7 +7,7 @@ import android.os.Looper
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import android.util.Log
-import android.widget.Toast
+import com.nemotron.voiceime.a11y.FocusPasteService
 import com.nemotron.voiceime.data.SecureStore
 
 class HailTileService : TileService() {
@@ -16,9 +16,7 @@ class HailTileService : TileService() {
 
     override fun onStartListening() {
         super.onStartListening()
-        Thread {
-            handler.post { try { updateTileState() } catch (_: Throwable) {} }
-        }.start()
+        handler.post { try { updateTileState() } catch (_: Throwable) {} }
     }
 
     override fun onClick() {
@@ -68,6 +66,7 @@ class HailTileService : TileService() {
     private fun updateTileState() {
         val tile = qsTile ?: return
         val apps = SecureStore.getFrozenApps(this)
+        val autoFreeze = FocusPasteService.isAutoFreezeEnabled()
 
         if (apps.isEmpty()) {
             tile.label = "Freeze"
@@ -80,7 +79,10 @@ class HailTileService : TileService() {
         val frozen = DhizukuManager.isCurrentlyFrozen(this)
         tile.state = if (frozen) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
         tile.label = "Freeze"
-        tile.subtitle = if (frozen) "Frozen (${apps.size})" else "Active (${apps.size})"
+        tile.subtitle = buildString {
+            append(if (frozen) "Frozen (${apps.size})" else "Active (${apps.size})")
+            if (autoFreeze) append(" • Auto")
+        }
         tile.updateTile()
     }
 

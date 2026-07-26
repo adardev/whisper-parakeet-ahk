@@ -47,6 +47,45 @@
         android:choiceMode="multipleChoice"
         android:stackFromBottom="true" />
 
+    <!-- Auto-freeze toggle -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingVertical="10dp"
+        android:layout_marginTop="4dp">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Auto-freeze on lock"
+                android:textColor="#FFFFFFFF"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Freeze apps on screen off, unfreeze on unlock"
+                android:textColor="#99FFFFFF"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <Switch
+            android:id="@+id/switchAutoFreeze"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:thumbTint="#FF00D4AA"
+            android:trackTint="#FF3A3A5E" />
+    </LinearLayout>
+
     <!-- Save button -->
     <Button
         android:id="@+id/btnSave"
@@ -57,6 +96,6 @@
         android:textStyle="bold"
         android:backgroundTint="#FF00D4AA"
         android:textColor="#FF000000"
-        android:layout_marginTop="12dp" />
+        android:layout_marginTop="4dp" />
 
 </LinearLayout>

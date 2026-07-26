@@ -187,7 +187,9 @@ class VoiceRecordService : Service() {
         stopSR()
         client?.cancel()
         restoreStreams()
-        FocusPasteService.disableSelf(this)
+        if (!FocusPasteService.isAutoFreezeEnabled()) {
+            FocusPasteService.disableSelf(this)
+        }
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }

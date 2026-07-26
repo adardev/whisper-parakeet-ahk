@@ -15,6 +15,7 @@ class AppPickerActivity : AppCompatActivity() {
 
     private lateinit var listView: ListView
     private lateinit var btnSave: Button
+    private lateinit var switchAutoFreeze: Switch
     private lateinit var adapter: AppListAdapter
 
     private val appList = mutableListOf<AppItem>()
@@ -26,8 +27,10 @@ class AppPickerActivity : AppCompatActivity() {
 
         listView = findViewById(R.id.appListView)
         btnSave = findViewById(R.id.btnSave)
+        switchAutoFreeze = findViewById(R.id.switchAutoFreeze)
 
         selectedPackages.addAll(SecureStore.getFrozenApps(this))
+        switchAutoFreeze.isChecked = SecureStore.isAutoFreeze(this)
 
         listView.choiceMode = ListView.CHOICE_MODE_MULTIPLE
 
@@ -68,6 +71,10 @@ class AppPickerActivity : AppCompatActivity() {
                 }
             }
             SecureStore.setFrozenApps(this, selectedPackages)
+
+            val autoFreeze = switchAutoFreeze.isChecked
+            SecureStore.setAutoFreeze(this, autoFreeze)
+            com.nemotron.voiceime.a11y.FocusPasteService.setAutoFreezeEnabled(this, autoFreeze)
 
             Thread {
                 val apps = SecureStore.getFrozenApps(this)
