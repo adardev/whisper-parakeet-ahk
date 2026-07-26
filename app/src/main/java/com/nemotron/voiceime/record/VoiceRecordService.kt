@@ -23,10 +23,13 @@ import androidx.core.app.NotificationCompat
 import com.nemotron.voiceime.R
 import com.nemotron.voiceime.a11y.FocusPasteService
 import com.nemotron.voiceime.data.SecureStore
+import com.nemotron.voiceime.net.NemotronStreamClient
 
 class VoiceRecordService : Service() {
 
     private var sr: SpeechRecognizer? = null
+    private var client: NemotronStreamClient? = null
+    private var accumulated = StringBuilder()
     private val main = Handler(Looper.getMainLooper())
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -51,8 +54,14 @@ class VoiceRecordService : Service() {
         } catch (_: SecurityException) {
             startForeground(NOTIF_ID, buildNotification("Grabando… toca para parar"), 0)
         }
+        if (!hasNetwork()) {
+            toast("Sin conexión a internet")
+            cleanup()
+            return
+        }
         isRunning = true
         isProcessing = false
+        accumulated = StringBuilder()
 
         if (!FocusPasteService.isRunning()) {
             FocusPasteService.enableSelf(this)
@@ -62,6 +71,12 @@ class VoiceRecordService : Service() {
 
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
             toast("SpeechRecognizer no disponible")
+            cleanup()
+            return
+        }
+        val k = SecureStore.getApiKey(this)
+        if (k.isBlank()) {
+            toast("Configura tu API key en la app")
             cleanup()
             return
         }
@@ -119,17 +134,58 @@ class VoiceRecordService : Service() {
                 cleanup()
                 return
             }
-            FocusPasteService.paste(this@VoiceRecordService, raw.trim())
-            cleanup()
+            sendToNemotron(raw)
         }
 
         override fun onEvent(p0: Int, p1: Bundle?) {}
+    }
+
+    private fun sendToNemotron(text: String) {
+        if (!hasNetwork()) {
+            toast("Sin conexión a internet")
+            cleanup()
+            return
+        }
+        isProcessing = true
+        isRunning = false
+        updateNotif("Procesando…")
+
+        val k = SecureStore.getApiKey(this)
+        val c = client ?: NemotronStreamClient(k).also { client = it }
+        accumulated = StringBuilder()
+
+        c.stream(
+            userText = text,
+            model = SecureStore.getModel(this),
+            system = SecureStore.getSystemPrompt(this),
+            onToken = { tok -> accumulated.append(tok) },
+            onComplete = { final ->
+                main.post { deliverText(final.ifBlank { accumulated.toString() }) }
+            },
+            onError = { t ->
+                main.post {
+                    toast("Error: ${t.message}")
+                    cleanup()
+                }
+            }
+        )
+    }
+
+    private fun deliverText(text: String) {
+        val finalText = text.trim()
+        if (finalText.isBlank()) {
+            cleanup()
+            return
+        }
+        FocusPasteService.paste(this, finalText)
+        cleanup()
     }
 
     private fun cleanup() {
         isRunning = false
         isProcessing = false
         stopSR()
+        client?.cancel()
         restoreStreams()
         FocusPasteService.disableSelf(this)
         stopForeground(STOP_FOREGROUND_REMOVE)
@@ -184,6 +240,13 @@ class VoiceRecordService : Service() {
         } catch (_: Throwable) {}
     }
 
+    private fun hasNetwork(): Boolean {
+        val cm = getSystemService(Context.CONNECTIVITY_SERVICE) as android.net.ConnectivityManager
+        val net = cm.activeNetwork ?: return false
+        val caps = cm.getNetworkCapabilities(net) ?: return false
+        return caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    }
+
     private var prevNotifVol = -1
     private var prevSystemVol = -1
     private var prevMusicVol = -1
@@ -217,6 +280,7 @@ class VoiceRecordService : Service() {
     override fun onDestroy() {
         restoreStreams()
         stopSR()
+        client?.cancel()
         super.onDestroy()
     }
 
