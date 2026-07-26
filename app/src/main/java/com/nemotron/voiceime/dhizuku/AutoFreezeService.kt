@@ -9,13 +9,17 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.util.Log
 import com.nemotron.voiceime.data.SecureStore
 
 class AutoFreezeService : Service() {
 
     private var receiver: BroadcastReceiver? = null
+    private val handler = Handler(Looper.getMainLooper())
+    private var pendingFreeze: Runnable? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -26,6 +30,7 @@ class AutoFreezeService : Service() {
     }
 
     override fun onDestroy() {
+        cancelPendingFreeze()
         unregister()
         super.onDestroy()
         Log.d(TAG, "destroyed")
@@ -72,16 +77,26 @@ class AutoFreezeService : Service() {
                     Intent.ACTION_SCREEN_OFF -> {
                         val apps = SecureStore.getAutoFreezeApps(ctx)
                         if (apps.isEmpty()) return
-                        Log.d(TAG, "SCREEN_OFF → freeze ${apps.size} apps")
-                        Thread {
-                            for (pkg in apps) {
-                                try { DhizukuManager.hideAppRaw(ctx, pkg) }
-                                catch (t: Throwable) { Log.e(TAG, "freeze $pkg failed", t) }
-                            }
-                            Log.d(TAG, "auto-freeze done")
-                        }.start()
+                        cancelPendingFreeze()
+                        Log.d(TAG, "SCREEN_OFF → scheduling freeze in ${DELAY_MS}ms")
+                        val r = Runnable {
+                            pendingFreeze = null
+                            val currentApps = SecureStore.getAutoFreezeApps(ctx)
+                            if (currentApps.isEmpty()) return@Runnable
+                            Log.d(TAG, "freezing ${currentApps.size} apps")
+                            Thread {
+                                for (pkg in currentApps) {
+                                    try { DhizukuManager.hideAppRaw(ctx, pkg) }
+                                    catch (t: Throwable) { Log.e(TAG, "freeze $pkg failed", t) }
+                                }
+                                Log.d(TAG, "auto-freeze done")
+                            }.start()
+                        }
+                        pendingFreeze = r
+                        handler.postDelayed(r, DELAY_MS)
                     }
                     Intent.ACTION_USER_PRESENT -> {
+                        cancelPendingFreeze()
                         val apps = SecureStore.getAutoFreezeApps(ctx)
                         if (apps.isEmpty()) return
                         Log.d(TAG, "USER_PRESENT → unfreeze ${apps.size} apps")
@@ -99,6 +114,11 @@ class AutoFreezeService : Service() {
         registerReceiver(receiver, filter)
     }
 
+    private fun cancelPendingFreeze() {
+        pendingFreeze?.let { handler.removeCallbacks(it) }
+        pendingFreeze = null
+    }
+
     private fun unregister() {
         receiver?.let { try { unregisterReceiver(it) } catch (_: Throwable) {} }
         receiver = null
@@ -108,6 +128,7 @@ class AutoFreezeService : Service() {
         private const val TAG = "AutoFreezeService"
         private const val CHANNEL_ID = "auto_freeze"
         private const val NOTIF_ID = 7777
+        private const val DELAY_MS = 30_000L
 
         fun start(context: Context) {
             context.startForegroundService(Intent(context, AutoFreezeService::class.java))
