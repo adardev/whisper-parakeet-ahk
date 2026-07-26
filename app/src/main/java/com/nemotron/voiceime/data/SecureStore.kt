@@ -20,6 +20,7 @@ object SecureStore {
     private const val KEY_LOCALE = "dict_locale"
     private const val KEY_FROZEN_APPS = "frozen_apps"
     private const val KEY_AUTO_FREEZE = "auto_freeze"
+    private const val KEY_AUTO_FREEZE_APPS = "auto_freeze_apps"
 
     private const val DEFAULT_MODEL = "nvidia/nemotron-3-nano-30b-a3b"
     private const val DEFAULT_LOCALE = "es_ES"
@@ -102,6 +103,23 @@ object SecureStore {
 
     fun setAutoFreeze(ctx: Context, enabled: Boolean) {
         prefs(ctx).edit().putBoolean(KEY_AUTO_FREEZE, enabled).apply()
+    }
+
+    // ── Auto-freeze apps (separate list) ────────────────────────────────
+
+    fun getAutoFreezeApps(ctx: Context): Set<String> {
+        val json = prefs(ctx).getString(KEY_AUTO_FREEZE_APPS, null) ?: return emptySet()
+        return try {
+            val arr = JSONArray(json)
+            (0 until arr.length()).mapTo(mutableSetOf()) { arr.getString(it) }
+        } catch (_: Throwable) {
+            emptySet()
+        }
+    }
+
+    fun setAutoFreezeApps(ctx: Context, apps: Set<String>) {
+        val json = JSONArray(apps.toList()).toString()
+        prefs(ctx).edit().putString(KEY_AUTO_FREEZE_APPS, json).apply()
     }
 
     /** Devuelve etiquetas legibles de las apps congeladas (para QS tile). */

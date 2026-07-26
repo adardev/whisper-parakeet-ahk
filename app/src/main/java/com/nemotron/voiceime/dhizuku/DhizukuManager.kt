@@ -64,6 +64,18 @@ object DhizukuManager {
     }
 
     fun hideApp(context: Context, packageName: String): Boolean {
+        val result = hideAppRaw(context, packageName)
+        if (result) SecureStore.addFrozenApp(context, packageName)
+        return result
+    }
+
+    fun unhideApp(context: Context, packageName: String): Boolean {
+        val result = unhideAppRaw(context, packageName)
+        if (result) SecureStore.removeFrozenApp(context, packageName)
+        return result
+    }
+
+    fun hideAppRaw(context: Context, packageName: String): Boolean {
         val dpm = getDpm(context) ?: return false
         return try {
             val method = dpm.javaClass.getMethod(
@@ -73,16 +85,15 @@ object DhizukuManager {
                 Boolean::class.java
             )
             val result = method.invoke(dpm, null, packageName, true) as Boolean
-            Log.d(TAG, "hideApp($packageName) = $result")
-            if (result) SecureStore.addFrozenApp(context, packageName)
+            Log.d(TAG, "hideAppRaw($packageName) = $result")
             result
         } catch (t: Throwable) {
-            Log.e(TAG, "hideApp($packageName) failed: ${t.message}", t)
+            Log.e(TAG, "hideAppRaw($packageName) failed: ${t.message}", t)
             false
         }
     }
 
-    fun unhideApp(context: Context, packageName: String): Boolean {
+    fun unhideAppRaw(context: Context, packageName: String): Boolean {
         val dpm = getDpm(context) ?: return false
         return try {
             val method = dpm.javaClass.getMethod(
@@ -92,11 +103,10 @@ object DhizukuManager {
                 Boolean::class.java
             )
             val result = method.invoke(dpm, null, packageName, false) as Boolean
-            Log.d(TAG, "unhideApp($packageName) = $result")
-            if (result) SecureStore.removeFrozenApp(context, packageName)
+            Log.d(TAG, "unhideAppRaw($packageName) = $result")
             result
         } catch (t: Throwable) {
-            Log.e(TAG, "unhideApp($packageName) failed: ${t.message}", t)
+            Log.e(TAG, "unhideAppRaw($packageName) failed: ${t.message}", t)
             false
         }
     }

@@ -64,24 +64,32 @@ class FocusPasteService : AccessibilityService() {
             override fun onReceive(ctx: Context, intent: Intent) {
                 when (intent.action) {
                     Intent.ACTION_SCREEN_OFF -> {
-                        Log.d(TAG, "SCREEN_OFF → freezeAll")
+                        val apps = com.nemotron.voiceime.data.SecureStore.getAutoFreezeApps(ctx)
+                        if (apps.isEmpty()) return
+                        Log.d(TAG, "SCREEN_OFF → freeze ${apps.size} auto-freeze apps")
                         Thread {
                             try {
-                                com.nemotron.voiceime.dhizuku.DhizukuManager.freezeAll(ctx)
-                                Log.d(TAG, "freezeAll done")
+                                for (pkg in apps) {
+                                    com.nemotron.voiceime.dhizuku.DhizukuManager.hideAppRaw(ctx, pkg)
+                                }
+                                Log.d(TAG, "auto-freeze done")
                             } catch (t: Throwable) {
-                                Log.e(TAG, "freezeAll failed", t)
+                                Log.e(TAG, "auto-freeze failed", t)
                             }
                         }.start()
                     }
                     Intent.ACTION_USER_PRESENT -> {
-                        Log.d(TAG, "USER_PRESENT → unfreezeAll")
+                        val apps = com.nemotron.voiceime.data.SecureStore.getAutoFreezeApps(ctx)
+                        if (apps.isEmpty()) return
+                        Log.d(TAG, "USER_PRESENT → unfreeze ${apps.size} auto-freeze apps")
                         Thread {
                             try {
-                                com.nemotron.voiceime.dhizuku.DhizukuManager.unfreezeAll(ctx)
-                                Log.d(TAG, "unfreezeAll done")
+                                for (pkg in apps) {
+                                    com.nemotron.voiceime.dhizuku.DhizukuManager.unhideAppRaw(ctx, pkg)
+                                }
+                                Log.d(TAG, "auto-unfreeze done")
                             } catch (t: Throwable) {
-                                Log.e(TAG, "unfreezeAll failed", t)
+                                Log.e(TAG, "auto-unfreeze failed", t)
                             }
                         }.start()
                     }

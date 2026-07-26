@@ -1,6 +1,5 @@
 package com.nemotron.voiceime.dhizuku
 
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
 import android.os.Bundle
@@ -12,14 +11,10 @@ import androidx.appcompat.app.AppCompatActivity
 import com.nemotron.voiceime.R
 import com.nemotron.voiceime.data.SecureStore
 
-class AppPickerActivity : AppCompatActivity() {
+class AutoFreezePickerActivity : AppCompatActivity() {
 
     private lateinit var listView: ListView
     private lateinit var btnSave: Button
-    private lateinit var switchAutoFreeze: Switch
-    private lateinit var autoFreezeSection: LinearLayout
-    private lateinit var btnAutoFreezeApps: Button
-    private lateinit var tvAutoFreezeCount: TextView
     private lateinit var adapter: AppListAdapter
 
     private val appList = mutableListOf<AppItem>()
@@ -27,18 +22,12 @@ class AppPickerActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_app_picker)
+        setContentView(R.layout.activity_auto_freeze_picker)
 
         listView = findViewById(R.id.appListView)
         btnSave = findViewById(R.id.btnSave)
-        switchAutoFreeze = findViewById(R.id.switchAutoFreeze)
-        autoFreezeSection = findViewById(R.id.autoFreezeSection)
-        btnAutoFreezeApps = findViewById(R.id.btnAutoFreezeApps)
-        tvAutoFreezeCount = findViewById(R.id.tvAutoFreezeCount)
 
-        selectedPackages.addAll(SecureStore.getFrozenApps(this))
-        switchAutoFreeze.isChecked = SecureStore.isAutoFreeze(this)
-        updateAutoFreezeSection()
+        selectedPackages.addAll(SecureStore.getAutoFreezeApps(this))
 
         listView.choiceMode = ListView.CHOICE_MODE_MULTIPLE
 
@@ -70,15 +59,6 @@ class AppPickerActivity : AppCompatActivity() {
             }
         }.start()
 
-        switchAutoFreeze.setOnCheckedChangeListener { _, _ ->
-            updateAutoFreezeSection()
-        }
-
-        btnAutoFreezeApps.setOnClickListener {
-            val intent = Intent(this, AutoFreezePickerActivity::class.java)
-            startActivity(intent)
-        }
-
         btnSave.setOnClickListener {
             val checked = listView.checkedItemPositions
             selectedPackages.clear()
@@ -87,42 +67,13 @@ class AppPickerActivity : AppCompatActivity() {
                     selectedPackages.add(appList[i].packageName)
                 }
             }
-            SecureStore.setFrozenApps(this, selectedPackages)
+            SecureStore.setAutoFreezeApps(this, selectedPackages)
 
-            val autoFreeze = switchAutoFreeze.isChecked
-            SecureStore.setAutoFreeze(this, autoFreeze)
-            com.nemotron.voiceime.a11y.FocusPasteService.setAutoFreezeEnabled(this, autoFreeze)
-
-            Thread {
-                val apps = SecureStore.getFrozenApps(this)
-                val frozenNow = DhizukuManager.isCurrentlyFrozen(this)
-                if (!frozenNow && apps.isNotEmpty()) {
-                    DhizukuManager.freezeAll(this)
-                } else if (frozenNow && apps.isEmpty()) {
-                    DhizukuManager.unfreezeAll(this)
-                }
-            }.start()
-
-            Toast.makeText(this, "Saved: ${selectedPackages.size} apps", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Auto-freeze: ${selectedPackages.size} apps", Toast.LENGTH_SHORT).show()
             finish()
         }
 
         findViewById<View>(R.id.btnBack).setOnClickListener { finish() }
-    }
-
-    override fun onResume() {
-        super.onResume()
-        updateAutoFreezeSection()
-    }
-
-    private fun updateAutoFreezeSection() {
-        if (switchAutoFreeze.isChecked) {
-            autoFreezeSection.visibility = View.VISIBLE
-            val count = SecureStore.getAutoFreezeApps(this).size
-            tvAutoFreezeCount.text = if (count > 0) "$count apps selected" else "No apps selected"
-        } else {
-            autoFreezeSection.visibility = View.GONE
-        }
     }
 
     data class AppItem(
@@ -137,7 +88,7 @@ class AppPickerActivity : AppCompatActivity() {
         override fun getItemId(position: Int): Long = position.toLong()
 
         override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
-            val view = convertView ?: LayoutInflater.from(this@AppPickerActivity)
+            val view = convertView ?: LayoutInflater.from(this@AutoFreezePickerActivity)
                 .inflate(R.layout.item_app_picker, parent, false)
 
             val item = getItem(position)

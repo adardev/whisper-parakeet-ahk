@@ -86,6 +86,38 @@
             android:trackTint="#FF3A3A5E" />
     </LinearLayout>
 
+    <!-- Auto-freeze app selection (shown when toggle is on) -->
+    <LinearLayout
+        android:id="@+id/autoFreezeSection"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:visibility="gone"
+        android:background="#1A00D4AA"
+        android:padding="12dp"
+        android:layout_marginTop="4dp">
+
+        <Button
+            android:id="@+id/btnAutoFreezeApps"
+            android:layout_width="0dp"
+            android:layout_height="44dp"
+            android:layout_weight="1"
+            android:text="Select auto-freeze apps"
+            android:textSize="14sp"
+            android:backgroundTint="#FF00D4AA"
+            android:textColor="#FF000000" />
+
+        <TextView
+            android:id="@+id/tvAutoFreezeCount"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="0 apps"
+            android:textColor="#99FFFFFF"
+            android:textSize="12sp"
+            android:paddingStart="12dp" />
+    </LinearLayout>
+
     <!-- Save button -->
     <Button
         android:id="@+id/btnSave"
