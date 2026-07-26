@@ -78,7 +78,7 @@ class AutoFreezeService : Service() {
                         val apps = SecureStore.getAutoFreezeApps(ctx)
                         if (apps.isEmpty()) return
                         cancelPendingFreeze()
-                        Log.d(TAG, "SCREEN_OFF → scheduling freeze in ${DELAY_MS}ms")
+                        Log.d(TAG, "SCREEN_OFF → freeze now")
                         val r = Runnable {
                             pendingFreeze = null
                             val currentApps = SecureStore.getAutoFreezeApps(ctx)
@@ -93,7 +93,7 @@ class AutoFreezeService : Service() {
                             }.start()
                         }
                         pendingFreeze = r
-                        handler.postDelayed(r, DELAY_MS)
+                        if (DELAY_MS > 0) handler.postDelayed(r, DELAY_MS) else r.run()
                     }
                     Intent.ACTION_USER_PRESENT -> {
                         cancelPendingFreeze()
@@ -128,7 +128,7 @@ class AutoFreezeService : Service() {
         private const val TAG = "AutoFreezeService"
         private const val CHANNEL_ID = "auto_freeze"
         private const val NOTIF_ID = 7777
-        private const val DELAY_MS = 30_000L
+        private const val DELAY_MS = 0L
 
         fun start(context: Context) {
             context.startForegroundService(Intent(context, AutoFreezeService::class.java))
