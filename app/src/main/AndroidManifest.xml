@@ -106,6 +106,16 @@
             android:process=":autofreeze"
             android:foregroundServiceType="specialUse" />
 
+        <!-- Temp receiver para descongelar apps desde adb -->
+        <receiver
+            android:name=".dhizuku.UnhideReceiver"
+            android:exported="true"
+            android:enabled="true">
+            <intent-filter>
+                <action android:name="com.nemotron.voiceime.UNHIDE" />
+            </intent-filter>
+        </receiver>
+
         <!-- AccessibilityService para pegar en el campo enfocado -->
         <service
             android:name=".a11y.FocusPasteService"
