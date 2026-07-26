@@ -91,7 +91,7 @@ class AppPickerActivity : AppCompatActivity() {
 
             val autoFreeze = switchAutoFreeze.isChecked
             SecureStore.setAutoFreeze(this, autoFreeze)
-            com.nemotron.voiceime.a11y.FocusPasteService.setAutoFreezeEnabled(this, autoFreeze)
+            if (autoFreeze) AutoFreezeService.start(this) else AutoFreezeService.stop(this)
 
             Thread {
                 val apps = SecureStore.getFrozenApps(this)

@@ -7,7 +7,6 @@ import android.os.Looper
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import android.util.Log
-import com.nemotron.voiceime.a11y.FocusPasteService
 import com.nemotron.voiceime.data.SecureStore
 
 class HailTileService : TileService() {
@@ -66,7 +65,7 @@ class HailTileService : TileService() {
     private fun updateTileState() {
         val tile = qsTile ?: return
         val apps = SecureStore.getFrozenApps(this)
-        val autoFreeze = FocusPasteService.isAutoFreezeEnabled()
+        val autoFreeze = SecureStore.isAutoFreeze(this)
 
         if (apps.isEmpty()) {
             tile.label = "Freeze"

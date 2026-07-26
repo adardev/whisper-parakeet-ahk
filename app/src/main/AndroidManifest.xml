@@ -8,7 +8,9 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
     <uses-permission android:name="com.rosan.dhizuku.permission.API" />
 
@@ -97,6 +99,22 @@
             android:name=".record.VoiceRecordService"
             android:exported="false"
             android:foregroundServiceType="microphone" />
+
+        <!-- Foreground service para auto-freeze (escucha SCREEN_OFF/USER_PRESENT) -->
+        <service
+            android:name=".dhizuku.AutoFreezeService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse" />
+
+        <!-- Receiver para reiniciar AutoFreezeService al boot -->
+        <receiver
+            android:name=".dhizuku.BootReceiver"
+            android:exported="true"
+            android:enabled="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
 
         <!-- AccessibilityService para pegar en el campo enfocado -->
         <service

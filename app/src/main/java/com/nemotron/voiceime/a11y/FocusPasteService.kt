@@ -1,12 +1,9 @@
 package com.nemotron.voiceime.a11y
 
 import android.accessibilityservice.AccessibilityService
-import android.accessibilityservice.AccessibilityServiceInfo
-import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.provider.Settings
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
@@ -14,13 +11,10 @@ import android.view.accessibility.AccessibilityNodeInfo
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.app.Service
-import com.nemotron.voiceime.data.SecureStore
 
 class FocusPasteService : AccessibilityService() {
 
     private var lastFocused: AccessibilityNodeInfo? = null
-    private var screenReceiver: BroadcastReceiver? = null
-    private var autoFreezeEnabled = false
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         val ev = event ?: return
@@ -41,79 +35,13 @@ class FocusPasteService : AccessibilityService() {
     override fun onServiceConnected() {
         super.onServiceConnected()
         instance = this
-        autoFreezeEnabled = SecureStore.isAutoFreeze(this)
-        Log.d(TAG, "connected, autoFreeze=$autoFreezeEnabled")
-        if (autoFreezeEnabled) registerScreenReceiver()
+        Log.d(TAG, "connected")
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        unregisterScreenReceiver()
         instance = null
     }
-
-    // ---------- Auto-freeze on screen off/on ------------------------------
-
-    private fun registerScreenReceiver() {
-        if (screenReceiver != null) return
-        val filter = IntentFilter().apply {
-            addAction(Intent.ACTION_SCREEN_OFF)
-            addAction(Intent.ACTION_USER_PRESENT)
-        }
-        screenReceiver = object : BroadcastReceiver() {
-            override fun onReceive(ctx: Context, intent: Intent) {
-                when (intent.action) {
-                    Intent.ACTION_SCREEN_OFF -> {
-                        val apps = com.nemotron.voiceime.data.SecureStore.getAutoFreezeApps(ctx)
-                        if (apps.isEmpty()) return
-                        Log.d(TAG, "SCREEN_OFF → freeze ${apps.size} auto-freeze apps")
-                        Thread {
-                            try {
-                                for (pkg in apps) {
-                                    com.nemotron.voiceime.dhizuku.DhizukuManager.hideAppRaw(ctx, pkg)
-                                }
-                                Log.d(TAG, "auto-freeze done")
-                            } catch (t: Throwable) {
-                                Log.e(TAG, "auto-freeze failed", t)
-                            }
-                        }.start()
-                    }
-                    Intent.ACTION_USER_PRESENT -> {
-                        val apps = com.nemotron.voiceime.data.SecureStore.getAutoFreezeApps(ctx)
-                        if (apps.isEmpty()) return
-                        Log.d(TAG, "USER_PRESENT → unfreeze ${apps.size} auto-freeze apps")
-                        Thread {
-                            try {
-                                for (pkg in apps) {
-                                    com.nemotron.voiceime.dhizuku.DhizukuManager.unhideAppRaw(ctx, pkg)
-                                }
-                                Log.d(TAG, "auto-unfreeze done")
-                            } catch (t: Throwable) {
-                                Log.e(TAG, "auto-unfreeze failed", t)
-                            }
-                        }.start()
-                    }
-                }
-            }
-        }
-        registerReceiver(screenReceiver, filter)
-        Log.d(TAG, "Screen receiver registered")
-    }
-
-    private fun unregisterScreenReceiver() {
-        screenReceiver?.let {
-            try { unregisterReceiver(it) } catch (_: Throwable) {}
-        }
-        screenReceiver = null
-    }
-
-    fun setAutoFreeze(enabled: Boolean) {
-        autoFreezeEnabled = enabled
-        Log.d(TAG, "autoFreeze: $enabled")
-        if (enabled) registerScreenReceiver() else unregisterScreenReceiver()
-    }
-
-    fun isAutoFreezeEnabled(): Boolean = autoFreezeEnabled
 
     // ---------- Paste ----------------------------------------------------------
 
@@ -222,13 +150,6 @@ class FocusPasteService : AccessibilityService() {
         }
 
         fun isRunning(): Boolean = instance != null
-
-        fun setAutoFreezeEnabled(context: Context, enabled: Boolean) {
-            SecureStore.setAutoFreeze(context, enabled)
-            instance?.setAutoFreeze(enabled)
-        }
-
-        fun isAutoFreezeEnabled(): Boolean = instance?.isAutoFreezeEnabled() ?: false
 
         fun isAccessibilityEnabled(context: Context): Boolean {
             val target = context.packageName + "/" + FocusPasteService::class.java.name
