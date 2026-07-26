@@ -42,8 +42,52 @@ object SecureStore {
         ctx.getSharedPreferences("${SECURE_FILE}_plain", Context.MODE_PRIVATE)
     }
 
-    private fun plainPrefs(ctx: Context): SharedPreferences =
-        ctx.getSharedPreferences(PLAIN_FILE, Context.MODE_PRIVATE)
+    private fun plainPrefs(ctx: Context): SharedPreferences {
+        val prefs = ctx.getSharedPreferences(PLAIN_FILE, Context.MODE_PRIVATE)
+        if (!prefs.getBoolean("migrated", false)) {
+            migrateFromOld(prefs, ctx)
+        }
+        return prefs
+    }
+
+    private fun migrateFromOld(newPrefs: SharedPreferences, ctx: Context) {
+        try {
+            val mk = MasterKey.Builder(ctx)
+                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                .build()
+            val old = EncryptedSharedPreferences.create(
+                ctx, SECURE_FILE, mk,
+                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+            )
+            val editor = newPrefs.edit()
+            old.all?.forEach { (k, v) ->
+                when (v) {
+                    is String -> editor.putString(k, v)
+                    is Boolean -> editor.putBoolean(k, v)
+                    is Int -> editor.putInt(k, v)
+                    is Long -> editor.putLong(k, v)
+                    is Float -> editor.putFloat(k, v)
+                }
+            }
+            editor.putBoolean("migrated", true).apply()
+        } catch (_: Throwable) {
+            try {
+                val old = ctx.getSharedPreferences("${SECURE_FILE}_plain", Context.MODE_PRIVATE)
+                val editor = newPrefs.edit()
+                old.all?.forEach { (k, v) ->
+                    when (v) {
+                        is String -> editor.putString(k, v)
+                        is Boolean -> editor.putBoolean(k, v)
+                        is Int -> editor.putInt(k, v)
+                        is Long -> editor.putLong(k, v)
+                        is Float -> editor.putFloat(k, v)
+                    }
+                }
+                editor.putBoolean("migrated", true).apply()
+            } catch (_: Throwable) {}
+        }
+    }
 
     fun getApiKey(ctx: Context): String =
         securePrefs(ctx).getString(KEY_API_KEY, "").orEmpty()
