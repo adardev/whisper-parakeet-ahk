@@ -9,7 +9,7 @@ android {
 
     defaultConfig {
         applicationId = "com.nemotron.voiceime"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
@@ -43,4 +43,5 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.squareup.okhttp3:okhttp-sse:4.12.0")
+    implementation("io.github.iamr0s:Dhizuku-API:2.5.4")
 }

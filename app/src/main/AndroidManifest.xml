@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -9,6 +10,11 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
+    <uses-permission android:name="com.rosan.dhizuku.permission.API" />
+
+    <!-- Android 11+ package visibility -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission" />
 
     <application
         android:allowBackup="true"
@@ -20,7 +26,6 @@
 
         <!-- ============================================================== -->
         <!--  MainActivity: TOGGLE INVISIBLE (es el LAUNCHER por defecto).  -->
-        <!--  Side Key de Samsung ABIERTA esta actividad. No pinta UI.     -->
         <!-- ============================================================== -->
         <activity
             android:name=".ui.MainActivity"
@@ -36,8 +41,7 @@
         </activity>
 
         <!-- ============================================================== -->
-        <!--  SetupActivity: wizard de configuracion.                      -->
-        <!--  Tambien tiene LAUNCHER -> icono separado en el cajón.         -->
+        <!--  SetupActivity: wizard de configuracion.                       -->
         <!-- ============================================================== -->
         <activity-alias
             android:name=".SetupActivityAlias"
@@ -63,6 +67,21 @@
             android:label="@string/settings_title"
             android:parentActivityName=".ui.SetupActivity" />
 
+        <!-- ============================================================== -->
+        <!--  AppPickerActivity: seleccionar apps a congelar (freeze).       -->
+        <!--  Tambien es target del long-press en el QS tile.              -->
+        <!-- ============================================================== -->
+        <activity
+            android:name=".dhizuku.AppPickerActivity"
+            android:exported="true"
+            android:label="Freeze Apps"
+            android:theme="@style/Theme.NemotronVoiceIME"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
+            </intent-filter>
+        </activity>
+
         <!-- Foreground service de grabación de voz -->
         <service
             android:name=".record.VoiceRecordService"
@@ -81,6 +100,20 @@
             <meta-data
                 android:name="android.accessibilityservice"
                 android:resource="@xml/accessibility" />
+        </service>
+
+        <!-- ============================================================== -->
+        <!--  HailTileService: Quick Settings tile para congelar/descongelar -->
+        <!-- ============================================================== -->
+        <service
+            android:name=".dhizuku.HailTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_qs_tile"
+            android:label="Freeze"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
         </service>
 
     </application>
