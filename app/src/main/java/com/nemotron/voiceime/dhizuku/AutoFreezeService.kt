@@ -99,9 +99,15 @@ class AutoFreezeService : Service() {
                         cancelPendingFreeze()
                         val apps = SecureStore.getAutoFreezeApps(ctx)
                         if (apps.isEmpty()) return
-                        Log.d(TAG, "USER_PRESENT → unfreeze ${apps.size} apps")
+                        val tileApps = SecureStore.getFrozenApps(ctx)
+                        val toUnfreeze = apps.filter { it !in tileApps }
+                        if (toUnfreeze.isEmpty()) {
+                            Log.d(TAG, "USER_PRESENT → skip unfreeze (all in tile list)")
+                            return
+                        }
+                        Log.d(TAG, "USER_PRESENT → unfreeze ${toUnfreeze.size} apps (skipped ${apps.size - toUnfreeze.size} tile-frozen)")
                         Thread {
-                            for (pkg in apps) {
+                            for (pkg in toUnfreeze) {
                                 try { DhizukuManager.unhideAppRaw(ctx, pkg) }
                                 catch (t: Throwable) { Log.e(TAG, "unfreeze $pkg failed", t) }
                             }
