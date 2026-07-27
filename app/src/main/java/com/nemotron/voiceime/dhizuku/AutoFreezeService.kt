@@ -136,7 +136,7 @@ class AutoFreezeService : Service() {
         private const val TAG = "AutoFreezeService"
         private const val CHANNEL_ID = "auto_freeze"
         private const val NOTIF_ID = 7777
-        private const val DELAY_MS = 0L
+        private const val DELAY_MS = 30_000L
 
         fun start(context: Context) {
             context.startForegroundService(Intent(context, AutoFreezeService::class.java))
