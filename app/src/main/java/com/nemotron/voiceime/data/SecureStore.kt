@@ -16,6 +16,8 @@ object SecureStore {
     private const val KEY_SYSTEM_PROMPT = "system_prompt"
     private const val KEY_LOCALE = "dict_locale"
     private const val KEY_FROZEN_APPS = "frozen_apps"
+    private const val KEY_AUTO_FREEZE_APPS = "auto_freeze_apps"
+    private const val KEY_AUTO_FREEZE_ENABLED = "auto_freeze_enabled"
 
     private const val DEFAULT_MODEL = "nvidia/nemotron-3-nano-30b-a3b"
     private const val DEFAULT_LOCALE = "es_ES"
@@ -139,6 +141,42 @@ object SecureStore {
     fun getFrozenAppLabels(ctx: Context): List<String> {
         val pm = ctx.packageManager
         return getFrozenApps(ctx).map { pkg ->
+            try {
+                val appInfo = pm.getApplicationInfo(pkg, 0)
+                pm.getApplicationLabel(appInfo).toString()
+            } catch (_: PackageManager.NameNotFoundException) {
+                pkg
+            }
+        }
+    }
+
+    // ── Auto-freeze apps (screen off/on list) ──────────────────────────
+
+    fun getAutoFreezeApps(ctx: Context): Set<String> {
+        val json = plainPrefs(ctx).getString(KEY_AUTO_FREEZE_APPS, null) ?: return emptySet()
+        return try {
+            val arr = JSONArray(json)
+            (0 until arr.length()).mapTo(mutableSetOf()) { arr.getString(it) }
+        } catch (_: Throwable) {
+            emptySet()
+        }
+    }
+
+    fun setAutoFreezeApps(ctx: Context, apps: Set<String>) {
+        val json = JSONArray(apps.toList()).toString()
+        plainPrefs(ctx).edit().putString(KEY_AUTO_FREEZE_APPS, json).apply()
+    }
+
+    fun isAutoFreezeEnabled(ctx: Context): Boolean =
+        plainPrefs(ctx).getBoolean(KEY_AUTO_FREEZE_ENABLED, false)
+
+    fun setAutoFreezeEnabled(ctx: Context, enabled: Boolean) {
+        plainPrefs(ctx).edit().putBoolean(KEY_AUTO_FREEZE_ENABLED, enabled).apply()
+    }
+
+    fun getAutoFreezeAppLabels(ctx: Context): List<String> {
+        val pm = ctx.packageManager
+        return getAutoFreezeApps(ctx).map { pkg ->
             try {
                 val appInfo = pm.getApplicationInfo(pkg, 0)
                 pm.getApplicationLabel(appInfo).toString()

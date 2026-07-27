@@ -1,6 +1,7 @@
 package com.nemotron.voiceime.ui
 
 import android.Manifest
+import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
@@ -14,6 +15,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.nemotron.voiceime.R
 import com.nemotron.voiceime.data.SecureStore
+import com.nemotron.voiceime.dhizuku.AppPickerActivity
 import com.nemotron.voiceime.net.NemotronStreamClient
 import com.nemotron.voiceime.databinding.ActivityMainBinding
 
@@ -25,6 +27,10 @@ class SetupActivity : AppCompatActivity() {
         ActivityResultContracts.RequestPermission()
     ) { granted -> refreshStatus() }
 
+    private val autoFreezePickerLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { refreshAutoFreezeStatus() }
+
     private val client by lazy { NemotronStreamClient(SecureStore.getApiKey(this)) }
     private var accumulated = StringBuilder()
 
@@ -34,6 +40,7 @@ class SetupActivity : AppCompatActivity() {
         setContentView(b.root)
 
         setUpButtons()
+        setUpAutoFreeze()
     }
 
     private fun setUpButtons() {
@@ -76,9 +83,49 @@ class SetupActivity : AppCompatActivity() {
         }
     }
 
+    private fun setUpAutoFreeze() {
+        val enabled = SecureStore.isAutoFreezeEnabled(this)
+        b.switchAutoFreeze.isChecked = enabled
+        updateAutoFreezeIcon(enabled)
+        refreshAutoFreezeStatus()
+
+        b.switchAutoFreeze.setOnCheckedChangeListener { _, isChecked ->
+            SecureStore.setAutoFreezeEnabled(this, isChecked)
+            updateAutoFreezeIcon(isChecked)
+            refreshAutoFreezeStatus()
+            AutoFreezeScheduler.toggle(this, isChecked)
+        }
+
+        b.btnAutoFreezeApps.setOnClickListener {
+            val intent = Intent(this, AppPickerActivity::class.java).apply {
+                putExtra(AppPickerActivity.EXTRA_MODE, AppPickerActivity.MODE_AUTO_FREEZE)
+            }
+            autoFreezePickerLauncher.launch(intent)
+        }
+    }
+
+    private fun updateAutoFreezeIcon(enabled: Boolean) {
+        b.tvAutoFreezeIcon.text = if (enabled) "✓" else "✗"
+        b.tvAutoFreezeIcon.setBackgroundColor(
+            ContextCompat.getColor(this, if (enabled) R.color.status_ok else R.color.status_bad)
+        )
+        b.tvAutoFreezeIcon.setTextColor(Color.WHITE)
+    }
+
+    private fun refreshAutoFreezeStatus() {
+        val enabled = SecureStore.isAutoFreezeEnabled(this)
+        val apps = SecureStore.getAutoFreezeApps(this)
+        b.tvAutoFreezeStatus.text = when {
+            !enabled -> "Desactivado"
+            apps.isEmpty() -> "Activado, sin apps seleccionadas"
+            else -> "Activado: ${apps.size} apps se congelan al apagar pantalla"
+        }
+    }
+
     override fun onResume() {
         super.onResume()
         refreshStatus()
+        refreshAutoFreezeStatus()
     }
 
     private fun refreshStatus() {

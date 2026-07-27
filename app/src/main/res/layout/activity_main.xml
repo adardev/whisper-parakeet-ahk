@@ -144,6 +144,62 @@
             android:text="@string/btn_sidekey"
             android:layout_marginTop="8dp" />
 
+        <!-- Auto Freeze Section -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#22000000"
+            android:layout_marginTop="20dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="16dp"
+            android:gravity="center_vertical">
+            <TextView
+                android:id="@+id/tvAutoFreezeIcon"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:gravity="center"
+                android:text="?"
+                android:textSize="18sp"
+                android:background="#33000000" />
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:text="Auto Freeze (pantalla apagada)"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+            <Switch
+                android:id="@+id/switchAutoFreeze"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Congela apps seleccionadas automaticamente al apagar la pantalla y las descongela al encender."
+            android:layout_marginTop="4dp"
+            android:textSize="13sp"
+            android:lineSpacingExtra="4dp"
+            android:textColor="@color/text_dim" />
+        <Button
+            android:id="@+id/btnAutoFreezeApps"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Seleccionar apps"
+            android:layout_marginTop="8dp" />
+        <TextView
+            android:id="@+id/tvAutoFreezeStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textSize="13sp"
+            android:textColor="@color/text_dim" />
+
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"

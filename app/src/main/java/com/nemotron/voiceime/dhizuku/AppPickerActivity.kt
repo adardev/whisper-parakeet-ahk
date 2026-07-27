@@ -14,20 +14,35 @@ import com.nemotron.voiceime.data.SecureStore
 
 class AppPickerActivity : AppCompatActivity() {
 
+    companion object {
+        const val EXTRA_MODE = "mode"
+        const val MODE_FREEZE = "freeze"
+        const val MODE_AUTO_FREEZE = "auto_freeze"
+    }
+
     private lateinit var listView: ListView
     private lateinit var btnSave: Button
     private lateinit var adapter: AppListAdapter
 
     private val appList = mutableListOf<AppItem>()
     private val selectedPackages = mutableSetOf<String>()
+    private var mode = MODE_FREEZE
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_app_picker)
 
+        mode = intent.getStringExtra(EXTRA_MODE) ?: MODE_FREEZE
+
         listView = findViewById(R.id.appListView)
         btnSave = findViewById(R.id.btnSave)
-        selectedPackages.addAll(SecureStore.getFrozenApps(this))
+
+        val title = findViewById<TextView>(R.id.tvTitle)
+        title.text = if (mode == MODE_AUTO_FREEZE) "Auto Freeze Apps" else "Select apps to freeze"
+
+        val currentApps = if (mode == MODE_AUTO_FREEZE) SecureStore.getAutoFreezeApps(this)
+                          else SecureStore.getFrozenApps(this)
+        selectedPackages.addAll(currentApps)
 
         listView.choiceMode = ListView.CHOICE_MODE_MULTIPLE
 
@@ -67,16 +82,20 @@ class AppPickerActivity : AppCompatActivity() {
                     selectedPackages.add(appList[i].packageName)
                 }
             }
-            SecureStore.setFrozenApps(this, selectedPackages)
 
-            Thread {
-                val apps = SecureStore.getFrozenApps(this).toList()
-                for (pkg in apps) {
-                    ShizukuManager.hideApp(pkg)
-                }
-            }.start()
+            if (mode == MODE_AUTO_FREEZE) {
+                SecureStore.setAutoFreezeApps(this, selectedPackages)
+            } else {
+                SecureStore.setFrozenApps(this, selectedPackages)
+                Thread {
+                    for (pkg in selectedPackages) {
+                        ShizukuManager.hideApp(pkg)
+                    }
+                }.start()
+            }
 
             Toast.makeText(this, "Saved: ${selectedPackages.size} apps", Toast.LENGTH_SHORT).show()
+            setResult(RESULT_OK)
             finish()
         }
 
