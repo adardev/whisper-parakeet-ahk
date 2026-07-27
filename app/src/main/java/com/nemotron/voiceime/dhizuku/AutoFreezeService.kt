@@ -4,7 +4,6 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
-import android.app.KeyguardManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -20,7 +19,7 @@ class AutoFreezeService : Service() {
 
     private var receiver: BroadcastReceiver? = null
     private val handler = Handler(Looper.getMainLooper())
-    private var pendingFreeze: Runnable? = null
+    private var pendingAirplaneEnable: Runnable? = null
     private var airplaneWasEnabledByUs = false
 
     override fun onCreate() {
@@ -32,7 +31,7 @@ class AutoFreezeService : Service() {
     }
 
     override fun onDestroy() {
-        cancelPendingFreeze()
+        cancelPendingAirplaneEnable()
         unregister()
         super.onDestroy()
         Log.d(TAG, "destroyed")
@@ -47,7 +46,7 @@ class AutoFreezeService : Service() {
 
     private fun createChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val ch = NotificationChannel(CHANNEL_ID, "Auto-Freeze", NotificationManager.IMPORTANCE_MIN)
+            val ch = NotificationChannel(CHANNEL_ID, "Airplane Lock", NotificationManager.IMPORTANCE_MIN)
             ch.setShowBadge(false)
             (getSystemService(NOTIFICATION_SERVICE) as NotificationManager).createNotificationChannel(ch)
         }
@@ -58,7 +57,7 @@ class AutoFreezeService : Service() {
             Notification.Builder(this, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_lock_idle_lock)
                 .setContentTitle("Nemotron")
-                .setContentText("Auto-freeze activo")
+                .setContentText("Airplane Lock activo")
                 .setOngoing(true)
                 .build()
         } else {
@@ -66,7 +65,7 @@ class AutoFreezeService : Service() {
             Notification.Builder(this)
                 .setSmallIcon(android.R.drawable.ic_lock_idle_lock)
                 .setContentTitle("Nemotron")
-                .setContentText("Auto-freeze activo")
+                .setContentText("Airplane Lock activo")
                 .setOngoing(true)
                 .build()
         }
@@ -82,78 +81,26 @@ class AutoFreezeService : Service() {
             override fun onReceive(ctx: Context, intent: Intent) {
                 when (intent.action) {
                     Intent.ACTION_SCREEN_OFF -> {
-                        val apps = SecureStore.getAutoFreezeApps(ctx)
-                        val airplane = SecureStore.isAutoAirplane(ctx)
-                        if (apps.isEmpty() && !airplane) return
-                        cancelPendingFreeze()
-                        Log.d(TAG, "SCREEN_OFF → freeze now")
-
-                        val r = Runnable {
-                            pendingFreeze = null
-                            val currentApps = SecureStore.getAutoFreezeApps(ctx)
-
-                            // Airplane Lock uses the same 30-second grace
-                            // period as auto-freeze. Unlocking before then
-                            // cancels this runnable from USER_PRESENT.
-                            if (SecureStore.isAutoAirplane(ctx)) {
-                                airplaneWasEnabledByUs = true
-                                val airplaneIntent = Intent(ctx, AirplaneReceiver::class.java).apply {
-                                    action = ACTION_AIRPLANE
-                                    putExtra(EXTRA_ENABLE, true)
-                                }
-                                ctx.sendBroadcast(airplaneIntent)
-                                Log.d(TAG, "airplane ON requested after $DELAY_MS ms")
-                            }
-
-                            if (currentApps.isEmpty()) return@Runnable
-
-                            Thread {
-                                for (pkg in currentApps) {
-                                    try { DhizukuManager.hideAppRaw(ctx, pkg) }
-                                    catch (t: Throwable) { Log.e(TAG, "freeze $pkg failed", t) }
-                                }
-                                Log.d(TAG, "frozen ${currentApps.size} apps")
-                            }.start()
+                        if (!SecureStore.isAutoAirplane(ctx)) return
+                        cancelPendingAirplaneEnable()
+                        val enable = Runnable {
+                            pendingAirplaneEnable = null
+                            if (!SecureStore.isAutoAirplane(ctx)) return@Runnable
+                            airplaneWasEnabledByUs = true
+                            ctx.sendBroadcast(airplaneIntent(ctx, true))
+                            Log.d(TAG, "SCREEN_OFF → airplane ON requested after $DELAY_MS ms")
                         }
-                        pendingFreeze = r
-                        if (DELAY_MS > 0) handler.postDelayed(r, DELAY_MS) else r.run()
+                        pendingAirplaneEnable = enable
+                        handler.postDelayed(enable, DELAY_MS)
+                        Log.d(TAG, "SCREEN_OFF → airplane ON scheduled in $DELAY_MS ms")
                     }
                     Intent.ACTION_USER_PRESENT -> {
-                        cancelPendingFreeze()
-
+                        cancelPendingAirplaneEnable()
                         if (airplaneWasEnabledByUs) {
-                            val keyguard = getSystemService(KeyguardManager::class.java)
-                            if (keyguard?.isKeyguardLocked == true) {
-                                Log.d(TAG, "USER_PRESENT while keyguard is still locked → keep airplane ON")
-                                return
-                            }
                             airplaneWasEnabledByUs = false
-                            val airplaneIntent = Intent(ctx, AirplaneReceiver::class.java).apply {
-                                action = ACTION_AIRPLANE
-                                putExtra(EXTRA_ENABLE, false)
-                            }
-                            ctx.sendBroadcast(airplaneIntent)
+                            ctx.sendBroadcast(airplaneIntent(ctx, false))
                             Log.d(TAG, "USER_PRESENT → airplane OFF requested")
                         }
-
-                        val apps = SecureStore.getAutoFreezeApps(ctx)
-                        if (apps.isEmpty()) return
-                        val tileFrozen = DhizukuManager.isCurrentlyFrozen(ctx)
-                        val tileApps = SecureStore.getFrozenApps(ctx)
-                        val toUnfreeze = if (tileFrozen) apps.filter { it !in tileApps } else apps.toList()
-                        if (toUnfreeze.isEmpty()) {
-                            Log.d(TAG, "USER_PRESENT → skip unfreeze (tile active, all in tile list)")
-                            return
-                        }
-                        val skipped = apps.size - toUnfreeze.size
-                        Log.d(TAG, "USER_PRESENT → unfreeze ${toUnfreeze.size} apps${if (skipped > 0) " (skipped $skipped tile-frozen)" else ""}")
-                        Thread {
-                            for (pkg in toUnfreeze) {
-                                try { DhizukuManager.unhideAppRaw(ctx, pkg) }
-                                catch (t: Throwable) { Log.e(TAG, "unfreeze $pkg failed", t) }
-                            }
-                            Log.d(TAG, "auto-unfreeze done")
-                        }.start()
                     }
                 }
             }
@@ -161,9 +108,15 @@ class AutoFreezeService : Service() {
         registerReceiver(receiver, filter)
     }
 
-    private fun cancelPendingFreeze() {
-        pendingFreeze?.let { handler.removeCallbacks(it) }
-        pendingFreeze = null
+    private fun airplaneIntent(context: Context, enabled: Boolean) =
+        Intent(context, AirplaneReceiver::class.java).apply {
+            action = ACTION_AIRPLANE
+            putExtra(EXTRA_ENABLE, enabled)
+        }
+
+    private fun cancelPendingAirplaneEnable() {
+        pendingAirplaneEnable?.let { handler.removeCallbacks(it) }
+        pendingAirplaneEnable = null
     }
 
     private fun unregister() {
@@ -173,7 +126,7 @@ class AutoFreezeService : Service() {
 
     companion object {
         private const val TAG = "AutoFreezeService"
-        private const val CHANNEL_ID = "auto_freeze"
+        private const val CHANNEL_ID = "airplane_lock"
         private const val NOTIF_ID = 7777
         private const val DELAY_MS = 30_000L
         const val ACTION_AIRPLANE = "com.nemotron.voiceime.AIRPLANE_TOGGLE"

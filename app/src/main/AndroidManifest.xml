@@ -93,23 +93,13 @@
             </intent-filter>
         </activity>
 
-        <!-- ============================================================== -->
-        <!--  AutoFreezePickerActivity: seleccionar apps para auto-freeze.  -->
-        <!-- ============================================================== -->
-        <activity
-            android:name=".dhizuku.AutoFreezePickerActivity"
-            android:exported="false"
-            android:label="Auto-Freeze Apps"
-            android:theme="@style/Theme.NemotronVoiceIME"
-            android:windowSoftInputMode="adjustResize" />
-
         <!-- Foreground service de grabación de voz -->
         <service
             android:name=".record.VoiceRecordService"
             android:exported="false"
             android:foregroundServiceType="microphone" />
 
-        <!-- Foreground service para auto-freeze (proceso separado, sin whisper) -->
+        <!-- Foreground listener for Airplane Lock (separate process, no whisper) -->
         <service
             android:name=".dhizuku.AutoFreezeService"
             android:exported="false"

@@ -16,8 +16,6 @@ object SecureStore {
     private const val KEY_SYSTEM_PROMPT = "system_prompt"
     private const val KEY_LOCALE = "dict_locale"
     private const val KEY_FROZEN_APPS = "frozen_apps"
-    private const val KEY_AUTO_FREEZE = "auto_freeze"
-    private const val KEY_AUTO_FREEZE_APPS = "auto_freeze_apps"
     private const val KEY_AUTO_AIRPLANE = "auto_airplane"
 
     private const val DEFAULT_MODEL = "nvidia/nemotron-3-nano-30b-a3b"
@@ -138,32 +136,6 @@ object SecureStore {
 
     fun isAppFrozen(ctx: Context, pkg: String): Boolean =
         getFrozenApps(ctx).contains(pkg)
-
-    // ── Auto-freeze toggle ──────────────────────────────────────────────
-
-    fun isAutoFreeze(ctx: Context): Boolean =
-        plainPrefs(ctx).getBoolean(KEY_AUTO_FREEZE, false)
-
-    fun setAutoFreeze(ctx: Context, enabled: Boolean) {
-        plainPrefs(ctx).edit().putBoolean(KEY_AUTO_FREEZE, enabled).apply()
-    }
-
-    // ── Auto-freeze apps (separate list) ────────────────────────────────
-
-    fun getAutoFreezeApps(ctx: Context): Set<String> {
-        val json = plainPrefs(ctx).getString(KEY_AUTO_FREEZE_APPS, null) ?: return emptySet()
-        return try {
-            val arr = JSONArray(json)
-            (0 until arr.length()).mapTo(mutableSetOf()) { arr.getString(it) }
-        } catch (_: Throwable) {
-            emptySet()
-        }
-    }
-
-    fun setAutoFreezeApps(ctx: Context, apps: Set<String>) {
-        val json = JSONArray(apps.toList()).toString()
-        plainPrefs(ctx).edit().putString(KEY_AUTO_FREEZE_APPS, json).apply()
-    }
 
     // ── Auto airplane toggle ───────────────────────────────────────────
 

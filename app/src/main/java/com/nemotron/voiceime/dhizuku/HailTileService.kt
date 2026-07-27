@@ -65,7 +65,6 @@ class HailTileService : TileService() {
     private fun updateTileState() {
         val tile = qsTile ?: return
         val apps = SecureStore.getFrozenApps(this)
-        val autoFreeze = SecureStore.isAutoFreeze(this)
 
         if (apps.isEmpty()) {
             tile.label = "Freeze"
@@ -78,10 +77,7 @@ class HailTileService : TileService() {
         val frozen = DhizukuManager.isCurrentlyFrozen(this)
         tile.state = if (frozen) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
         tile.label = "Freeze"
-        tile.subtitle = buildString {
-            append(if (frozen) "Frozen (${apps.size})" else "Active (${apps.size})")
-            if (autoFreeze) append(" • Auto")
-        }
+        tile.subtitle = if (frozen) "Frozen (${apps.size})" else "Active (${apps.size})"
         tile.updateTile()
     }
 

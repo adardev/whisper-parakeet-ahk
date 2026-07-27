@@ -16,10 +16,6 @@ class AppPickerActivity : AppCompatActivity() {
 
     private lateinit var listView: ListView
     private lateinit var btnSave: Button
-    private lateinit var switchAutoFreeze: Switch
-    private lateinit var autoFreezeSection: LinearLayout
-    private lateinit var btnAutoFreezeApps: Button
-    private lateinit var tvAutoFreezeCount: TextView
     private lateinit var adapter: AppListAdapter
 
     private val appList = mutableListOf<AppItem>()
@@ -31,14 +27,7 @@ class AppPickerActivity : AppCompatActivity() {
 
         listView = findViewById(R.id.appListView)
         btnSave = findViewById(R.id.btnSave)
-        switchAutoFreeze = findViewById(R.id.switchAutoFreeze)
-        autoFreezeSection = findViewById(R.id.autoFreezeSection)
-        btnAutoFreezeApps = findViewById(R.id.btnAutoFreezeApps)
-        tvAutoFreezeCount = findViewById(R.id.tvAutoFreezeCount)
-
         selectedPackages.addAll(SecureStore.getFrozenApps(this))
-        switchAutoFreeze.isChecked = SecureStore.isAutoFreeze(this)
-        updateAutoFreezeSection()
 
         listView.choiceMode = ListView.CHOICE_MODE_MULTIPLE
 
@@ -70,15 +59,6 @@ class AppPickerActivity : AppCompatActivity() {
             }
         }.start()
 
-        switchAutoFreeze.setOnCheckedChangeListener { _, _ ->
-            updateAutoFreezeSection()
-        }
-
-        btnAutoFreezeApps.setOnClickListener {
-            val intent = Intent(this, AutoFreezePickerActivity::class.java)
-            startActivity(intent)
-        }
-
         btnSave.setOnClickListener {
             val checked = listView.checkedItemPositions
             selectedPackages.clear()
@@ -89,10 +69,7 @@ class AppPickerActivity : AppCompatActivity() {
             }
             SecureStore.setFrozenApps(this, selectedPackages)
 
-            val autoFreeze = switchAutoFreeze.isChecked
-            SecureStore.setAutoFreeze(this, autoFreeze)
-            val airplane = SecureStore.isAutoAirplane(this)
-            if (autoFreeze || airplane) AutoFreezeService.start(this) else AutoFreezeService.stop(this)
+            if (SecureStore.isAutoAirplane(this)) AutoFreezeService.start(this) else AutoFreezeService.stop(this)
 
             Thread {
                 val apps = SecureStore.getFrozenApps(this)
@@ -109,21 +86,6 @@ class AppPickerActivity : AppCompatActivity() {
         }
 
         findViewById<View>(R.id.btnBack).setOnClickListener { finish() }
-    }
-
-    override fun onResume() {
-        super.onResume()
-        updateAutoFreezeSection()
-    }
-
-    private fun updateAutoFreezeSection() {
-        if (switchAutoFreeze.isChecked) {
-            autoFreezeSection.visibility = View.VISIBLE
-            val count = SecureStore.getAutoFreezeApps(this).size
-            tvAutoFreezeCount.text = if (count > 0) "$count apps selected" else "No apps selected"
-        } else {
-            autoFreezeSection.visibility = View.GONE
-        }
     }
 
     data class AppItem(

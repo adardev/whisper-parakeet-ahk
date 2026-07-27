@@ -6,7 +6,7 @@ import android.content.Intent
 import android.util.Log
 import com.nemotron.voiceime.data.SecureStore
 
-/** Restores the lock listener after a device reboot when either automation is enabled. */
+/** Restores the Airplane Lock listener after a device reboot. */
 class AutoFreezeBootReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -14,9 +14,8 @@ class AutoFreezeBootReceiver : BroadcastReceiver() {
         if (action != Intent.ACTION_BOOT_COMPLETED && action != Intent.ACTION_MY_PACKAGE_REPLACED) return
 
         val airplaneLockEnabled = SecureStore.isAutoAirplane(context)
-        val autoFreezeEnabled = SecureStore.isAutoFreeze(context)
-        if (!airplaneLockEnabled && !autoFreezeEnabled) {
-            Log.d(TAG, "$action: no lock automation enabled")
+        if (!airplaneLockEnabled) {
+            Log.d(TAG, "$action: Airplane Lock disabled")
             return
         }
 

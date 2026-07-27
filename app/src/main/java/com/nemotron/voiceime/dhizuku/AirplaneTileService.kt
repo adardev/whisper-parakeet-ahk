@@ -34,9 +34,7 @@ class AirplaneTileService : TileService() {
         val newEnabled = !SecureStore.isAutoAirplane(this)
         SecureStore.setAutoAirplane(this, newEnabled)
 
-        // The tile controls the automation, not the current system airplane
-        // state. Keep the receiver service alive even when no apps are picked.
-        if (newEnabled || SecureStore.isAutoFreeze(this)) {
+        if (newEnabled) {
             AutoFreezeService.start(this)
         } else {
             AutoFreezeService.stop(this)
