@@ -26,6 +26,11 @@ class AirplaneTileService : TileService() {
 
     override fun onClick() {
         super.onClick()
+        if (ShizukuManager.isAvailable() && !ShizukuManager.hasPermission()) {
+            Log.d(TAG, "Requesting Shizuku permission for Airplane Lock")
+            ShizukuManager.requestPermission()
+            return
+        }
         val newEnabled = !SecureStore.isAutoAirplane(this)
         SecureStore.setAutoAirplane(this, newEnabled)
 

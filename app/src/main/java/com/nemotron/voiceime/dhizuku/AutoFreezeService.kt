@@ -88,21 +88,23 @@ class AutoFreezeService : Service() {
                         cancelPendingFreeze()
                         Log.d(TAG, "SCREEN_OFF → freeze now")
 
-                        if (airplane) {
-                            // Airplane Lock owns the temporary state: enable
-                            // it on screen-off and restore it on user-present.
-                            airplaneWasEnabledByUs = true
-                            val airplaneIntent = Intent(ctx, AirplaneReceiver::class.java).apply {
-                                action = ACTION_AIRPLANE
-                                putExtra(EXTRA_ENABLE, true)
-                            }
-                            ctx.sendBroadcast(airplaneIntent)
-                            Log.d(TAG, "airplane immediate ON requested")
-                        }
-
                         val r = Runnable {
                             pendingFreeze = null
                             val currentApps = SecureStore.getAutoFreezeApps(ctx)
+
+                            // Airplane Lock uses the same 30-second grace
+                            // period as auto-freeze. Unlocking before then
+                            // cancels this runnable from USER_PRESENT.
+                            if (SecureStore.isAutoAirplane(ctx)) {
+                                airplaneWasEnabledByUs = true
+                                val airplaneIntent = Intent(ctx, AirplaneReceiver::class.java).apply {
+                                    action = ACTION_AIRPLANE
+                                    putExtra(EXTRA_ENABLE, true)
+                                }
+                                ctx.sendBroadcast(airplaneIntent)
+                                Log.d(TAG, "airplane ON requested after $DELAY_MS ms")
+                            }
+
                             if (currentApps.isEmpty()) return@Runnable
 
                             Thread {

@@ -73,4 +73,5 @@ object ShizukuManager {
             false
         }
     }
+
 }
