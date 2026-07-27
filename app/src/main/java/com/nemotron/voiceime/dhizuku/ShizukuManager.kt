@@ -2,11 +2,8 @@ package com.nemotron.voiceime.dhizuku
 
 import android.content.Context
 import android.content.pm.PackageManager
-import android.os.IBinder
-import android.os.Parcel
 import android.util.Log
 import rikka.shizuku.Shizuku
-import rikka.shizuku.ShizukuBinderWrapper
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.io.PrintWriter
@@ -17,14 +14,13 @@ object ShizukuManager {
 
     private const val TAG = "ShizukuManager"
     private const val REQUEST_CODE = 4011
-    private const val CONNECTIVITY_DESCRIPTOR = "android.net.IConnectivityManager"
-    private const val TRANSACTION_SET_AIRPLANE_MODE = 36
 
     private var newProcessMethod: Method? = null
     private var shellProc: Process? = null
     private var shellIn: PrintWriter? = null
     private var shellOut: BufferedReader? = null
     private var shellErr: BufferedReader? = null
+    private val shellLock = Any()
 
     fun isAvailable(): Boolean = try {
         Shizuku.pingBinder()
@@ -75,7 +71,7 @@ object ShizukuManager {
         if (shellProc != null && shellIn != null) return
         val method = getNewProcessMethod() ?: return
         try {
-            val proc = method.invoke(null, arrayOf("sh"), null, null) as Process
+            val proc = method.invoke(null, arrayOf("sh"), arrayOf("PATH=/system/bin:/system/xbin:/vendor/bin"), null) as Process
             shellProc = proc
             shellIn = PrintWriter(proc.outputStream, true)
             shellOut = BufferedReader(InputStreamReader(proc.inputStream))
@@ -89,38 +85,48 @@ object ShizukuManager {
     }
 
     fun execShell(cmd: String): Boolean {
-        ensureShell()
-        val input = shellIn ?: return false
-        try {
-            input.println(cmd)
-            input.flush()
-            Thread.sleep(100)
-            drainOutput()
-            return true
-        } catch (t: Throwable) {
-            Log.w(TAG, "exec failed: $cmd", t)
-            closeShell()
-            return false
+        synchronized(shellLock) {
+            ensureShell()
+            val input = shellIn ?: return false
+            try {
+                input.println(cmd)
+                input.flush()
+                drainOutput()
+                return true
+            } catch (t: Throwable) {
+                Log.w(TAG, "exec failed: $cmd", t)
+                closeShell()
+                return false
+            }
         }
     }
 
     fun execShellCapture(cmd: String): String? {
-        ensureShell()
-        val input = shellIn ?: return null
-        val out = shellOut ?: return null
-        try {
-            input.println(cmd)
-            input.flush()
-            Thread.sleep(300)
-            val sb = StringBuilder()
-            while (out.ready()) {
-                sb.appendLine(out.readLine())
+        synchronized(shellLock) {
+            ensureShell()
+            val input = shellIn ?: return null
+            val out = shellOut ?: return null
+            try {
+                val marker = "__NEMO_${System.nanoTime()}__"
+                input.println("$cmd; echo $marker")
+                input.flush()
+                val sb = StringBuilder()
+                val deadline = System.currentTimeMillis() + 5000L
+                while (System.currentTimeMillis() < deadline) {
+                    if (!out.ready()) {
+                        Thread.sleep(10)
+                        continue
+                    }
+                    val line = out.readLine() ?: break
+                    if (line.contains(marker)) break
+                    sb.appendLine(line)
+                }
+                return sb.toString().trim()
+            } catch (t: Throwable) {
+                Log.w(TAG, "execCapture failed: $cmd", t)
+                closeShell()
+                return null
             }
-            return sb.toString().trim()
-        } catch (t: Throwable) {
-            Log.w(TAG, "execCapture failed: $cmd", t)
-            closeShell()
-            return null
         }
     }
 
@@ -141,59 +147,34 @@ object ShizukuManager {
         shellErr = null
     }
 
-    fun setAirplaneMode(context: Context, enabled: Boolean): Boolean {
+    fun pasteText(context: Context, @Suppress("UNUSED_PARAMETER") text: String): Boolean {
         if (!hasPermission()) return false
         return try {
-            val serviceManager = Class.forName("android.os.ServiceManager")
-            val getService = serviceManager.getMethod("getService", String::class.java)
-            val connectivity = getService.invoke(null, "connectivity") as? IBinder ?: return false
-            val data = Parcel.obtain()
-            val reply = Parcel.obtain()
-            try {
-                data.writeInterfaceToken(CONNECTIVITY_DESCRIPTOR)
-                data.writeBoolean(enabled)
-                val shellConnectivity = ShizukuBinderWrapper(connectivity)
-                if (!shellConnectivity.transact(TRANSACTION_SET_AIRPLANE_MODE, data, reply, 0)) {
-                    Log.w(TAG, "Shizuku ConnectivityService transaction returned false")
-                    return false
-                }
-                reply.readException()
-            } finally {
-                data.recycle()
-                reply.recycle()
-            }
-            Log.d(TAG, "ConnectivityService.setAirplaneMode($enabled) completed through Shizuku")
-            true
-        } catch (t: Throwable) {
-            Log.w(TAG, "Shizuku airplane-mode call failed", t)
-            false
-        }
-    }
-
-    fun pasteText(context: Context, text: String): Boolean {
-        if (!hasPermission()) return false
-        val escaped = text
-            .replace("\\", "\\\\")
-            .replace("'", "\\'")
-            .replace("\"", "\\\"")
-            .replace(" ", "%s")
-            .replace("&", "\\&")
-            .replace(";", "\\;")
-            .replace("<", "\\<")
-            .replace(">", "\\>")
-            .replace("|", "\\|")
-            .replace("(", "\\(")
-            .replace(")", "\\)")
-            .replace("$", "\\$")
-            .replace("`", "\\`")
-            .replace("!", "\\!")
-            .replace("#", "\\#")
-        return try {
-            exec("input text '$escaped'")
+            exec("input keyevent 279")
         } catch (t: Throwable) {
             Log.w(TAG, "Shizuku pasteText failed", t)
             false
         }
+    }
+
+    fun hideApp(packageName: String): Boolean {
+        if (!hasPermission()) return false
+        val out = execShellCapture("pm disable-user $packageName") ?: return false
+        Log.d(TAG, "pm disable-user $packageName → $out")
+        return out.contains("new state")
+    }
+
+    fun unhideApp(packageName: String): Boolean {
+        if (!hasPermission()) return false
+        val out = execShellCapture("pm enable $packageName") ?: return false
+        Log.d(TAG, "pm enable $packageName → $out")
+        return out.contains("new state")
+    }
+
+    fun isAppHidden(packageName: String): Boolean {
+        if (!hasPermission()) return false
+        val out = execShellCapture("pm list packages -d") ?: return false
+        return out.contains(packageName)
     }
 
 }

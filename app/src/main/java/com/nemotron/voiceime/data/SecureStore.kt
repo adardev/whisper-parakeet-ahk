@@ -16,7 +16,6 @@ object SecureStore {
     private const val KEY_SYSTEM_PROMPT = "system_prompt"
     private const val KEY_LOCALE = "dict_locale"
     private const val KEY_FROZEN_APPS = "frozen_apps"
-    private const val KEY_AUTO_AIRPLANE = "auto_airplane"
 
     private const val DEFAULT_MODEL = "nvidia/nemotron-3-nano-30b-a3b"
     private const val DEFAULT_LOCALE = "es_ES"
@@ -136,15 +135,6 @@ object SecureStore {
 
     fun isAppFrozen(ctx: Context, pkg: String): Boolean =
         getFrozenApps(ctx).contains(pkg)
-
-    // ── Auto airplane toggle ───────────────────────────────────────────
-
-    fun isAutoAirplane(ctx: Context): Boolean =
-        plainPrefs(ctx).getBoolean(KEY_AUTO_AIRPLANE, false)
-
-    fun setAutoAirplane(ctx: Context, enabled: Boolean) {
-        plainPrefs(ctx).edit().putBoolean(KEY_AUTO_AIRPLANE, enabled).apply()
-    }
 
     fun getFrozenAppLabels(ctx: Context): List<String> {
         val pm = ctx.packageManager

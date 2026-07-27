@@ -3,7 +3,6 @@ package com.nemotron.voiceime
 import android.app.Application
 import android.util.Log
 import com.nemotron.voiceime.nfc.NfcAutoManager
-import com.nemotron.voiceime.nfc.ShizukuScreenMonitor
 import rikka.shizuku.Shizuku
 import rikka.shizuku.ShizukuProvider
 
@@ -21,7 +20,6 @@ class NemotronApp : Application() {
         Log.d("NemotronApp", "Shizuku binder received")
         if (Shizuku.checkSelfPermission() == android.content.pm.PackageManager.PERMISSION_GRANTED) {
             NfcAutoManager.start()
-            ShizukuScreenMonitor.start()
         }
     }
 

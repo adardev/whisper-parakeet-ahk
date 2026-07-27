@@ -4,6 +4,8 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.media.AudioManager
@@ -60,7 +62,9 @@ class VoiceRecordService : Service() {
             return
         }
         isRunning = true
+        delivered = false
         isProcessing = false
+        isStopping = false
         accumulated = StringBuilder()
 
         stopSR()
@@ -97,6 +101,7 @@ class VoiceRecordService : Service() {
 
     private fun stopAndFinalize() {
         Log.d(TAG, "stopAndFinalize")
+        isStopping = true
         vibrate()
         sr?.stopListening()
         main.postDelayed({ if (isRunning) cleanup() }, 2000)
@@ -111,6 +116,7 @@ class VoiceRecordService : Service() {
 
         override fun onError(errorCode: Int) {
             Log.w(TAG, "SpeechRecognizer error=$errorCode")
+            if (isStopping) return
             if (errorCode == SpeechRecognizer.ERROR_NO_MATCH ||
                 errorCode == SpeechRecognizer.ERROR_SPEECH_TIMEOUT) {
                 if (!isRunning) return
@@ -170,19 +176,26 @@ class VoiceRecordService : Service() {
         )
     }
 
+    private var delivered = false
+
     private fun deliverText(text: String) {
+        if (delivered) return
+        delivered = true
         val finalText = text.trim()
         if (finalText.isBlank()) {
             cleanup()
             return
         }
-        val pasted = ShizukuManager.pasteText(this, finalText)
-        if (pasted) {
-            toast("Pegado")
-        } else {
-            toast("No se pudo pegar")
+        val cb = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
+        val clip = ClipData.newPlainText("nemotron", finalText)
+        clip.description.extras = android.os.PersistableBundle().apply {
+            putBoolean(android.content.ClipDescription.EXTRA_IS_SENSITIVE, true)
         }
-        cleanup()
+        cb.setPrimaryClip(clip)
+        main.postDelayed({
+            ShizukuManager.pasteText(this, finalText)
+            cleanup()
+        }, 100)
     }
 
     private fun cleanup() {
@@ -325,5 +338,6 @@ class VoiceRecordService : Service() {
 
         @Volatile var isRunning: Boolean = false
         @Volatile var isProcessing: Boolean = false
+        @Volatile var isStopping: Boolean = false
     }
 }

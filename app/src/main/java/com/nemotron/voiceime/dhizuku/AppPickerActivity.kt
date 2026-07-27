@@ -36,7 +36,7 @@ class AppPickerActivity : AppCompatActivity() {
 
         Thread {
             val installed = packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
-                .filter { it.packageName != packageName && it.packageName != "com.rosan.dhizuku" }
+                .filter { it.packageName != packageName }
                 .map { appInfo ->
                     AppItem(
                         packageName = appInfo.packageName,
@@ -70,12 +70,9 @@ class AppPickerActivity : AppCompatActivity() {
             SecureStore.setFrozenApps(this, selectedPackages)
 
             Thread {
-                val apps = SecureStore.getFrozenApps(this)
-                val frozenNow = DhizukuManager.isCurrentlyFrozen(this)
-                if (!frozenNow && apps.isNotEmpty()) {
-                    DhizukuManager.freezeAll(this)
-                } else if (frozenNow && apps.isEmpty()) {
-                    DhizukuManager.unfreezeAll(this)
+                val apps = SecureStore.getFrozenApps(this).toList()
+                for (pkg in apps) {
+                    ShizukuManager.hideApp(pkg)
                 }
             }.start()
 

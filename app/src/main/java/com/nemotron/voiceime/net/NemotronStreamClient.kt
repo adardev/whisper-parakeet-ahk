@@ -39,6 +39,7 @@ class NemotronStreamClient(
         .build()
 
     private val current = AtomicReference<EventSource?>(null)
+    @Volatile private var completed = false
 
     /**
      * Inicia una solicitud streaming.
@@ -63,6 +64,7 @@ class NemotronStreamClient(
         }
 
         val body = buildJson(userText, model, system).toString()
+        completed = false
         Log.d(TAG, "stream start model=$model len=${userText.length}")
 
         val req = Request.Builder()
@@ -81,7 +83,10 @@ class NemotronStreamClient(
 
             override fun onEvent(es: EventSource, id: String?, type: String?, data: String) {
                 if (data == "[DONE]") {
-                    onComplete(sb.toString())
+                    if (!completed) {
+                        completed = true
+                        onComplete(sb.toString())
+                    }
                     es.cancel()
                     current.set(null)
                     return
@@ -105,7 +110,6 @@ class NemotronStreamClient(
 
             override fun onClosed(es: EventSource) {
                 if (current.get() === es) current.set(null)
-                onComplete(sb.toString())
             }
 
             override fun onFailure(es: EventSource, t: Throwable?, response: Response?) {

@@ -22,18 +22,12 @@ class HailTileService : TileService() {
         super.onClick()
         Log.d(TAG, "onClick")
 
-        if (!DhizukuManager.isDhizukuAvailable()) {
-            Log.w(TAG, "Dhizuku not available")
-            return
-        }
-        if (!DhizukuManager.isPermissionGranted()) {
-            Log.w(TAG, "Dhizuku permission not granted")
+        if (!ShizukuManager.hasPermission()) {
+            Log.w(TAG, "Shizuku permission not granted")
             return
         }
 
-        DhizukuManager.setDelegatedScopes()
-
-        val apps = SecureStore.getFrozenApps(this)
+        val apps = SecureStore.getFrozenApps(this).toList()
         if (apps.isEmpty()) {
             Log.d(TAG, "No apps configured, opening AppPicker")
             val intent = Intent(this, AppPickerActivity::class.java)
@@ -46,25 +40,24 @@ class HailTileService : TileService() {
             return
         }
 
-        val currentlyFrozen = DhizukuManager.isCurrentlyFrozen(this)
-        Log.d(TAG, "Currently frozen: $currentlyFrozen, apps: ${apps.size}")
+        val currentlyFrozen = apps.all { ShizukuManager.isAppHidden(it) }
+        Log.d(TAG, "Currently frozen: $currentlyFrozen")
 
         Thread {
-            val success = if (currentlyFrozen) {
-                DhizukuManager.unfreezeAll(this)
-            } else {
-                DhizukuManager.freezeAll(this)
+            for (pkg in apps) {
+                if (currentlyFrozen) {
+                    ShizukuManager.unhideApp(pkg)
+                } else {
+                    ShizukuManager.hideApp(pkg)
+                }
             }
-            Log.d(TAG, "Action completed, success=$success")
-            handler.post {
-                try { updateTileState() } catch (_: Throwable) {}
-            }
+            handler.post { try { updateTileState() } catch (_: Throwable) {} }
         }.start()
     }
 
     private fun updateTileState() {
         val tile = qsTile ?: return
-        val apps = SecureStore.getFrozenApps(this)
+        val apps = SecureStore.getFrozenApps(this).toList()
 
         if (apps.isEmpty()) {
             tile.label = "Freeze"
@@ -74,7 +67,7 @@ class HailTileService : TileService() {
             return
         }
 
-        val frozen = DhizukuManager.isCurrentlyFrozen(this)
+        val frozen = apps.all { ShizukuManager.isAppHidden(it) }
         tile.state = if (frozen) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
         tile.label = "Freeze"
         tile.subtitle = if (frozen) "Frozen (${apps.size})" else "Active (${apps.size})"
