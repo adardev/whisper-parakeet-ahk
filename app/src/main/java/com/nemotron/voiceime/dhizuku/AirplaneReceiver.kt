@@ -14,11 +14,8 @@ class AirplaneReceiver : BroadcastReceiver() {
 
         Thread {
             try {
-                // Use the same immediate Dhizuku command path as the manual
-                // airplane action, rather than keeping a second implementation
-                // in this receiver.
-                val success = DhizukuManager.setAirplaneModeImmediate(ctx, enable)
-                Log.d(TAG, "immediate airplane result=$success enable=$enable")
+                val success = SystemAirplaneModeAction.set(ctx, enable)
+                Log.d(TAG, "Airplane action result=$success enable=$enable")
             } catch (t: Throwable) {
                 Log.e(TAG, "immediate airplane request failed", t)
             } finally {

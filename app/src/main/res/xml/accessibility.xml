@@ -4,5 +4,6 @@
     android:accessibilityFeedbackType="feedbackGeneric"
     android:accessibilityFlags="flagDefault|flagReportViewIds|flagRetrieveInteractiveWindows"
     android:canRetrieveWindowContent="true"
+    android:canPerformGestures="true"
     android:description="@string/a11y_label"
     android:notificationTimeout="100" />

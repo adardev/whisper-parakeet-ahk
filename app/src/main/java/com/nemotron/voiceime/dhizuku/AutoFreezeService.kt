@@ -4,6 +4,7 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
+import android.app.KeyguardManager
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -88,19 +89,15 @@ class AutoFreezeService : Service() {
                         Log.d(TAG, "SCREEN_OFF → freeze now")
 
                         if (airplane) {
-                            // Always request the immediate airplane action on
-                            // screen-off. The global flag may say ON even when
-                            // the previous radio transition was incomplete.
-                            val wasAlreadyEnabled = DhizukuManager.isAirplaneModeOn(ctx)
-                            if (!wasAlreadyEnabled) {
-                                airplaneWasEnabledByUs = true
-                            }
+                            // Airplane Lock owns the temporary state: enable
+                            // it on screen-off and restore it on user-present.
+                            airplaneWasEnabledByUs = true
                             val airplaneIntent = Intent(ctx, AirplaneReceiver::class.java).apply {
                                 action = ACTION_AIRPLANE
                                 putExtra(EXTRA_ENABLE, true)
                             }
                             ctx.sendBroadcast(airplaneIntent)
-                            Log.d(TAG, "airplane immediate ON requested; wasAlreadyEnabled=$wasAlreadyEnabled")
+                            Log.d(TAG, "airplane immediate ON requested")
                         }
 
                         val r = Runnable {
@@ -123,13 +120,18 @@ class AutoFreezeService : Service() {
                         cancelPendingFreeze()
 
                         if (airplaneWasEnabledByUs) {
+                            val keyguard = getSystemService(KeyguardManager::class.java)
+                            if (keyguard?.isKeyguardLocked == true) {
+                                Log.d(TAG, "USER_PRESENT while keyguard is still locked → keep airplane ON")
+                                return
+                            }
                             airplaneWasEnabledByUs = false
-                            val intent = Intent(ctx, AirplaneReceiver::class.java).apply {
+                            val airplaneIntent = Intent(ctx, AirplaneReceiver::class.java).apply {
                                 action = ACTION_AIRPLANE
                                 putExtra(EXTRA_ENABLE, false)
                             }
-                            ctx.sendBroadcast(intent)
-                            Log.d(TAG, "airplane OFF requested")
+                            ctx.sendBroadcast(airplaneIntent)
+                            Log.d(TAG, "USER_PRESENT → airplane OFF requested")
                         }
 
                         val apps = SecureStore.getAutoFreezeApps(ctx)
