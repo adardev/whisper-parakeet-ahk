@@ -88,17 +88,19 @@ class AutoFreezeService : Service() {
                         Log.d(TAG, "SCREEN_OFF → freeze now")
 
                         if (airplane) {
-                            // Do not turn it off on unlock if the user had
-                            // already enabled airplane mode before locking.
-                            if (!DhizukuManager.isAirplaneModeOn(ctx)) {
+                            // Always request the immediate airplane action on
+                            // screen-off. The global flag may say ON even when
+                            // the previous radio transition was incomplete.
+                            val wasAlreadyEnabled = DhizukuManager.isAirplaneModeOn(ctx)
+                            if (!wasAlreadyEnabled) {
                                 airplaneWasEnabledByUs = true
-                                val intent = Intent(ctx, AirplaneReceiver::class.java).apply {
-                                    action = ACTION_AIRPLANE
-                                    putExtra(EXTRA_ENABLE, true)
-                                }
-                                ctx.sendBroadcast(intent)
-                                Log.d(TAG, "airplane ON requested")
                             }
+                            val airplaneIntent = Intent(ctx, AirplaneReceiver::class.java).apply {
+                                action = ACTION_AIRPLANE
+                                putExtra(EXTRA_ENABLE, true)
+                            }
+                            ctx.sendBroadcast(airplaneIntent)
+                            Log.d(TAG, "airplane immediate ON requested; wasAlreadyEnabled=$wasAlreadyEnabled")
                         }
 
                         val r = Runnable {

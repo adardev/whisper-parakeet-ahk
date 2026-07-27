@@ -4,7 +4,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.util.Log
-import com.rosan.dhizuku.api.Dhizuku
 
 class AirplaneReceiver : BroadcastReceiver() {
 
@@ -15,23 +14,13 @@ class AirplaneReceiver : BroadcastReceiver() {
 
         Thread {
             try {
-                Dhizuku.init(ctx)
-                Thread.sleep(300)
-                val argument = if (enable) "enable" else "disable"
-                val process = Dhizuku.newProcess(
-                    arrayOf(
-                        "/system/bin/sh", "-c",
-                        "/system/bin/cmd connectivity airplane-mode $argument"
-                    ),
-                    arrayOf("PATH=/system/bin:/system/xbin:/vendor/bin"),
-                    java.io.File("/")
-                )
-                val exit = process.waitFor()
-                val out = process.inputStream.bufferedReader().use { it.readText() }.trim()
-                val err = process.errorStream.bufferedReader().use { it.readText() }.trim()
-                Log.d(TAG, "cmd exit=$exit out='$out' err='$err'")
+                // Use the same immediate Dhizuku command path as the manual
+                // airplane action, rather than keeping a second implementation
+                // in this receiver.
+                val success = DhizukuManager.setAirplaneModeImmediate(ctx, enable)
+                Log.d(TAG, "immediate airplane result=$success enable=$enable")
             } catch (t: Throwable) {
-                Log.e(TAG, "cmd failed", t)
+                Log.e(TAG, "immediate airplane request failed", t)
             } finally {
                 pendingResult.finish()
             }
