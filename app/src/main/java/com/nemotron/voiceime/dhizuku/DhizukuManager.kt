@@ -5,6 +5,7 @@ import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.UserHandle
+import android.provider.Settings
 import android.util.Log
 import com.rosan.dhizuku.api.Dhizuku
 import com.rosan.dhizuku.api.DhizukuRequestPermissionListener
@@ -153,5 +154,105 @@ object DhizukuManager {
         val apps = SecureStore.getFrozenApps(context)
         if (apps.isEmpty()) return false
         return apps.all { isCurrentlyFrozen(context, it) }
+    }
+
+    fun setGlobalSetting(context: Context, setting: String, value: String): Boolean {
+        val dpm = getDpm(context) ?: return false
+        return try {
+            val method = dpm.javaClass.getMethod(
+                "setGlobalSetting",
+                ComponentName::class.java,
+                String::class.java,
+                String::class.java
+            )
+            val admin = try {
+                val m = dpm.javaClass.getMethod("getDeviceOwnerComponent")
+                m.invoke(dpm) as? ComponentName
+            } catch (_: Throwable) {
+                ComponentName("com.rosan.dhizuku", "com.rosan.dhizuku.server.DhizukuDAReceiver")
+            }
+            val result = method.invoke(dpm, admin, setting, value)
+            Log.d(TAG, "setGlobalSetting($setting, $value) = $result")
+            true
+        } catch (t: Throwable) {
+            Log.e(TAG, "setGlobalSetting($setting, $value) failed: ${t.message}", t)
+            false
+        }
+    }
+
+    /** Uses the ConnectivityService command that was confirmed working on this device. */
+    fun setAirplaneMode(context: Context, enabled: Boolean): Boolean {
+        return try {
+            Dhizuku.init(context)
+            if (!Dhizuku.isPermissionGranted()) {
+                Log.w(TAG, "Cannot change airplane mode: Dhizuku permission is not granted")
+                return false
+            }
+
+            val argument = if (enabled) "enable" else "disable"
+            val process = Dhizuku.newProcess(
+                arrayOf("/system/bin/cmd", "connectivity", "airplane-mode", argument),
+                null,
+                java.io.File("/")
+            )
+            val exitCode = process.waitFor()
+            val output = process.inputStream.bufferedReader().use { it.readText() }.trim()
+            val error = process.errorStream.bufferedReader().use { it.readText() }.trim()
+            Log.d(TAG, "airplane-mode $argument: exit=$exitCode out='$output' err='$error'")
+
+            if (exitCode != 0) return false
+
+            // ConnectivityService updates the global setting asynchronously.
+            repeat(10) {
+                if (isAirplaneModeOn(context) == enabled) return true
+                Thread.sleep(100)
+            }
+            Log.w(TAG, "ConnectivityService returned success but state is not updated")
+            false
+        } catch (t: Throwable) {
+            Log.e(TAG, "Could not change airplane mode", t)
+            false
+        }
+    }
+
+    /** Immediate toggle used by the diagnostic QS tile. */
+    fun setAirplaneModeImmediate(context: Context, enabled: Boolean): Boolean {
+        return try {
+            Dhizuku.init(context)
+            Thread.sleep(300)
+            if (!Dhizuku.isPermissionGranted()) {
+                Log.w(TAG, "Cannot change airplane mode: Dhizuku permission is not granted")
+                return false
+            }
+
+            val argument = if (enabled) "enable" else "disable"
+            val process = Dhizuku.newProcess(
+                arrayOf(
+                    "/system/bin/sh", "-c",
+                    "/system/bin/cmd connectivity airplane-mode $argument"
+                ),
+                arrayOf("PATH=/system/bin:/system/xbin:/vendor/bin"),
+                java.io.File("/")
+            )
+            val exitCode = process.waitFor()
+            val output = process.inputStream.bufferedReader().use { it.readText() }.trim()
+            val error = process.errorStream.bufferedReader().use { it.readText() }.trim()
+            Log.d(TAG, "immediate airplane-mode $argument: exit=$exitCode out='$output' err='$error'")
+            exitCode == 0
+        } catch (t: Throwable) {
+            Log.e(TAG, "Could not immediately change airplane mode", t)
+            false
+        }
+    }
+
+    fun isAirplaneModeOn(context: Context): Boolean = try {
+        Settings.Global.getInt(
+            context.contentResolver,
+            Settings.Global.AIRPLANE_MODE_ON,
+            0
+        ) == 1
+    } catch (t: Throwable) {
+        Log.w(TAG, "Could not read airplane mode", t)
+        false
     }
 }

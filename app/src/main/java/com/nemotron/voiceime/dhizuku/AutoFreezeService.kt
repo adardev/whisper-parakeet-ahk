@@ -20,6 +20,7 @@ class AutoFreezeService : Service() {
     private var receiver: BroadcastReceiver? = null
     private val handler = Handler(Looper.getMainLooper())
     private var pendingFreeze: Runnable? = null
+    private var airplaneWasEnabledByUs = false
 
     override fun onCreate() {
         super.onCreate()
@@ -37,6 +38,11 @@ class AutoFreezeService : Service() {
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        try { startForeground(NOTIF_ID, buildNotification()) } catch (_: Throwable) {}
+        return START_STICKY
+    }
 
     private fun createChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -76,20 +82,36 @@ class AutoFreezeService : Service() {
                 when (intent.action) {
                     Intent.ACTION_SCREEN_OFF -> {
                         val apps = SecureStore.getAutoFreezeApps(ctx)
-                        if (apps.isEmpty()) return
+                        val airplane = SecureStore.isAutoAirplane(ctx)
+                        if (apps.isEmpty() && !airplane) return
                         cancelPendingFreeze()
                         Log.d(TAG, "SCREEN_OFF → freeze now")
+
+                        if (airplane) {
+                            // Do not turn it off on unlock if the user had
+                            // already enabled airplane mode before locking.
+                            if (!DhizukuManager.isAirplaneModeOn(ctx)) {
+                                airplaneWasEnabledByUs = true
+                                val intent = Intent(ctx, AirplaneReceiver::class.java).apply {
+                                    action = ACTION_AIRPLANE
+                                    putExtra(EXTRA_ENABLE, true)
+                                }
+                                ctx.sendBroadcast(intent)
+                                Log.d(TAG, "airplane ON requested")
+                            }
+                        }
+
                         val r = Runnable {
                             pendingFreeze = null
                             val currentApps = SecureStore.getAutoFreezeApps(ctx)
                             if (currentApps.isEmpty()) return@Runnable
-                            Log.d(TAG, "freezing ${currentApps.size} apps")
+
                             Thread {
                                 for (pkg in currentApps) {
                                     try { DhizukuManager.hideAppRaw(ctx, pkg) }
                                     catch (t: Throwable) { Log.e(TAG, "freeze $pkg failed", t) }
                                 }
-                                Log.d(TAG, "auto-freeze done")
+                                Log.d(TAG, "frozen ${currentApps.size} apps")
                             }.start()
                         }
                         pendingFreeze = r
@@ -97,6 +119,17 @@ class AutoFreezeService : Service() {
                     }
                     Intent.ACTION_USER_PRESENT -> {
                         cancelPendingFreeze()
+
+                        if (airplaneWasEnabledByUs) {
+                            airplaneWasEnabledByUs = false
+                            val intent = Intent(ctx, AirplaneReceiver::class.java).apply {
+                                action = ACTION_AIRPLANE
+                                putExtra(EXTRA_ENABLE, false)
+                            }
+                            ctx.sendBroadcast(intent)
+                            Log.d(TAG, "airplane OFF requested")
+                        }
+
                         val apps = SecureStore.getAutoFreezeApps(ctx)
                         if (apps.isEmpty()) return
                         val tileFrozen = DhizukuManager.isCurrentlyFrozen(ctx)
@@ -137,6 +170,8 @@ class AutoFreezeService : Service() {
         private const val CHANNEL_ID = "auto_freeze"
         private const val NOTIF_ID = 7777
         private const val DELAY_MS = 30_000L
+        const val ACTION_AIRPLANE = "com.nemotron.voiceime.AIRPLANE_TOGGLE"
+        const val EXTRA_ENABLE = "enable"
 
         fun start(context: Context) {
             context.startForegroundService(Intent(context, AutoFreezeService::class.java))

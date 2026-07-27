@@ -91,7 +91,8 @@ class AppPickerActivity : AppCompatActivity() {
 
             val autoFreeze = switchAutoFreeze.isChecked
             SecureStore.setAutoFreeze(this, autoFreeze)
-            if (autoFreeze) AutoFreezeService.start(this) else AutoFreezeService.stop(this)
+            val airplane = SecureStore.isAutoAirplane(this)
+            if (autoFreeze || airplane) AutoFreezeService.start(this) else AutoFreezeService.stop(this)
 
             Thread {
                 val apps = SecureStore.getFrozenApps(this)

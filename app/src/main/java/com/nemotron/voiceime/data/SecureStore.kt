@@ -18,6 +18,7 @@ object SecureStore {
     private const val KEY_FROZEN_APPS = "frozen_apps"
     private const val KEY_AUTO_FREEZE = "auto_freeze"
     private const val KEY_AUTO_FREEZE_APPS = "auto_freeze_apps"
+    private const val KEY_AUTO_AIRPLANE = "auto_airplane"
 
     private const val DEFAULT_MODEL = "nvidia/nemotron-3-nano-30b-a3b"
     private const val DEFAULT_LOCALE = "es_ES"
@@ -162,6 +163,15 @@ object SecureStore {
     fun setAutoFreezeApps(ctx: Context, apps: Set<String>) {
         val json = JSONArray(apps.toList()).toString()
         plainPrefs(ctx).edit().putString(KEY_AUTO_FREEZE_APPS, json).apply()
+    }
+
+    // ── Auto airplane toggle ───────────────────────────────────────────
+
+    fun isAutoAirplane(ctx: Context): Boolean =
+        plainPrefs(ctx).getBoolean(KEY_AUTO_AIRPLANE, false)
+
+    fun setAutoAirplane(ctx: Context, enabled: Boolean) {
+        plainPrefs(ctx).edit().putBoolean(KEY_AUTO_AIRPLANE, enabled).apply()
     }
 
     fun getFrozenAppLabels(ctx: Context): List<String> {
