@@ -13,7 +13,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.nemotron.voiceime.R
-import com.nemotron.voiceime.a11y.FocusPasteService
 import com.nemotron.voiceime.data.SecureStore
 import com.nemotron.voiceime.net.NemotronStreamClient
 import com.nemotron.voiceime.databinding.ActivityMainBinding
@@ -48,14 +47,6 @@ class SetupActivity : AppCompatActivity() {
         }
 
         b.btnTest.setOnClickListener { testVoice() }
-
-        b.btnA11y.setOnClickListener {
-            try {
-                startActivity(android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS).apply {
-                    addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                })
-            } catch (_: Throwable) {}
-        }
 
         b.btnSideKey.setOnClickListener {
             val intents = buildList {
@@ -93,43 +84,20 @@ class SetupActivity : AppCompatActivity() {
     private fun refreshStatus() {
         val ok = hasMic()
         val key = SecureStore.getApiKey(this).isNotBlank()
-        val a11y = a11yEnabled()
 
         setStepIcon(b.tvStep1Icon, ok, "Permiso")
         setStepIcon(b.tvStep2Icon, key, "API key")
-        setStepIcon(b.tvA11yIcon, a11y, "Accesibilidad activa")
-        b.tvA11yStatus.text = if (a11y) getString(R.string.a11y_enabled) else getString(R.string.a11y_not_enabled)
-        b.tvA11yStatus.setTextColor(
-            if (a11y) Color.parseColor("#2E7D32") else Color.parseColor("#C62828")
-        )
 
         val global = StringBuilder()
         when {
-            ok && key && a11y -> global.append("✓ TODO LISTO. Pulsa el boton lateral de Samsung para grabar.")
-            ok && key -> global.append("⚠ Activa el servicio de Accesibilidad para pegar en inputs.")
+            ok && key -> global.append("✓ TODO LISTO. Pulsa el boton lateral de Samsung para grabar.")
             else -> global.append("✗ Faltan pasos: permiso micro + API key son obligatorios.")
         }
         b.tvGlobalStatus.text = global.toString()
         b.tvGlobalStatus.setTextColor(
-            if (ok && key && a11y) Color.parseColor("#2E7D32")
-            else if (ok && key) Color.parseColor("#F57C00")
+            if (ok && key) Color.parseColor("#2E7D32")
             else Color.parseColor("#C62828")
         )
-    }
-
-    private fun a11yEnabled(): Boolean {
-        val target = packageName + "/" + FocusPasteService::class.java.name
-        val enabled = android.provider.Settings.Secure.getString(
-            contentResolver,
-            android.provider.Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-        ) ?: return false
-        val splitter = android.text.TextUtils.SimpleStringSplitter(':')
-        splitter.setString(enabled)
-        while (splitter.hasNext()) {
-            val entry = splitter.next()
-            if (entry.equals(target, true)) return true
-        }
-        return false
     }
 
     private fun setStepIcon(tv: TextView, ok: Boolean, doneLabel: String) {

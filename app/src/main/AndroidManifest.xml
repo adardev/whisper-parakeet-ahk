@@ -99,13 +99,6 @@
             android:exported="false"
             android:foregroundServiceType="microphone" />
 
-        <!-- Foreground listener for Airplane Lock (separate process, no whisper) -->
-        <service
-            android:name=".dhizuku.AutoFreezeService"
-            android:exported="false"
-            android:process=":autofreeze"
-            android:foregroundServiceType="specialUse" />
-
         <!-- Temp receiver para descongelar apps desde adb -->
         <receiver
             android:name=".dhizuku.UnhideReceiver"
@@ -130,20 +123,6 @@
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
-
-        <!-- AccessibilityService para pegar en el campo enfocado -->
-        <service
-            android:name=".a11y.FocusPasteService"
-            android:exported="true"
-            android:label="@string/a11y_label"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
-            <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService" />
-            </intent-filter>
-            <meta-data
-                android:name="android.accessibilityservice"
-                android:resource="@xml/accessibility" />
-        </service>
 
         <!-- ============================================================== -->
         <!--  HailTileService: Quick Settings tile para congelar/descongelar -->

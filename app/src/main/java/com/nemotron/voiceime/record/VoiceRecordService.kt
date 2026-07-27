@@ -21,8 +21,8 @@ import android.speech.SpeechRecognizer
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.nemotron.voiceime.R
-import com.nemotron.voiceime.a11y.FocusPasteService
 import com.nemotron.voiceime.data.SecureStore
+import com.nemotron.voiceime.dhizuku.ShizukuManager
 import com.nemotron.voiceime.net.NemotronStreamClient
 
 class VoiceRecordService : Service() {
@@ -62,10 +62,6 @@ class VoiceRecordService : Service() {
         isRunning = true
         isProcessing = false
         accumulated = StringBuilder()
-
-        if (!FocusPasteService.isRunning()) {
-            FocusPasteService.enableSelf(this)
-        }
 
         stopSR()
 
@@ -115,6 +111,12 @@ class VoiceRecordService : Service() {
 
         override fun onError(errorCode: Int) {
             Log.w(TAG, "SpeechRecognizer error=$errorCode")
+            if (errorCode == SpeechRecognizer.ERROR_NO_MATCH ||
+                errorCode == SpeechRecognizer.ERROR_SPEECH_TIMEOUT) {
+                if (!isRunning) return
+                restartListening()
+                return
+            }
             stopSR()
             toast("Error de reconocimiento: $errorCode")
             cleanup()
@@ -174,7 +176,12 @@ class VoiceRecordService : Service() {
             cleanup()
             return
         }
-        FocusPasteService.paste(this, finalText)
+        val pasted = ShizukuManager.pasteText(this, finalText)
+        if (pasted) {
+            toast("Pegado")
+        } else {
+            toast("No se pudo pegar")
+        }
         cleanup()
     }
 
@@ -184,7 +191,6 @@ class VoiceRecordService : Service() {
         stopSR()
         client?.cancel()
         restoreStreams()
-        FocusPasteService.disableSelf(this)
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
@@ -192,6 +198,27 @@ class VoiceRecordService : Service() {
     private fun stopSR() {
         try { sr?.destroy() } catch (_: Throwable) {}
         sr = null
+    }
+
+    private fun restartListening() {
+        try { sr?.destroy() } catch (_: Throwable) {}
+        sr = null
+        if (!isRunning) return
+        sr = SpeechRecognizer.createSpeechRecognizer(this).also {
+            it.setRecognitionListener(listener)
+        }
+        val i = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            val loc = SecureStore.getLocale(this@VoiceRecordService)
+            try {
+                val parts = loc.split("_")
+                val l = java.util.Locale(parts.getOrNull(0) ?: "es", parts.getOrNull(1) ?: "")
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, l.toLanguageTag())
+            } catch (_: Throwable) {}
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+        }
+        sr?.startListening(i)
+        Log.d(TAG, "restarted listening")
     }
 
     private fun ensureChannel() {

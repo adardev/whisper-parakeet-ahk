@@ -69,8 +69,6 @@ class AppPickerActivity : AppCompatActivity() {
             }
             SecureStore.setFrozenApps(this, selectedPackages)
 
-            if (SecureStore.isAutoAirplane(this)) AutoFreezeService.start(this) else AutoFreezeService.stop(this)
-
             Thread {
                 val apps = SecureStore.getFrozenApps(this)
                 val frozenNow = DhizukuManager.isCurrentlyFrozen(this)

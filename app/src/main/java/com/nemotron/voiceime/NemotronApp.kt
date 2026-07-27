@@ -1,6 +1,10 @@
 package com.nemotron.voiceime
 
 import android.app.Application
+import android.util.Log
+import com.nemotron.voiceime.nfc.NfcAutoManager
+import com.nemotron.voiceime.nfc.ShizukuScreenMonitor
+import rikka.shizuku.Shizuku
 import rikka.shizuku.ShizukuProvider
 
 class NemotronApp : Application() {
@@ -8,6 +12,22 @@ class NemotronApp : Application() {
         super.onCreate()
         ShizukuProvider.enableMultiProcessSupport(true)
         instance = this
+
+        Shizuku.addBinderReceivedListener(binderListener)
+        Shizuku.addBinderDeadListener(binderDeadListener)
+    }
+
+    private val binderListener = Shizuku.OnBinderReceivedListener {
+        Log.d("NemotronApp", "Shizuku binder received")
+        if (Shizuku.checkSelfPermission() == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            NfcAutoManager.start()
+            ShizukuScreenMonitor.start()
+        }
+    }
+
+    private val binderDeadListener = Shizuku.OnBinderDeadListener {
+        Log.d("NemotronApp", "Shizuku binder dead, stopping NFC monitor")
+        NfcAutoManager.stop()
     }
 
     companion object {

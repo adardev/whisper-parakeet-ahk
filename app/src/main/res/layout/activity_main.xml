@@ -116,41 +116,6 @@
             android:background="#22000000"
             android:layout_marginTop="20dp" />
 
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginTop="16dp"
-            android:gravity="center_vertical">
-            <TextView
-                android:id="@+id/tvA11yIcon"
-                android:layout_width="28dp"
-                android:layout_height="28dp"
-                android:gravity="center"
-                android:text="?"
-                android:textSize="18sp"
-                android:background="#33000000" />
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="8dp"
-                android:text="3. Activa Accesibilidad (permite pegar en el input enfocado)"
-                android:textSize="14sp" />
-        </LinearLayout>
-        <Button
-            android:id="@+id/btnA11y"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/btn_a11y"
-            android:layout_marginTop="4dp" />
-        <TextView
-            android:id="@+id/tvA11yStatus"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:textSize="12sp" />
-
         <!-- Side Key Section -->
         <View
             android:layout_width="match_parent"
