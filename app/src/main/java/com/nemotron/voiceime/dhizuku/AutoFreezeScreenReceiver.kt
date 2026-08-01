@@ -72,10 +72,12 @@ class AutoFreezeScreenReceiver : BroadcastReceiver() {
         Thread {
             val apps = SecureStore.getAutoFreezeApps(ctx).toList()
             if (apps.isEmpty()) return@Thread
-            val remaining = tryUnfreeze(apps)
+            val stopApps = SecureStore.getStopOnUnlockApps(ctx).toSet()
+            val toUnfreeze = apps.filterNot { it in stopApps }
+            val remaining = tryUnfreeze(toUnfreeze)
             handler.post {
                 if (remaining.isEmpty()) {
-                    Log.d(TAG, "All auto-freeze apps are active, scheduling stop in ${STOP_DELAY_MS / 1000}s")
+                    Log.d(TAG, "Active apps unfrozen, stop-on-unlock stay hidden: $stopApps")
                     handler.postDelayed({ doStopOnUnlock(ctx) }, STOP_DELAY_MS)
                     return@post
                 }
