@@ -242,6 +242,64 @@
             android:layout_marginTop="2dp"
             android:textSize="12sp"
             android:textColor="@color/text_dim" />
+        <Button
+            android:id="@+id/btnAutoFreezeDozeExempt"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Apps excluidas de doze profundo"
+            android:layout_marginTop="4dp" />
+
+        <!-- Shizuku Section -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#22000000"
+            android:layout_marginTop="20dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="16dp"
+            android:gravity="center_vertical">
+            <TextView
+                android:id="@+id/tvShizukuIcon"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:gravity="center"
+                android:text="?"
+                android:textSize="18sp"
+                android:background="#33000000" />
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="8dp"
+                android:text="Shizuku (permisos de shell)"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Necesario para congelar apps y forzar doze profundo."
+            android:layout_marginTop="4dp"
+            android:textSize="13sp"
+            android:lineSpacingExtra="4dp"
+            android:textColor="@color/text_dim" />
+        <TextView
+            android:id="@+id/tvShizukuStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textSize="13sp"
+            android:textColor="@color/text_dim" />
+        <Button
+            android:id="@+id/btnShizukuPermission"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Solicitar permiso Shizuku"
+            android:layout_marginTop="8dp" />
 
         <View
             android:layout_width="match_parent"

@@ -6,6 +6,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Bundle
+import android.widget.Toast
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
@@ -16,7 +17,9 @@ import androidx.core.content.ContextCompat
 import com.nemotron.voiceime.R
 import com.nemotron.voiceime.data.SecureStore
 import com.nemotron.voiceime.dhizuku.AppPickerActivity
+import com.nemotron.voiceime.dhizuku.ShizukuManager
 import com.nemotron.voiceime.net.NemotronStreamClient
+import rikka.shizuku.Shizuku
 import com.nemotron.voiceime.databinding.ActivityMainBinding
 
 class SetupActivity : AppCompatActivity() {
@@ -43,6 +46,51 @@ class SetupActivity : AppCompatActivity() {
 
         setUpButtons()
         setUpAutoFreeze()
+        setUpShizuku()
+    }
+
+    private fun setUpShizuku() {
+        refreshShizukuStatus()
+
+        b.btnShizukuPermission.setOnClickListener {
+            if (!ShizukuManager.isAvailable()) {
+                Toast.makeText(this, "Shizuku no disponible: abre la app Shizuku y arranca el servidor", Toast.LENGTH_LONG).show()
+                return@setOnClickListener
+            }
+            // Forzar diálogo siempre para que aparezca en lista de Authorized apps
+            val listener = Shizuku.OnRequestPermissionResultListener { _, grantResult ->
+                runOnUiThread {
+                    val granted = grantResult == PackageManager.PERMISSION_GRANTED
+                    Toast.makeText(
+                        this,
+                        if (granted) "Shizuku autorizado ✓ (ahora debería aparecer en la lista)" else "Shizuku denegado: freeze/doze no funcionarán",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    refreshShizukuStatus()
+                }
+            }
+            Shizuku.addRequestPermissionResultListener(listener)
+            ShizukuManager.requestPermission()
+        }
+    }
+
+    private fun refreshShizukuStatus() {
+        val available = ShizukuManager.isAvailable()
+        val granted = ShizukuManager.hasPermission()
+        val icon = if (granted) "✓" else if (available) "○" else "✗"
+        val text = when {
+            !available -> "Shizuku no corriendo: abre Shizuku y pulsa \"Start\""
+            !granted -> "Shizuku corriendo, sin permiso: pulsa \"Solicitar permiso\""
+            else -> "Shizuku autorizado ✓"
+        }
+        b.tvShizukuIcon.text = icon
+        b.tvShizukuIcon.setBackgroundColor(
+            ContextCompat.getColor(this, if (granted) R.color.status_ok else if (available) R.color.status_bad else R.color.status_bad)
+        )
+        b.tvShizukuIcon.setTextColor(Color.WHITE)
+        b.tvShizukuStatus.text = text
+        b.btnShizukuPermission.text = if (!granted) "Solicitar permiso Shizuku" else "Re-solicitar permiso Shizuku"
+        b.btnShizukuPermission.isEnabled = available
     }
 
     private fun setUpButtons() {
@@ -92,6 +140,7 @@ class SetupActivity : AppCompatActivity() {
         refreshAutoFreezeStatus()
 
         b.switchAutoFreeze.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) ShizukuManager.requestPermission()
             SecureStore.setAutoFreezeEnabled(this, isChecked)
             updateAutoFreezeIcon(isChecked)
             refreshAutoFreezeStatus()
@@ -112,7 +161,15 @@ class SetupActivity : AppCompatActivity() {
 
         b.switchAutoFreezeDoze.isChecked = SecureStore.isAutoFreezeDozeEnabled(this)
         b.switchAutoFreezeDoze.setOnCheckedChangeListener { _, isChecked ->
+            if (isChecked) ShizukuManager.requestPermission()
             SecureStore.setAutoFreezeDozeEnabled(this, isChecked)
+        }
+
+        b.btnAutoFreezeDozeExempt.setOnClickListener {
+            val intent = Intent(this, AppPickerActivity::class.java).apply {
+                putExtra(AppPickerActivity.EXTRA_MODE, AppPickerActivity.MODE_DOZE_EXEMPT)
+            }
+            autoFreezePickerLauncher.launch(intent)
         }
     }
 
@@ -139,6 +196,7 @@ class SetupActivity : AppCompatActivity() {
         super.onResume()
         refreshStatus()
         refreshAutoFreezeStatus()
+        refreshShizukuStatus()
     }
 
     private fun refreshStatus() {

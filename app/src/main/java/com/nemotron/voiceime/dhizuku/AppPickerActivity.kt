@@ -19,6 +19,7 @@ class AppPickerActivity : AppCompatActivity() {
         const val MODE_FREEZE = "freeze"
         const val MODE_AUTO_FREEZE = "auto_freeze"
         const val MODE_STOP_ON_UNLOCK = "stop_on_unlock"
+        const val MODE_DOZE_EXEMPT = "doze_exempt"
     }
 
     private lateinit var listView: ListView
@@ -43,6 +44,7 @@ class AppPickerActivity : AppCompatActivity() {
         title.text = when (mode) {
             MODE_AUTO_FREEZE -> "Seleccionar apps"
             MODE_STOP_ON_UNLOCK -> "Stop on unlock"
+            MODE_DOZE_EXEMPT -> "Excluidas de doze"
             else -> "Select apps to freeze"
         }
 
@@ -52,6 +54,8 @@ class AppPickerActivity : AppCompatActivity() {
                 "Marca una app para congelarla al apagar la pantalla. En las marcadas aparece 'detener' (naranja): cerrarla al desbloquear (force-stop)."
             MODE_STOP_ON_UNLOCK ->
                 "Apps que se detendran al desbloquear (force-stop, no se congelan)."
+            MODE_DOZE_EXEMPT ->
+                "Apps excluidas del doze profundo: pueden sonar alarmas y trabajar con pantalla apagada (whitelist de doze)."
             else ->
                 "Selecciona apps para congelar/descongelar manualmente."
         }
@@ -60,6 +64,7 @@ class AppPickerActivity : AppCompatActivity() {
         val currentApps = when (mode) {
             MODE_AUTO_FREEZE -> SecureStore.getAutoFreezeApps(this)
             MODE_STOP_ON_UNLOCK -> SecureStore.getStopOnUnlockApps(this)
+            MODE_DOZE_EXEMPT -> SecureStore.getDozeExemptApps(this)
             else -> SecureStore.getFrozenApps(this)
         }
         selectedPackages.addAll(currentApps)
@@ -112,6 +117,8 @@ class AppPickerActivity : AppCompatActivity() {
                 SecureStore.setStopOnUnlockApps(this, stopPackages)
             } else if (mode == MODE_STOP_ON_UNLOCK) {
                 SecureStore.setStopOnUnlockApps(this, selectedPackages)
+            } else if (mode == MODE_DOZE_EXEMPT) {
+                SecureStore.setDozeExemptApps(this, selectedPackages)
             } else {
                 SecureStore.setFrozenApps(this, selectedPackages)
                 Thread {
