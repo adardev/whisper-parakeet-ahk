@@ -119,8 +119,6 @@ class AutoFreezeScreenReceiver : BroadcastReceiver() {
                     val ok = stopApps.all { ShizukuManager.stopApp(it) }
                     if (ok) {
                         Log.d(TAG, "Stopped on unlock: $stopApps")
-                        ShizukuManager.restartLauncher()
-                        Log.d(TAG, "Launcher refreshed after stop-on-unlock")
                         return@Thread
                     }
                     Log.w(TAG, "Stop on unlock attempt $attempt/$STOP_RETRIES returned failure")

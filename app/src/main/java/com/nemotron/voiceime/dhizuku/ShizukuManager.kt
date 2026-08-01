@@ -219,10 +219,4 @@ object ShizukuManager {
         return true
     }
 
-    /** Reinicia el launcher para que recargue los iconos tras un ciclo de freeze. */
-    fun restartLauncher(): Boolean {
-        if (!hasPermission()) return false
-        return execShell("am force-stop com.sec.android.app.launcher")
-    }
-
 }
