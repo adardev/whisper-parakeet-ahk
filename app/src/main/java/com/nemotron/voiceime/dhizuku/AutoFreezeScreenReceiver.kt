@@ -151,7 +151,7 @@ class AutoFreezeScreenReceiver : BroadcastReceiver() {
     companion object {
         private const val TAG = "AutoFreezeScreen"
         private const val FREEZE_DELAY_MS = 30_000L
-        private const val STOP_DELAY_MS = 8_000L
+        private const val STOP_DELAY_MS = 3_000L
         private const val STOP_RETRIES = 3
         private const val STOP_RETRY_DELAY_MS = 5_000L
         private const val RETRY_DELAY_MS = 15_000L
