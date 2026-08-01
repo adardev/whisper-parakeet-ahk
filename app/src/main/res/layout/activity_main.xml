@@ -200,6 +200,24 @@
             android:textSize="13sp"
             android:textColor="@color/text_dim" />
 
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="8dp"
+            android:gravity="center_vertical">
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Modo prueba (congelar al instante)"
+                android:textSize="14sp" />
+            <Switch
+                android:id="@+id/switchAutoFreezeInstant"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"

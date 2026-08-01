@@ -177,4 +177,21 @@ object ShizukuManager {
         return out.contains(packageName)
     }
 
+    /** Returns which of [packages] are still in disabled state (freeze persists). */
+    fun stillDisabled(packages: Collection<String>): Set<String> {
+        if (packages.isEmpty()) return emptySet()
+        if (!hasPermission()) return packages.toSet()
+        val out = execShellCapture("pm list packages -d") ?: return packages.toSet()
+        val disabled = out.lineSequence()
+            .map { it.trim() }
+            .filter { it.startsWith("package:") }
+            .mapTo(mutableSetOf()) { it.removePrefix("package:") }
+        return packages.filterTo(mutableSetOf()) { it in disabled }
+    }
+
+    fun stopApp(packageName: String): Boolean {
+        if (!hasPermission()) return false
+        return execShell("am force-stop $packageName")
+    }
+
 }

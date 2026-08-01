@@ -35,4 +35,8 @@ object AutoFreezeScheduler {
         receiver = null
         Log.d(TAG, "Auto-freeze receiver unregistered")
     }
+
+    fun recover(ctx: Context) {
+        receiver?.recover(ctx)
+    }
 }

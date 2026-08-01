@@ -37,6 +37,17 @@
             android:paddingStart="12dp" />
     </LinearLayout>
 
+    <!-- Hint -->
+    <TextView
+        android:id="@+id/tvHint"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textColor="#B0FFFFFF"
+        android:textSize="13sp"
+        android:lineSpacingExtra="2dp"
+        android:paddingBottom="8dp"
+        android:visibility="gone" />
+
     <!-- App list -->
     <ListView
         android:id="@+id/appListView"

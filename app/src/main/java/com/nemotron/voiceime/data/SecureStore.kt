@@ -18,6 +18,8 @@ object SecureStore {
     private const val KEY_FROZEN_APPS = "frozen_apps"
     private const val KEY_AUTO_FREEZE_APPS = "auto_freeze_apps"
     private const val KEY_AUTO_FREEZE_ENABLED = "auto_freeze_enabled"
+    private const val KEY_AUTO_FREEZE_TEST = "auto_freeze_test"
+    private const val KEY_STOP_ON_UNLOCK = "stop_on_unlock_apps"
 
     private const val DEFAULT_MODEL = "nvidia/nemotron-3-nano-30b-a3b"
     private const val DEFAULT_LOCALE = "es_ES"
@@ -172,6 +174,29 @@ object SecureStore {
 
     fun setAutoFreezeEnabled(ctx: Context, enabled: Boolean) {
         plainPrefs(ctx).edit().putBoolean(KEY_AUTO_FREEZE_ENABLED, enabled).apply()
+    }
+
+    /** Modo prueba: congelar al instante en lugar de esperar FREEZE_DELAY. */
+    fun isAutoFreezeTestMode(ctx: Context): Boolean =
+        plainPrefs(ctx).getBoolean(KEY_AUTO_FREEZE_TEST, false)
+
+    fun setAutoFreezeTestMode(ctx: Context, enabled: Boolean) {
+        plainPrefs(ctx).edit().putBoolean(KEY_AUTO_FREEZE_TEST, enabled).apply()
+    }
+
+    fun getStopOnUnlockApps(ctx: Context): Set<String> {
+        val json = plainPrefs(ctx).getString(KEY_STOP_ON_UNLOCK, null) ?: return emptySet()
+        return try {
+            val arr = JSONArray(json)
+            (0 until arr.length()).mapTo(mutableSetOf()) { arr.getString(it) }
+        } catch (_: Throwable) {
+            emptySet()
+        }
+    }
+
+    fun setStopOnUnlockApps(ctx: Context, apps: Set<String>) {
+        val json = JSONArray(apps.toList()).toString()
+        plainPrefs(ctx).edit().putString(KEY_STOP_ON_UNLOCK, json).apply()
     }
 
     fun getAutoFreezeAppLabels(ctx: Context): List<String> {

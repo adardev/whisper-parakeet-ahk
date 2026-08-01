@@ -18,6 +18,7 @@ class AppPickerActivity : AppCompatActivity() {
         const val EXTRA_MODE = "mode"
         const val MODE_FREEZE = "freeze"
         const val MODE_AUTO_FREEZE = "auto_freeze"
+        const val MODE_STOP_ON_UNLOCK = "stop_on_unlock"
     }
 
     private lateinit var listView: ListView
@@ -26,6 +27,7 @@ class AppPickerActivity : AppCompatActivity() {
 
     private val appList = mutableListOf<AppItem>()
     private val selectedPackages = mutableSetOf<String>()
+    private val stopPackages = mutableSetOf<String>()
     private var mode = MODE_FREEZE
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -38,11 +40,32 @@ class AppPickerActivity : AppCompatActivity() {
         btnSave = findViewById(R.id.btnSave)
 
         val title = findViewById<TextView>(R.id.tvTitle)
-        title.text = if (mode == MODE_AUTO_FREEZE) "Auto Freeze Apps" else "Select apps to freeze"
+        title.text = when (mode) {
+            MODE_AUTO_FREEZE -> "Seleccionar apps"
+            MODE_STOP_ON_UNLOCK -> "Stop on unlock"
+            else -> "Select apps to freeze"
+        }
 
-        val currentApps = if (mode == MODE_AUTO_FREEZE) SecureStore.getAutoFreezeApps(this)
-                          else SecureStore.getFrozenApps(this)
+        val hint = findViewById<TextView>(R.id.tvHint)
+        hint.text = when (mode) {
+            MODE_AUTO_FREEZE ->
+                "Marca una app para congelarla al apagar la pantalla. En las marcadas aparece 'detener' (naranja): cerrarla al desbloquear (force-stop)."
+            MODE_STOP_ON_UNLOCK ->
+                "Apps que se detendran al desbloquear (force-stop, no se congelan)."
+            else ->
+                "Selecciona apps para congelar/descongelar manualmente."
+        }
+        hint.visibility = View.VISIBLE
+
+        val currentApps = when (mode) {
+            MODE_AUTO_FREEZE -> SecureStore.getAutoFreezeApps(this)
+            MODE_STOP_ON_UNLOCK -> SecureStore.getStopOnUnlockApps(this)
+            else -> SecureStore.getFrozenApps(this)
+        }
         selectedPackages.addAll(currentApps)
+        if (mode == MODE_AUTO_FREEZE) {
+            stopPackages.addAll(SecureStore.getStopOnUnlockApps(this))
+        }
 
         listView.choiceMode = ListView.CHOICE_MODE_MULTIPLE
 
@@ -71,6 +94,7 @@ class AppPickerActivity : AppCompatActivity() {
                         listView.setItemChecked(index, true)
                     }
                 }
+                adapter.notifyDataSetChanged()
             }
         }.start()
 
@@ -85,6 +109,9 @@ class AppPickerActivity : AppCompatActivity() {
 
             if (mode == MODE_AUTO_FREEZE) {
                 SecureStore.setAutoFreezeApps(this, selectedPackages)
+                SecureStore.setStopOnUnlockApps(this, stopPackages)
+            } else if (mode == MODE_STOP_ON_UNLOCK) {
+                SecureStore.setStopOnUnlockApps(this, selectedPackages)
             } else {
                 SecureStore.setFrozenApps(this, selectedPackages)
                 Thread {
@@ -121,13 +148,42 @@ class AppPickerActivity : AppCompatActivity() {
             view.findViewById<ImageView>(R.id.appIcon).setImageDrawable(item.icon)
             view.findViewById<TextView>(R.id.appLabel).text = item.label
             view.findViewById<TextView>(R.id.appPackage).text = item.packageName
-            view.findViewById<CheckBox>(R.id.appCheckBox).isChecked = listView.isItemChecked(position)
 
-            view.setOnClickListener {
-                val cb = view.findViewById<CheckBox>(R.id.appCheckBox)
-                cb.isChecked = !cb.isChecked
-                listView.setItemChecked(position, cb.isChecked)
+            val cb = view.findViewById<CheckBox>(R.id.appCheckBox)
+            val stopCb = view.findViewById<CheckBox>(R.id.appStopCheckBox)
+
+            cb.isChecked = listView.isItemChecked(position)
+
+            if (mode == MODE_AUTO_FREEZE) {
+                stopCb.visibility =
+                    if (listView.isItemChecked(position)) View.VISIBLE else View.GONE
+                stopCb.isChecked = stopPackages.contains(item.packageName)
+                stopCb.setOnClickListener {
+                    if (stopPackages.contains(item.packageName)) {
+                        stopPackages.remove(item.packageName)
+                    } else {
+                        stopPackages.add(item.packageName)
+                    }
+                    notifyDataSetChanged()
+                }
+            } else {
+                stopCb.visibility = View.GONE
             }
+
+            val toggle = View.OnClickListener {
+                val newState = !cb.isChecked
+                cb.isChecked = newState
+                listView.setItemChecked(position, newState)
+                if (mode == MODE_AUTO_FREEZE) {
+                    stopCb.visibility = if (newState) View.VISIBLE else View.GONE
+                    if (!newState) {
+                        stopPackages.remove(item.packageName)
+                    }
+                    notifyDataSetChanged()
+                }
+            }
+            cb.setOnClickListener(toggle)
+            view.setOnClickListener(toggle)
 
             return view
         }

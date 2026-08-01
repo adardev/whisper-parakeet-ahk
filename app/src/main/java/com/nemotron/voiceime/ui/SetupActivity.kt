@@ -29,7 +29,9 @@ class SetupActivity : AppCompatActivity() {
 
     private val autoFreezePickerLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
-    ) { refreshAutoFreezeStatus() }
+    ) {
+        refreshAutoFreezeStatus()
+    }
 
     private val client by lazy { NemotronStreamClient(SecureStore.getApiKey(this)) }
     private var accumulated = StringBuilder()
@@ -102,6 +104,11 @@ class SetupActivity : AppCompatActivity() {
             }
             autoFreezePickerLauncher.launch(intent)
         }
+
+        b.switchAutoFreezeInstant.isChecked = SecureStore.isAutoFreezeTestMode(this)
+        b.switchAutoFreezeInstant.setOnCheckedChangeListener { _, isChecked ->
+            SecureStore.setAutoFreezeTestMode(this, isChecked)
+        }
     }
 
     private fun updateAutoFreezeIcon(enabled: Boolean) {
@@ -115,10 +122,11 @@ class SetupActivity : AppCompatActivity() {
     private fun refreshAutoFreezeStatus() {
         val enabled = SecureStore.isAutoFreezeEnabled(this)
         val apps = SecureStore.getAutoFreezeApps(this)
+        val stopApps = SecureStore.getStopOnUnlockApps(this)
         b.tvAutoFreezeStatus.text = when {
             !enabled -> "Desactivado"
-            apps.isEmpty() -> "Activado, sin apps seleccionadas"
-            else -> "Activado: ${apps.size} apps se congelan al apagar pantalla"
+            apps.isEmpty() && stopApps.isEmpty() -> "Activado, sin apps seleccionadas"
+            else -> "Activado: ${apps.size} congelan al apagar pantalla, ${stopApps.size} se detienen al desbloquear"
         }
     }
 
