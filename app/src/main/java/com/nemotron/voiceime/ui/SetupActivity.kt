@@ -109,6 +109,11 @@ class SetupActivity : AppCompatActivity() {
         b.switchAutoFreezeInstant.setOnCheckedChangeListener { _, isChecked ->
             SecureStore.setAutoFreezeTestMode(this, isChecked)
         }
+
+        b.switchAutoFreezeDoze.isChecked = SecureStore.isAutoFreezeDozeEnabled(this)
+        b.switchAutoFreezeDoze.setOnCheckedChangeListener { _, isChecked ->
+            SecureStore.setAutoFreezeDozeEnabled(this, isChecked)
+        }
     }
 
     private fun updateAutoFreezeIcon(enabled: Boolean) {

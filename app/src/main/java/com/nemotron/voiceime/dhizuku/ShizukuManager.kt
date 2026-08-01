@@ -203,6 +203,22 @@ object ShizukuManager {
         return out?.contains("Added") == true
     }
 
+    /** Fuerza doze profundo de inmediato (con pantalla apagada). */
+    fun forceIdle(): Boolean {
+        if (!hasPermission()) return false
+        val out = execShellCapture("cmd deviceidle force-idle") ?: return false
+        Log.d(TAG, "force-idle → $out")
+        return out.contains("forced")
+    }
+
+    /** Revierte el doze forzado. */
+    fun unforceIdle(): Boolean {
+        if (!hasPermission()) return false
+        val out = execShellCapture("cmd deviceidle unforce") ?: return false
+        Log.d(TAG, "unforce-idle → $out")
+        return true
+    }
+
     /** Reinicia el launcher para que recargue los iconos tras un ciclo de freeze. */
     fun restartLauncher(): Boolean {
         if (!hasPermission()) return false

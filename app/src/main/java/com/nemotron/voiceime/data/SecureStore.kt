@@ -19,6 +19,7 @@ object SecureStore {
     private const val KEY_AUTO_FREEZE_APPS = "auto_freeze_apps"
     private const val KEY_AUTO_FREEZE_ENABLED = "auto_freeze_enabled"
     private const val KEY_AUTO_FREEZE_TEST = "auto_freeze_test"
+    private const val KEY_AUTO_FREEZE_DOZE = "auto_freeze_doze"
     private const val KEY_STOP_ON_UNLOCK = "stop_on_unlock_apps"
 
     private const val DEFAULT_MODEL = "nvidia/nemotron-3-nano-30b-a3b"
@@ -182,6 +183,14 @@ object SecureStore {
 
     fun setAutoFreezeTestMode(ctx: Context, enabled: Boolean) {
         plainPrefs(ctx).edit().putBoolean(KEY_AUTO_FREEZE_TEST, enabled).apply()
+    }
+
+    /** Forzar doze profundo al instante de apagar la pantalla. */
+    fun isAutoFreezeDozeEnabled(ctx: Context): Boolean =
+        plainPrefs(ctx).getBoolean(KEY_AUTO_FREEZE_DOZE, false)
+
+    fun setAutoFreezeDozeEnabled(ctx: Context, enabled: Boolean) {
+        plainPrefs(ctx).edit().putBoolean(KEY_AUTO_FREEZE_DOZE, enabled).apply()
     }
 
     fun getStopOnUnlockApps(ctx: Context): Set<String> {

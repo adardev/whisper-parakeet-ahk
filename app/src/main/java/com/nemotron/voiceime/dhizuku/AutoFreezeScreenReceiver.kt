@@ -22,6 +22,7 @@ class AutoFreezeScreenReceiver : BroadcastReceiver() {
         when (intent.action) {
             Intent.ACTION_SCREEN_OFF -> {
                 cancelPendingFreeze()
+                forceDoze(ctx)
                 val apps = SecureStore.getAutoFreezeApps(ctx).toList()
                 if (apps.isEmpty()) return
                 val delay = if (SecureStore.isAutoFreezeTestMode(ctx)) 0L else FREEZE_DELAY_MS
@@ -44,6 +45,7 @@ class AutoFreezeScreenReceiver : BroadcastReceiver() {
             }
             Intent.ACTION_SCREEN_ON -> {
                 cancelPendingFreeze()
+                unforceDoze(ctx)
                 unfreeze(ctx)
             }
         }
@@ -142,6 +144,22 @@ class AutoFreezeScreenReceiver : BroadcastReceiver() {
             val stopApps = SecureStore.getStopOnUnlockApps(ctx).toList()
             for (pkg in stopApps) ShizukuManager.stopApp(pkg)
             Log.d(TAG, "Froze ${apps.size} apps, stopped on lock: $stopApps")
+        }.start()
+    }
+
+    private fun forceDoze(ctx: Context) {
+        if (!SecureStore.isAutoFreezeDozeEnabled(ctx)) return
+        Thread {
+            if (!ShizukuManager.hasPermission()) return@Thread
+            ShizukuManager.forceIdle()
+        }.start()
+    }
+
+    private fun unforceDoze(ctx: Context) {
+        if (!SecureStore.isAutoFreezeDozeEnabled(ctx)) return
+        Thread {
+            if (!ShizukuManager.hasPermission()) return@Thread
+            ShizukuManager.unforceIdle()
         }.start()
     }
 
