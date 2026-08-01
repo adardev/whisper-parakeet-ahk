@@ -73,14 +73,10 @@ class AutoFreezeScreenReceiver : BroadcastReceiver() {
             val apps = SecureStore.getAutoFreezeApps(ctx).toList()
             if (apps.isEmpty()) return@Thread
             val remaining = tryUnfreeze(apps)
-            if (remaining.isEmpty()) {
-                val stopApps = SecureStore.getStopOnUnlockApps(ctx).toList()
-                for (pkg in stopApps) ShizukuManager.stopApp(pkg)
-                Log.d(TAG, "Stopped on unlock: $stopApps")
-            }
             handler.post {
                 if (remaining.isEmpty()) {
-                    Log.d(TAG, "All auto-freeze apps are active")
+                    Log.d(TAG, "All auto-freeze apps are active, scheduling stop in ${STOP_DELAY_MS / 1000}s")
+                    handler.postDelayed({ doStopOnUnlock(ctx) }, STOP_DELAY_MS)
                     return@post
                 }
                 unfreezeAttempts++
@@ -110,6 +106,30 @@ class AutoFreezeScreenReceiver : BroadcastReceiver() {
         return failed
     }
 
+    private fun doStopOnUnlock(ctx: Context) {
+        Thread {
+            val stopApps = SecureStore.getStopOnUnlockApps(ctx).toList()
+            if (stopApps.isEmpty()) return@Thread
+            for (attempt in 1..STOP_RETRIES) {
+                if (!ShizukuManager.hasPermission()) {
+                    Log.w(TAG, "Stop on unlock attempt $attempt/$STOP_RETRIES skipped: Shizuku unavailable")
+                } else {
+                    val ok = stopApps.all { ShizukuManager.stopApp(it) }
+                    if (ok) {
+                        Log.d(TAG, "Stopped on unlock: $stopApps")
+                        return@Thread
+                    }
+                    Log.w(TAG, "Stop on unlock attempt $attempt/$STOP_RETRIES returned failure")
+                }
+                try {
+                    Thread.sleep(STOP_RETRY_DELAY_MS)
+                } catch (_: InterruptedException) {
+                    return@Thread
+                }
+            }
+        }.start()
+    }
+
     private fun doFreeze(ctx: Context, apps: List<String>) {
         Thread {
             if (!ShizukuManager.hasPermission()) {
@@ -131,6 +151,9 @@ class AutoFreezeScreenReceiver : BroadcastReceiver() {
     companion object {
         private const val TAG = "AutoFreezeScreen"
         private const val FREEZE_DELAY_MS = 30_000L
+        private const val STOP_DELAY_MS = 8_000L
+        private const val STOP_RETRIES = 3
+        private const val STOP_RETRY_DELAY_MS = 5_000L
         private const val RETRY_DELAY_MS = 15_000L
         private const val MAX_RETRIES = 24
     }
