@@ -194,4 +194,13 @@ object ShizukuManager {
         return execShell("am force-stop $packageName")
     }
 
+    /** Exime a [packageName] de doze para que Samsung no congele su proceso. */
+    fun exemptFromDoze(packageName: String): Boolean {
+        if (!hasPermission()) return false
+        val out = execShellCapture("dumpsys deviceidle whitelist +$packageName")
+        execShell("am set-standby-bucket $packageName active")
+        Log.d(TAG, "doze whitelist $packageName → $out")
+        return out?.contains("Added") == true
+    }
+
 }

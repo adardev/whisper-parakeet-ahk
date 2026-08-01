@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.util.Log
 import com.nemotron.voiceime.dhizuku.AutoFreezeScreenReceiver
+import com.nemotron.voiceime.dhizuku.ShizukuManager
 
 object AutoFreezeScheduler {
 
@@ -17,6 +18,7 @@ object AutoFreezeScheduler {
 
     fun start(ctx: Context) {
         if (receiver != null) return
+        ShizukuManager.exemptFromDoze(ctx.packageName)
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_SCREEN_OFF)
             addAction(Intent.ACTION_SCREEN_ON)
