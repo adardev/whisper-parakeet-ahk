@@ -147,7 +147,8 @@ class AutoFreezeScreenReceiver : BroadcastReceiver() {
     }
 
     private fun applyDozeExempt(ctx: Context) {
-        val exempt = SecureStore.getDozeExemptApps(ctx)
+        val exempt = SecureStore.getDozeExemptApps(ctx).toMutableSet()
+        exempt.add(ctx.packageName)
         if (exempt.isEmpty()) return
         Thread {
             if (!ShizukuManager.hasPermission()) return@Thread
