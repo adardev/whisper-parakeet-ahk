@@ -87,6 +87,13 @@
             android:label="Freeze Apps"
             android:theme="@style/Theme.NemotronVoiceIME"
             android:windowSoftInputMode="adjustResize">
+        </activity>
+
+        <!-- Long-press en tiles abre la app correspondiente -->
+        <activity
+            android:name=".dhizuku.TilePreferencesActivity"
+            android:exported="true"
+            android:theme="@style/Theme.NemotronVoiceIME.Transparent">
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
             </intent-filter>
@@ -119,13 +126,46 @@
         </receiver>
 
         <!-- ============================================================== -->
-        <!--  HailTileService: Quick Settings tile para congelar/descongelar -->
+        <!--  Tiles dedicados: congelar/descongelar una app concreta.        -->
         <!-- ============================================================== -->
         <service
-            android:name=".dhizuku.HailTileService"
+            android:name=".dhizuku.AndroidAutoTileService"
             android:exported="true"
-            android:icon="@drawable/ic_qs_tile"
-            android:label="Freeze"
+            android:icon="@drawable/ic_auto_tile"
+            android:label="Android Auto"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name=".dhizuku.TelegramTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_telegram_tile"
+            android:label="Telegram"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name=".dhizuku.GmsTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_gms_tile"
+            android:label="GMS"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name=".dhizuku.SyncthingTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_syncthing_tile"
+            android:label="Syncthing"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE" />

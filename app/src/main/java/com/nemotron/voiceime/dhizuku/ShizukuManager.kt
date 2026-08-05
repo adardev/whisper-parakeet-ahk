@@ -194,6 +194,25 @@ object ShizukuManager {
         return execShell("am force-stop $packageName")
     }
 
+    /** Verifica si la app tiene un proceso corriendo. */
+    fun isProcessRunning(packageName: String): Boolean {
+        if (!hasPermission()) return false
+        val out = execShellCapture("pidof $packageName") ?: return false
+        return out.isNotBlank()
+    }
+
+    /** Lanza la app como si fuera del home screen. */
+    fun launchApp(packageName: String): Boolean {
+        if (!hasPermission()) return false
+        return execShell("monkey -p $packageName -c android.intent.category.LAUNCHER 1")
+    }
+
+    /** Lanza una actividad concreta de la app. */
+    fun launchApp(packageName: String, activity: String): Boolean {
+        if (!hasPermission()) return false
+        return execShell("am start -n $packageName/$activity")
+    }
+
     /** Exime a [packageName] de doze para que Samsung no congele su proceso. */
     fun exemptFromDoze(packageName: String): Boolean {
         if (!hasPermission()) return false

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Telegram logo oficial (用户提供SVG) - viewBox 48→24, /2 -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M20.71,3.65C20.71,3.65 22.65,2.9 22.49,4.74C22.44,5.49 21.95,8.15 21.57,11.01L20.28,19.51C20.28,19.51 20.17,20.75 19.2,20.97C18.23,21.19 16.77,20.21 16.5,19.99C16.28,19.83 12.45,17.4 11.1,16.21C10.73,15.88 10.29,15.23 11.16,14.48L16.82,9.07C17.47,8.42 18.12,6.9 15.42,8.74L7.87,13.88C7.87,13.88 7,14.42 5.38,13.93L1.88,12.85C1.88,12.85 0.58,12.04 2.79,11.23C8.19,8.69 14.83,6.09 20.71,3.65Z" />
+</vector>
