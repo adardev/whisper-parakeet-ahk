@@ -87,6 +87,11 @@ class AutoFreezeScreenReceiver : BroadcastReceiver() {
                     Log.w(TAG, "Gave up unfreezing after $MAX_RETRIES attempts: $remaining")
                     return@post
                 }
+                // No reintentar si Shizuku sigue muerto: el binder listener lo revive solo.
+                if (!ShizukuManager.hasPermission()) {
+                    Log.d(TAG, "Shizuku unavailable, waiting for binder instead of retrying")
+                    return@post
+                }
                 val runnable = Runnable {
                     retryUnfreeze = null
                     runUnfreezeAttempt(ctx)
@@ -182,9 +187,9 @@ class AutoFreezeScreenReceiver : BroadcastReceiver() {
         private const val TAG = "AutoFreezeScreen"
         private const val FREEZE_DELAY_MS = 30_000L
         private const val STOP_DELAY_MS = 3_000L
-        private const val STOP_RETRIES = 3
+        private const val STOP_RETRIES = 2
         private const val STOP_RETRY_DELAY_MS = 5_000L
         private const val RETRY_DELAY_MS = 15_000L
-        private const val MAX_RETRIES = 24
+        private const val MAX_RETRIES = 6
     }
 }
