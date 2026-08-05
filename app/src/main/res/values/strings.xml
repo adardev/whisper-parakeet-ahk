@@ -32,6 +32,7 @@
     <string name="btn_a11y">Accesibilidad</string>
     <string name="a11y_not_enabled">Accesibilidad inactiva (el servicio se activa automaticamente al grabar). Ejecuta el comando ADB la primera vez.</string>
     <string name="a11y_enabled">Accesibilidad configurada (WRITE_SECURE_SETTINGS concedido)</string>
+    <string name="a11y_nfc_desc">Activa NFC automáticamente cuando Google Wallet está en pantalla y lo desactiva al salir (sin gastar batería).</string>
 
     <!-- Side Key wizard -->
     <string name="section_sidekey">Configurar Boton Lateral</string>

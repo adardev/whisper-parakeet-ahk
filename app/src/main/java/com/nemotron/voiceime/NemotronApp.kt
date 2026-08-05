@@ -21,7 +21,7 @@ class NemotronApp : Application() {
     private val binderListener = Shizuku.OnBinderReceivedListener {
         Log.d("NemotronApp", "Shizuku binder received")
         if (Shizuku.checkSelfPermission() == android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            NfcAutoManager.start()
+            NfcAutoManager.start(this)
             if (SecureStore.isAutoFreezeEnabled(this)) {
                 AutoFreezeScheduler.start(this)
                 AutoFreezeScheduler.recover(this)
@@ -31,7 +31,7 @@ class NemotronApp : Application() {
 
     private val binderDeadListener = Shizuku.OnBinderDeadListener {
         Log.d("NemotronApp", "Shizuku binder dead, stopping NFC monitor")
-        NfcAutoManager.stop()
+        NfcAutoManager.stop(this)
         // No se desregistra el receiver de auto-freeze: hace falta para seguir
         // recibiendo SCREEN_ON y que el loop de reintentos descongele las apps
         // en cuanto Shizuku vuelva (en One UI 8 Shizuku muere al bloquear pantalla).
