@@ -30,6 +30,10 @@ object AddictionGuard {
 
     private val lastBlocked = ConcurrentHashMap<String, Long>()
 
+    /** Marca de tiempo (elapsedRealtime) del último evento de IG/WhatsApp recibido. */
+    @Volatile
+    var lastEventAt: Long = 0L
+
     fun isEnabled(ctx: Context): Boolean = SecureStore.isAddictionGuardEnabled(ctx)
 
     /** True si se está reproduciendo un Status (activity StatusPlayback en pantalla). */

@@ -33,6 +33,14 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         if (!AddictionGuard.isEnabled(this)) return
         val pkg = event.packageName?.toString() ?: return
 
+        AddictionGuard.lastEventAt = android.os.SystemClock.elapsedRealtime()
+
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (now - lastEventLog > 1_000L) {
+            lastEventLog = now
+            Log.i(TAG, "EV pkg=$pkg cls=${event.className}")
+        }
+
         when (pkg) {
             AddictionGuard.INSTAGRAM -> {
                 // El visor de Reels manda SeekBar (progreso de video) al instante.
@@ -52,5 +60,6 @@ class AntiScrollAccessibilityService : AccessibilityService() {
 
     companion object {
         private const val TAG = "AntiScroll"
+        private var lastEventLog = 0L
     }
 }

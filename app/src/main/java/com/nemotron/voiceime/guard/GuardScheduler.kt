@@ -21,10 +21,12 @@ object GuardScheduler {
 
     private const val TAG = "GuardScheduler"
     private const val POLL_MS = 2_000L
+    private const val REBIND_GRACE_MS = 3_000L
 
     private var receiver: GuardScreenReceiver? = null
     private var watcher: Thread? = null
     @Volatile private var running = false
+    private var lastDebug = 0L
 
     fun start(ctx: Context) {
         if (receiver == null) {
@@ -77,6 +79,7 @@ object GuardScheduler {
     }
 
     private fun loop(ctx: Context) {
+        var fgSince = 0L
         while (running && !Thread.currentThread().isInterrupted) {
             try {
                 if (!AddictionGuard.isEnabled(ctx)) {
@@ -92,13 +95,31 @@ object GuardScheduler {
                     continue
                 }
                 val desired = top == AddictionGuard.INSTAGRAM || top == AddictionGuard.WHATSAPP
+                val active = AddictionGuard.isA11yActive(ctx)
+                val now = android.os.SystemClock.elapsedRealtime()
                 if (desired) {
-                    if (!AddictionGuard.isA11yActive(ctx)) {
+                    if (!active) {
                         Log.d(TAG, "$top en primer plano → activando accesibilidad")
                         AddictionGuard.setAccessibilityServiceEnabled(ctx, true)
+                        fgSince = now
+                    } else {
+                        if (fgSince == 0L) fgSince = now
+                        // Watchdog: si IG/WA llevan rato en primer plano y el servicio
+                        // no ha recibido NINGÚN evento (bug del ROM que lo deja colgado),
+                        // se fuerza un rebind. Si ya llegaron eventos, funciona bien.
+                        val last = AddictionGuard.lastEventAt
+                        val noEventSinceFg = last == 0L || last < fgSince
+                        if (now - fgSince > REBIND_GRACE_MS && noEventSinceFg) {
+                            Log.w(TAG, "sin eventos desde que abrió IG (last=$last) → rebind")
+                            AddictionGuard.setAccessibilityServiceEnabled(ctx, false)
+                            Thread.sleep(400)
+                            AddictionGuard.setAccessibilityServiceEnabled(ctx, true)
+                            fgSince = now
+                        }
                     }
                 } else {
-                    if (AddictionGuard.isA11yActive(ctx)) {
+                    fgSince = 0L
+                    if (active) {
                         Log.d(TAG, "$top en primer plano → desactivando accesibilidad")
                         AddictionGuard.setAccessibilityServiceEnabled(ctx, false)
                     }
