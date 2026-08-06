@@ -53,8 +53,14 @@ object AddictionGuard {
 
     // ── Activación del servicio de accesibilidad (WRITE_SECURE_SETTINGS) ──
 
+    /** Aplica el estado: servicio activo solo si el guard está on y la pantalla encendida. */
     fun applyEnabled(ctx: Context) {
-        setAccessibilityServiceEnabled(ctx, isEnabled(ctx))
+        setAccessibilityServiceEnabled(ctx, isEnabled(ctx) && isScreenOn(ctx))
+    }
+
+    fun isScreenOn(ctx: Context): Boolean {
+        val pm = ctx.getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager ?: return true
+        return pm.isInteractive
     }
 
     fun isA11yActive(ctx: Context): Boolean {

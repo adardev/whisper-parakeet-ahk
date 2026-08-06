@@ -6,6 +6,7 @@ import androidx.preference.PreferenceFragmentCompat
 import com.nemotron.voiceime.R
 import com.nemotron.voiceime.data.SecureStore
 import com.nemotron.voiceime.guard.AddictionGuard
+import com.nemotron.voiceime.guard.GuardScheduler
 
 class SettingsActivity : AppCompatActivity() {
 
@@ -52,17 +53,21 @@ class SettingsActivity : AppCompatActivity() {
                 "addiction_guard_enabled" -> {
                     val enabled = prefs.getBoolean("addiction_guard_enabled", false)
                     SecureStore.setAddictionGuardEnabled(ctx, enabled)
-                    AddictionGuard.applyEnabled(ctx)
                     if (enabled) {
+                        GuardScheduler.start(ctx)
+                        AddictionGuard.applyEnabled(ctx)
                         android.widget.Toast.makeText(
                             ctx,
                             if (AddictionGuard.isA11yActive(ctx)) {
-                                "Guard activo (sin gasto de batería)"
+                                "Guard activo solo con pantalla encendida (sin gasto de batería)"
                             } else {
                                 "Concede acceso: Ajustes → Accesibilidad → Nemotron Guard"
                             },
                             android.widget.Toast.LENGTH_LONG
                         ).show()
+                    } else {
+                        GuardScheduler.stop(ctx)
+                        AddictionGuard.setAccessibilityServiceEnabled(ctx, false)
                     }
                 }
             }

@@ -13,6 +13,11 @@ class NemotronApp : Application() {
         ShizukuProvider.enableMultiProcessSupport(true)
         instance = this
 
+        if (SecureStore.isAddictionGuardEnabled(this)) {
+            com.nemotron.voiceime.guard.GuardScheduler.start(this)
+            com.nemotron.voiceime.guard.AddictionGuard.applyEnabled(this)
+        }
+
         Shizuku.addBinderReceivedListener(binderListener)
         Shizuku.addBinderDeadListener(binderDeadListener)
     }
@@ -25,6 +30,7 @@ class NemotronApp : Application() {
                 AutoFreezeScheduler.recover(this)
             }
             if (SecureStore.isAddictionGuardEnabled(this)) {
+                com.nemotron.voiceime.guard.GuardScheduler.start(this)
                 com.nemotron.voiceime.guard.AddictionGuard.applyEnabled(this)
             }
         }
