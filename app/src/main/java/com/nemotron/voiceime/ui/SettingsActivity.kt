@@ -55,19 +55,13 @@ class SettingsActivity : AppCompatActivity() {
                     SecureStore.setAddictionGuardEnabled(ctx, enabled)
                     if (enabled) {
                         GuardScheduler.start(ctx)
-                        AddictionGuard.applyEnabled(ctx)
                         android.widget.Toast.makeText(
                             ctx,
-                            if (AddictionGuard.isA11yActive(ctx)) {
-                                "Guard activo solo con pantalla encendida (sin gasto de batería)"
-                            } else {
-                                "Concede acceso: Ajustes → Accesibilidad → Nemotron Guard"
-                            },
+                            "Guard activo: se activa solo cuando abres Instagram/WhatsApp",
                             android.widget.Toast.LENGTH_LONG
                         ).show()
                     } else {
                         GuardScheduler.stop(ctx)
-                        AddictionGuard.setAccessibilityServiceEnabled(ctx, false)
                     }
                 }
             }

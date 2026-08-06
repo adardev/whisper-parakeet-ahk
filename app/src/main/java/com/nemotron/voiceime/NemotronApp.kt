@@ -15,7 +15,6 @@ class NemotronApp : Application() {
 
         if (SecureStore.isAddictionGuardEnabled(this)) {
             com.nemotron.voiceime.guard.GuardScheduler.start(this)
-            com.nemotron.voiceime.guard.AddictionGuard.applyEnabled(this)
         }
 
         Shizuku.addBinderReceivedListener(binderListener)
@@ -31,7 +30,6 @@ class NemotronApp : Application() {
             }
             if (SecureStore.isAddictionGuardEnabled(this)) {
                 com.nemotron.voiceime.guard.GuardScheduler.start(this)
-                com.nemotron.voiceime.guard.AddictionGuard.applyEnabled(this)
             }
         }
     }
