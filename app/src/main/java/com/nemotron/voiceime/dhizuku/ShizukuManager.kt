@@ -194,6 +194,19 @@ object ShizukuManager {
         return execShell("am force-stop $packageName")
     }
 
+    /** Verifica si el NFC está encendido. */
+    fun isNfcEnabled(): Boolean {
+        if (!hasPermission()) return false
+        val out = execShellCapture("dumpsys nfc | grep mState") ?: return false
+        return out.contains("mState=on")
+    }
+
+    /** Enciende/apaga el NFC. */
+    fun setNfcEnabled(enabled: Boolean): Boolean {
+        if (!hasPermission()) return false
+        return execShell(if (enabled) "cmd nfc enable-nfc" else "cmd nfc disable-nfc")
+    }
+
     /** Verifica si la app tiene un proceso corriendo. */
     fun isProcessRunning(packageName: String): Boolean {
         if (!hasPermission()) return false
