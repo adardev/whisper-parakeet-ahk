@@ -33,6 +33,14 @@
 
     </PreferenceCategory>
 
+    <PreferenceCategory app:title="Anti-adicción">
+        <SwitchPreferenceCompat
+            app:key="addiction_guard_enabled"
+            app:title="@string/guard_title"
+            app:summary="@string/guard_summary"
+            app:defaultValue="false" />
+    </PreferenceCategory>
+
     <PreferenceCategory app:title="Estado">
         <Preference
             app:key="status"

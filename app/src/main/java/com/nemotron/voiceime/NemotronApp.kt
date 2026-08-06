@@ -24,6 +24,9 @@ class NemotronApp : Application() {
                 AutoFreezeScheduler.start(this)
                 AutoFreezeScheduler.recover(this)
             }
+            if (SecureStore.isAddictionGuardEnabled(this)) {
+                com.nemotron.voiceime.guard.AddictionGuard.applyEnabled(this)
+            }
         }
     }
 

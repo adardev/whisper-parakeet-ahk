@@ -22,6 +22,7 @@ object SecureStore {
     private const val KEY_AUTO_FREEZE_DOZE = "auto_freeze_doze"
     private const val KEY_DOZE_EXEMPT = "doze_exempt_apps"
     private const val KEY_STOP_ON_UNLOCK = "stop_on_unlock_apps"
+    private const val KEY_GUARD_ENABLED = "addiction_guard_enabled"
 
     private const val DEFAULT_MODEL = "nvidia/nemotron-3-nano-30b-a3b"
     private const val DEFAULT_LOCALE = "es_ES"
@@ -235,6 +236,15 @@ object SecureStore {
                 pkg
             }
         }
+    }
+
+    // ── Guard anti-adicción (bloquear Reels / Status) ───────────────────
+
+    fun isAddictionGuardEnabled(ctx: Context): Boolean =
+        plainPrefs(ctx).getBoolean(KEY_GUARD_ENABLED, false)
+
+    fun setAddictionGuardEnabled(ctx: Context, enabled: Boolean) {
+        plainPrefs(ctx).edit().putBoolean(KEY_GUARD_ENABLED, enabled).apply()
     }
 
     fun syncFromPrefs(ctx: Context, publicPrefs: SharedPreferences) {
