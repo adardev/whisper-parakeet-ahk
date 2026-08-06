@@ -35,6 +35,8 @@ class TilePreferencesActivity : Activity() {
                 "com.google.android.gms"
             "com.nemotron.voiceime.dhizuku.SyncthingTileService" ->
                 "com.github.catfriend1.syncthingfork"
+            "com.nemotron.voiceime.dhizuku.WalletTileService" ->
+                "com.google.android.apps.walletnfcrel"
             else -> null
         }
 

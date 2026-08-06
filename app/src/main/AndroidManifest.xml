@@ -186,6 +186,18 @@
             </intent-filter>
         </service>
 
+        <!-- Wallet: tap abre Wallet + NFC on/off sin service en background -->
+        <service
+            android:name=".dhizuku.WalletTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_wallet_tile"
+            android:label="Wallet"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
     </application>
 
 </manifest>
