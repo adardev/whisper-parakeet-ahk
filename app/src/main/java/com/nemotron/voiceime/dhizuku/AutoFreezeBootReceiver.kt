@@ -14,8 +14,7 @@ class AutoFreezeBootReceiver : BroadcastReceiver() {
             AutoFreezeScheduler.start(ctx)
         }
         if (SecureStore.isAddictionGuardEnabled(ctx)) {
-            com.nemotron.voiceime.guard.AddictionGuard.setAccessibilityServiceEnabled(ctx, true)
-            com.nemotron.voiceime.guard.AddictionGuard.startSelfHeal(ctx)
+            com.nemotron.voiceime.guard.AddictionGuard.applyEnabled(ctx)
         }
     }
 }

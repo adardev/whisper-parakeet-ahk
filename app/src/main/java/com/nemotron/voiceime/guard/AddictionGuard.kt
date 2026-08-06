@@ -57,7 +57,15 @@ object AddictionGuard {
         }
     }
 
-    // ── Auto-reparación (One UI deja el servicio colgado sin eventos) ─────
+    // ── Activación del servicio de accesibilidad (WRITE_SECURE_SETTINGS) ──
+
+    fun applyEnabled(ctx: Context) {
+        setAccessibilityServiceEnabled(ctx, isEnabled(ctx))
+        if (isEnabled(ctx)) startSelfHeal(ctx)
+    }
+
+    // ── Auto-reparación: One UI deja el servicio "activo pero no enlazado".
+    // Sin esto, el guard se muere solo. No afecta la detección (SeekBar). ────
 
     fun startSelfHeal(ctx: Context) {
         if (healThread != null) return
@@ -73,7 +81,7 @@ object AddictionGuard {
         while (!Thread.currentThread().isInterrupted) {
             try {
                 Thread.sleep(HEAL_INTERVAL_MS)
-                if (!isEnabled(ctx)) continue
+                if (!isEnabled(ctx)) return
                 if (!isA11yActive(ctx)) {
                     setAccessibilityServiceEnabled(ctx, true)
                     continue
@@ -83,7 +91,7 @@ object AddictionGuard {
                 val now = android.os.SystemClock.elapsedRealtime()
                 val last = lastEventAt
                 if (last == 0L || now - last > EVENT_TIMEOUT_MS) {
-                    Log.w(TAG, "self-heal: $top en primer plano sin eventos → rebind")
+                    Log.w(TAG, "self-heal: servicio sin eventos con $top → rebind")
                     setAccessibilityServiceEnabled(ctx, false)
                     Thread.sleep(400)
                     setAccessibilityServiceEnabled(ctx, true)
@@ -105,8 +113,6 @@ object AddictionGuard {
         val slash = comp.indexOf('/')
         return if (slash > 0) comp.substring(0, slash) else null
     }
-
-    // ── Activación del servicio de accesibilidad (WRITE_SECURE_SETTINGS) ──
 
     fun isA11yActive(ctx: Context): Boolean {
         val comp = ComponentName(ctx, AntiScrollAccessibilityService::class.java).flattenToString()

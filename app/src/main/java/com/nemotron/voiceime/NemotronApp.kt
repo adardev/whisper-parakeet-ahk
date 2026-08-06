@@ -14,10 +14,8 @@ class NemotronApp : Application() {
         instance = this
 
         if (SecureStore.isAddictionGuardEnabled(this)) {
-            com.nemotron.voiceime.guard.AddictionGuard.setAccessibilityServiceEnabled(this, true)
-            com.nemotron.voiceime.guard.AddictionGuard.startSelfHeal(this)
+            com.nemotron.voiceime.guard.AddictionGuard.applyEnabled(this)
         }
-
         Shizuku.addBinderReceivedListener(binderListener)
         Shizuku.addBinderDeadListener(binderDeadListener)
     }
@@ -30,8 +28,7 @@ class NemotronApp : Application() {
                 AutoFreezeScheduler.recover(this)
             }
             if (SecureStore.isAddictionGuardEnabled(this)) {
-                com.nemotron.voiceime.guard.AddictionGuard.setAccessibilityServiceEnabled(this, true)
-                com.nemotron.voiceime.guard.AddictionGuard.startSelfHeal(this)
+                com.nemotron.voiceime.guard.AddictionGuard.applyEnabled(this)
             }
         }
     }

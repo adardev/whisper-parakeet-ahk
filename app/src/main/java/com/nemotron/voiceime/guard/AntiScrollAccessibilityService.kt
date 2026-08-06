@@ -2,7 +2,6 @@ package com.nemotron.voiceime.guard
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
-import android.os.SystemClock
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 
@@ -13,8 +12,6 @@ import android.view.accessibility.AccessibilityEvent
  *
  * Reacción instantánea: al primer evento del visor de Reels (SeekBar) o del
  * Status de WhatsApp se dispara el cierre. El cooldown interno evita spam.
- * Solo cierra cuando el visor de Reels está reproduciendo (SeekBar) — no
- * cierra Instagram en el feed ni en cualquier otra pantalla.
  */
 class AntiScrollAccessibilityService : AccessibilityService() {
 
@@ -37,7 +34,7 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         val pkg = event.packageName?.toString() ?: return
 
         // Heartbeat para el auto-reparador (no bloquea nada).
-        AddictionGuard.lastEventAt = SystemClock.elapsedRealtime()
+        AddictionGuard.lastEventAt = android.os.SystemClock.elapsedRealtime()
 
         when (pkg) {
             AddictionGuard.INSTAGRAM -> {

@@ -52,17 +52,17 @@ class SettingsActivity : AppCompatActivity() {
                 "addiction_guard_enabled" -> {
                     val enabled = prefs.getBoolean("addiction_guard_enabled", false)
                     SecureStore.setAddictionGuardEnabled(ctx, enabled)
+                    AddictionGuard.applyEnabled(ctx)
                     if (enabled) {
-                        AddictionGuard.setAccessibilityServiceEnabled(ctx, true)
-                        AddictionGuard.startSelfHeal(ctx)
                         android.widget.Toast.makeText(
                             ctx,
-                            "Guard activo: cierra Instagram en Reels y WhatsApp en Status (0 batería en reposo)",
+                            if (AddictionGuard.isA11yActive(ctx)) {
+                                "Guard activo (sin gasto de batería)"
+                            } else {
+                                "Concede acceso: Ajustes → Accesibilidad → Nemotron Guard"
+                            },
                             android.widget.Toast.LENGTH_LONG
                         ).show()
-                    } else {
-                        AddictionGuard.stopSelfHeal()
-                        AddictionGuard.setAccessibilityServiceEnabled(ctx, false)
                     }
                 }
             }
