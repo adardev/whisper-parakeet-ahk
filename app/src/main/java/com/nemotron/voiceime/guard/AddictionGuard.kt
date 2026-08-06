@@ -82,6 +82,8 @@ object AddictionGuard {
             try {
                 Thread.sleep(HEAL_INTERVAL_MS)
                 if (!isEnabled(ctx)) return
+                // Con pantalla apagada no se puede ver reels/status: no hace falta reparar.
+                if (!isScreenOn(ctx)) continue
                 if (!isA11yActive(ctx)) {
                     setAccessibilityServiceEnabled(ctx, true)
                     continue
@@ -112,6 +114,11 @@ object AddictionGuard {
         val comp = m.groupValues[1]
         val slash = comp.indexOf('/')
         return if (slash > 0) comp.substring(0, slash) else null
+    }
+
+    fun isScreenOn(ctx: Context): Boolean {
+        val pm = ctx.getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager ?: return true
+        return pm.isInteractive
     }
 
     fun isA11yActive(ctx: Context): Boolean {

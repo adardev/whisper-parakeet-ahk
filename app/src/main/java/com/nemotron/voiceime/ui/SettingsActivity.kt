@@ -28,7 +28,18 @@ class SettingsActivity : AppCompatActivity() {
     class SettingsFragment : PreferenceFragmentCompat() {
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
             setPreferencesFromResource(R.xml.preferences, rootKey)
+            syncGuardSwitch()
             updateStatusSummary()
+        }
+
+        private fun syncGuardSwitch() {
+            val ctx = context ?: return
+            val enabled = SecureStore.isAddictionGuardEnabled(ctx)
+            preferenceScreen.sharedPreferences
+                ?.edit()?.putBoolean("addiction_guard_enabled", enabled)?.apply()
+            preferenceScreen.findPreference<androidx.preference.SwitchPreferenceCompat>(
+                "addiction_guard_enabled"
+            )?.isChecked = enabled
         }
 
         override fun onResume() {
