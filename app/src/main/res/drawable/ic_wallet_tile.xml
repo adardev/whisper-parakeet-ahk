@@ -4,8 +4,33 @@
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
-    <!-- Material Design credit_card - blanco puro -->
+    <!-- NFC Forum logo (signal arcs from antenna) - blanco puro -->
+    <!-- Antena -->
     <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M20,4H4C2.83,4 2,4.78 2,5.66v12.68C2,19.22 2.83,20 3.66,20H20.34C21.17,20 22,19.22 22,18.34V5.66C22,4.78 21.17,4 20.4,4M20,18H4V12H20V18M20,6H4V9.96H20V6M2,11.11v2.89H22V11.11z" />
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M12,4 L12,20" />
+    <!-- Onda grande -->
+    <path
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M7,8 A7,7 0 0,1 17,8" />
+    <!-- Onda mediana -->
+    <path
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M9,11 A4.5,4.5 0 0,1 15,11" />
+    <!-- Onda pequeña -->
+    <path
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000"
+        android:pathData="M10.5,14 A2,2 0 0,1 13.5,14" />
 </vector>
