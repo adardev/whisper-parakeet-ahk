@@ -42,6 +42,6 @@
     <!-- Anti-adicción -->
     <string name="guard_title">Bloquear Reels / Status</string>
     <string name="guard_summary">Cierra Instagram si abres Reels y WhatsApp si ves Status. Usa el servicio de accesibilidad: no gasta batería (sin polling)</string>
-    <string name="guard_a11y_label">Nemotron Guard (Reels/Status)</string>
+    <string name="guard_a11y_label">Nemotron Guard</string>
     <string name="guard_a11y_desc">Cierra Instagram al detectar Reels y WhatsApp al detectar Status. Solo funciona mientras ves esas apps, no consume batería.</string>
 </resources>
