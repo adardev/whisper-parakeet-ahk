@@ -6,7 +6,6 @@ import androidx.preference.PreferenceFragmentCompat
 import com.nemotron.voiceime.R
 import com.nemotron.voiceime.data.SecureStore
 import com.nemotron.voiceime.guard.AddictionGuard
-import com.nemotron.voiceime.guard.GuardScheduler
 
 class SettingsActivity : AppCompatActivity() {
 
@@ -54,14 +53,16 @@ class SettingsActivity : AppCompatActivity() {
                     val enabled = prefs.getBoolean("addiction_guard_enabled", false)
                     SecureStore.setAddictionGuardEnabled(ctx, enabled)
                     if (enabled) {
-                        GuardScheduler.start(ctx)
+                        AddictionGuard.setAccessibilityServiceEnabled(ctx, true)
+                        AddictionGuard.startSelfHeal(ctx)
                         android.widget.Toast.makeText(
                             ctx,
-                            "Guard activo: se activa solo cuando abres Instagram/WhatsApp",
+                            "Guard activo: cierra Instagram en Reels y WhatsApp en Status (0 batería en reposo)",
                             android.widget.Toast.LENGTH_LONG
                         ).show()
                     } else {
-                        GuardScheduler.stop(ctx)
+                        AddictionGuard.stopSelfHeal()
+                        AddictionGuard.setAccessibilityServiceEnabled(ctx, false)
                     }
                 }
             }

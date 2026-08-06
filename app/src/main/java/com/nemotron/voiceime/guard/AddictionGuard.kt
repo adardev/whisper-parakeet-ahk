@@ -30,9 +30,11 @@ object AddictionGuard {
 
     private val lastBlocked = ConcurrentHashMap<String, Long>()
 
-    /** Marca de tiempo (elapsedRealtime) del último evento de IG/WhatsApp recibido. */
+    /** Último evento (elapsedRealtime) recibido por el servicio de accesibilidad. */
     @Volatile
     var lastEventAt: Long = 0L
+
+    private var healThread: Thread? = null
 
     fun isEnabled(ctx: Context): Boolean = SecureStore.isAddictionGuardEnabled(ctx)
 
@@ -55,12 +57,56 @@ object AddictionGuard {
         }
     }
 
-    // ── Activación del servicio de accesibilidad (WRITE_SECURE_SETTINGS) ──
+    // ── Auto-reparación (One UI deja el servicio colgado sin eventos) ─────
 
-    fun isScreenOn(ctx: Context): Boolean {
-        val pm = ctx.getSystemService(Context.POWER_SERVICE) as? android.os.PowerManager ?: return true
-        return pm.isInteractive
+    fun startSelfHeal(ctx: Context) {
+        if (healThread != null) return
+        healThread = Thread({ healLoop(ctx) }, "GuardSelfHeal").apply { start() }
     }
+
+    fun stopSelfHeal() {
+        healThread?.interrupt()
+        healThread = null
+    }
+
+    private fun healLoop(ctx: Context) {
+        while (!Thread.currentThread().isInterrupted) {
+            try {
+                Thread.sleep(HEAL_INTERVAL_MS)
+                if (!isEnabled(ctx)) continue
+                if (!isA11yActive(ctx)) {
+                    setAccessibilityServiceEnabled(ctx, true)
+                    continue
+                }
+                val top = topPackage() ?: continue
+                if (top != INSTAGRAM && top != WHATSAPP) continue
+                val now = android.os.SystemClock.elapsedRealtime()
+                val last = lastEventAt
+                if (last == 0L || now - last > EVENT_TIMEOUT_MS) {
+                    Log.w(TAG, "self-heal: $top en primer plano sin eventos → rebind")
+                    setAccessibilityServiceEnabled(ctx, false)
+                    Thread.sleep(400)
+                    setAccessibilityServiceEnabled(ctx, true)
+                }
+            } catch (_: InterruptedException) {
+                return
+            } catch (t: Throwable) {
+                Log.w(TAG, "self-heal error", t)
+            }
+        }
+    }
+
+    private fun topPackage(): String? {
+        if (!ShizukuManager.hasPermission()) return null
+        val line = ShizukuManager.execShellCapture("dumpsys window | grep -m1 mCurrentFocus") ?: return null
+        if (line.isBlank()) return null
+        val m = Regex("mCurrentFocus=Window\\{[^}]*\\s([^\\s}]+)").find(line) ?: return null
+        val comp = m.groupValues[1]
+        val slash = comp.indexOf('/')
+        return if (slash > 0) comp.substring(0, slash) else null
+    }
+
+    // ── Activación del servicio de accesibilidad (WRITE_SECURE_SETTINGS) ──
 
     fun isA11yActive(ctx: Context): Boolean {
         val comp = ComponentName(ctx, AntiScrollAccessibilityService::class.java).flattenToString()
@@ -94,4 +140,6 @@ object AddictionGuard {
     }
 
     private const val BLOCK_COOLDOWN_MS = 1_500L
+    private const val HEAL_INTERVAL_MS = 20_000L
+    private const val EVENT_TIMEOUT_MS = 10_000L
 }

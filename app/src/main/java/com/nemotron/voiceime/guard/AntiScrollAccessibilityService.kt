@@ -2,18 +2,23 @@ package com.nemotron.voiceime.guard
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
+import android.os.SystemClock
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 
 /**
- * Servicio de accesibilidad anti-adicción. Event-driven: no hace polls.
- * Recibe eventos SOLO de Instagram y WhatsApp (filtrado por packageNames),
- * así que en reposo y con pantalla apagada no consume batería.
+ * Servicio de accesibilidad anti-adicción. Siempre activo mientras el guard
+ * esté ON, pero event-driven: solo recibe eventos de Instagram/WhatsApp
+ * (packageNames), así que en reposo consume cero batería.
  *
- * Reacción instantánea: al primer evento del visor de Reels (SeekBar) o del
- * Status de WhatsApp se dispara el cierre. El cooldown interno evita spam.
+ * Detección de Reels (sin depender de que el video esté reproduciendo):
+ * - SeekBar (progreso de video) → Reels/feed fullscreen reproduciendo.
+ * - ViewPager sostenido (2 eventos en <2.5s) → visor de Reels abierto.
+ * WhatsApp: al abrirse StatusPlayback → force-stop.
  */
 class AntiScrollAccessibilityService : AccessibilityService() {
+
+    private var lastVP = 0L
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -32,21 +37,20 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         event ?: return
         if (!AddictionGuard.isEnabled(this)) return
         val pkg = event.packageName?.toString() ?: return
+        val cls = event.className?.toString().orEmpty()
 
-        AddictionGuard.lastEventAt = android.os.SystemClock.elapsedRealtime()
-
-        val now = android.os.SystemClock.elapsedRealtime()
-        if (now - lastEventLog > 1_000L) {
-            lastEventLog = now
-            Log.i(TAG, "EV pkg=$pkg cls=${event.className}")
+        val now = SystemClock.elapsedRealtime()
+        AddictionGuard.lastEventAt = now
+        if (now - lastLog > 1_500L) {
+            lastLog = now
+            Log.i(TAG, "EV pkg=$pkg cls=$cls")
         }
 
         when (pkg) {
             AddictionGuard.INSTAGRAM -> {
-                // El visor de Reels manda SeekBar (progreso de video) al instante.
-                if (event.className?.toString()?.contains("SeekBar", ignoreCase = true) == true) {
-                    AddictionGuard.block(this, AddictionGuard.INSTAGRAM)
-                }
+                val isReels = cls.contains("SeekBar", ignoreCase = true) ||
+                    (cls.contains("ViewPager", ignoreCase = true) && viewPagerBurst(now))
+                if (isReels) AddictionGuard.block(this, AddictionGuard.INSTAGRAM)
             }
             AddictionGuard.WHATSAPP -> {
                 if (AddictionGuard.isWhatsAppStatus(event)) {
@@ -56,10 +60,21 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         }
     }
 
+    /** True si hay un segundo evento de ViewPager en <2.5s (visor de Reels activo). */
+    private fun viewPagerBurst(now: Long): Boolean {
+        if (now - lastVP < VP_BURST_MS) {
+            lastVP = 0
+            return true
+        }
+        lastVP = now
+        return false
+    }
+
     override fun onInterrupt() {}
 
     companion object {
         private const val TAG = "AntiScroll"
-        private var lastEventLog = 0L
+        private const val VP_BURST_MS = 2_500L
+        private var lastLog = 0L
     }
 }
