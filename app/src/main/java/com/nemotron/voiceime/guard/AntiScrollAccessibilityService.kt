@@ -53,7 +53,7 @@ class AntiScrollAccessibilityService : AccessibilityService() {
             AddictionGuard.INSTAGRAM -> {
                 refreshInstagramScreenIfNeeded(event)
                 val isReels = isReelsViewer(event)
-                if ((isReels && !isInstagramConversationSurface) ||
+                if ((isReels && shouldBlockReels()) ||
                     (isInstagramMainTab && isConsiderableHomeFeedScroll(event))) {
                     AddictionGuard.block(this, AddictionGuard.INSTAGRAM)
                 }
@@ -104,6 +104,17 @@ class AntiScrollAccessibilityService : AccessibilityService() {
                 lastHomeFeedFirstItem = NO_ITEM_INDEX
             }
         }.start()
+    }
+
+    /** Se ejecuta solo cuando aparece un Reel, nunca en el scroll normal. */
+    private fun shouldBlockReels(): Boolean {
+        if (!ShizukuManager.hasPermission()) return !isInstagramConversationSurface
+        val top = ShizukuManager.execShellCapture(
+            "dumpsys activity activities | grep -m1 topResumedActivity"
+        ) ?: return !isInstagramConversationSurface
+        isInstagramConversationSurface = top.contains("com.instagram.modal.") || top.contains("Direct")
+        isInstagramMainTab = top.contains("com.instagram.android/.activity.MainTabActivity")
+        return !isInstagramConversationSurface
     }
 
     /**
