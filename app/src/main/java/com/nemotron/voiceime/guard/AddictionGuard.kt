@@ -17,7 +17,7 @@ import java.util.concurrent.ConcurrentHashMap
  * cuando hay cambios de UI en Instagram o WhatsApp. En reposo o pantalla
  * apagada no consume nada.
  *
- * - Instagram Reels: se detecta el SeekBar del visor → cierra la app.
+ * - Instagram Reels: se detecta la pestaña del visor → cierra la app.
  * - Instagram Inicio: al acumular un desplazamiento considerable del feed
  *   principal → cierra la app. Las demás pestañas no se bloquean.
  * - WhatsApp Status: al abrirse la reproducción de un Status → cierra la app.
