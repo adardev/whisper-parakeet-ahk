@@ -22,6 +22,7 @@ class AntiScrollAccessibilityService : AccessibilityService() {
     private var lastHomeScrollAt = 0L
     private var lastHomeFeedFirstItem = NO_ITEM_INDEX
     @Volatile private var isInstagramMainTab = false
+    @Volatile private var isInstagramConversationSurface = false
     @Volatile private var lastInstagramActivityCheckAt = 0L
 
     override fun onServiceConnected() {
@@ -52,7 +53,8 @@ class AntiScrollAccessibilityService : AccessibilityService() {
             AddictionGuard.INSTAGRAM -> {
                 refreshInstagramScreenIfNeeded(event)
                 val isReels = isReelsViewer(event)
-                if (isInstagramMainTab && (isReels || isConsiderableHomeFeedScroll(event))) {
+                if ((isReels && !isInstagramConversationSurface) ||
+                    (isInstagramMainTab && isConsiderableHomeFeedScroll(event))) {
                     AddictionGuard.block(this, AddictionGuard.INSTAGRAM)
                 }
             }
@@ -75,11 +77,16 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         val windowClass = event.className?.toString().orEmpty()
         // Los Reels compartidos por DM viven en ModalActivity, no en el visor
         // principal. Se desarma sin esperar a la consulta por Shizuku.
-        if (windowClass.contains("modal.ModalActivity") || windowClass.contains("Direct")) {
+        if (windowClass.contains("com.instagram.modal.") || windowClass.contains("Direct")) {
+            isInstagramConversationSurface = true
             isInstagramMainTab = false
             homeScrollDistancePx = 0
             lastHomeFeedFirstItem = NO_ITEM_INDEX
             return
+        }
+        if (windowClass.contains(".activity.MainTabActivity")) {
+            isInstagramConversationSurface = false
+            isInstagramMainTab = true
         }
         val now = android.os.SystemClock.elapsedRealtime()
         if (now - lastInstagramActivityCheckAt < ACTIVITY_CHECK_GAP_MS) return
@@ -90,6 +97,8 @@ class AntiScrollAccessibilityService : AccessibilityService() {
                 "dumpsys activity activities | grep -m1 topResumedActivity"
             ) ?: return@Thread
             isInstagramMainTab = top.contains("com.instagram.android/.activity.MainTabActivity")
+            isInstagramConversationSurface = top.contains("com.instagram.modal.") ||
+                top.contains("Direct")
             if (!isInstagramMainTab) {
                 homeScrollDistancePx = 0
                 lastHomeFeedFirstItem = NO_ITEM_INDEX
