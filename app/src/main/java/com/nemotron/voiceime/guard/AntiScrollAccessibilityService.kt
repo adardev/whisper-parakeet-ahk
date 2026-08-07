@@ -27,6 +27,7 @@ class AntiScrollAccessibilityService : AccessibilityService() {
     private var lastSearchScrollAt = 0L
     @Volatile private var isInstagramMainTab = false
     @Volatile private var isInstagramConversationSurface = false
+    @Volatile private var isInstagramDirectSurface = false
     @Volatile private var isInstagramExternalProfileSurface = false
     @Volatile private var lastInstagramActivityCheckAt = 0L
     @Volatile private var lastHomeActivityCheckAt = 0L
@@ -64,17 +65,18 @@ class AntiScrollAccessibilityService : AccessibilityService() {
             AddictionGuard.INSTAGRAM -> {
                 refreshInstagramScreenIfNeeded(event)
                 refreshInstagramProfileSurfaceIfNeeded(event)
+                refreshInstagramDirectSurfaceIfNeeded(event)
                 updateInstagramTabFromClick(event)
                 // El ViewPager de una página de perfil puede parecerse al del
                 // visor de Reels. La pantalla de perfil siempre tiene
                 // prioridad: allí no se bloquea por ningún desplazamiento.
-                val isProfileScroll = event.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED &&
-                    isExternalProfileSurface()
+                val isExcludedInstagramScroll = event.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED &&
+                    (isExternalProfileSurface() || isInstagramDirectSurface)
                 val isReels = isReelsViewer(event)
-                if ((!isProfileScroll && isReels && shouldBlockReels()) ||
-                    (!isProfileScroll && isHomeFeedScrollCandidate(event) && canCountHomeScroll() &&
+                if ((!isExcludedInstagramScroll && isReels && shouldBlockReels()) ||
+                    (!isExcludedInstagramScroll && isHomeFeedScrollCandidate(event) && canCountHomeScroll() &&
                         isConsiderableHomeFeedScroll(event)) ||
-                    (!isProfileScroll && selectedInstagramTab == TAB_SEARCH &&
+                    (!isExcludedInstagramScroll && selectedInstagramTab == TAB_SEARCH &&
                         isConsiderableSearchScroll(event))) {
                     AddictionGuard.block(this, AddictionGuard.INSTAGRAM)
                 }
@@ -101,6 +103,7 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         if (windowClass.contains("com.instagram.modal.") || windowClass.contains("Direct")) {
             isInstagramConversationSurface = true
             isInstagramMainTab = false
+            isInstagramDirectSurface = true
             isInstagramExternalProfileSurface = false
             selectedInstagramTab = TAB_OTHER
             resetHomeScrollCounter()
@@ -133,6 +136,19 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED &&
             event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         isExternalProfileSurface(forceRefresh = true)
+    }
+
+    /** Direct también usa MainTabActivity; se desarma antes de cualquier scroll. */
+    private fun refreshInstagramDirectSurfaceIfNeeded(event: AccessibilityEvent) {
+        if (event.eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED &&
+            event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
+        val root = rootInActiveWindow ?: return
+        try {
+            isInstagramDirectSurface = treeContainsDirectSurface(root)
+            if (isInstagramDirectSurface) resetHomeScrollCounter()
+        } finally {
+            root.recycle()
+        }
     }
 
     /** El toque de la barra inferior identifica la pestaña sin consultar la UI. */
@@ -183,7 +199,8 @@ class AntiScrollAccessibilityService : AccessibilityService() {
             isInstagramConversationSurface = top?.contains("com.instagram.modal.") == true ||
                 top?.contains("Direct") == true
         }
-        if (!isInstagramMainTab || isInstagramConversationSurface || isExternalProfileSurface()) {
+        if (!isInstagramMainTab || isInstagramConversationSurface || isInstagramDirectSurface ||
+            isExternalProfileSurface()) {
             resetHomeScrollCounter()
             return false
         }
@@ -254,6 +271,22 @@ class AntiScrollAccessibilityService : AccessibilityService() {
             val node = pending.removeFirst()
             if (node.viewIdResourceName.orEmpty().endsWith(HOME_FEED_RESOURCE_ID) ||
                 node.contentDescription?.toString() == "Instagram Home Feed") return true
+            for (index in 0 until node.childCount) {
+                node.getChild(index)?.let(pending::addLast)
+            }
+        }
+        return false
+    }
+
+    private fun treeContainsDirectSurface(root: AccessibilityNodeInfo): Boolean {
+        val pending = ArrayDeque<AccessibilityNodeInfo>()
+        pending.add(root)
+        var inspected = 0
+        while (pending.isNotEmpty() && inspected++ < MAX_PROFILE_NODES) {
+            val node = pending.removeFirst()
+            val resourceId = node.viewIdResourceName.orEmpty()
+            if (DIRECT_SURFACE_RESOURCE_IDS.any(resourceId::endsWith) ||
+                resourceId.contains("/id/direct_thread")) return true
             for (index in 0 until node.childCount) {
                 node.getChild(index)?.let(pending::addLast)
             }
@@ -371,6 +404,11 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         private val EXTERNAL_PROFILE_ACTIONS = setOf(
             "follow", "following", "follow back", "requested",
             "seguir", "siguiendo", "seguir también", "solicitado"
+        )
+        private val DIRECT_SURFACE_RESOURCE_IDS = setOf(
+            "direct_inbox_action_bar",
+            "inbox_refreshable_thread_list_recyclerview",
+            "row_inbox_container"
         )
     }
 }
