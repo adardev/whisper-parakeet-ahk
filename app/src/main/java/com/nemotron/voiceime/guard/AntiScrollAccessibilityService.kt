@@ -176,8 +176,9 @@ class AntiScrollAccessibilityService : AccessibilityService() {
 
     /** El toque de la barra inferior identifica la pestaña sin consultar la UI. */
     private fun updateInstagramTabFromClick(event: AccessibilityEvent) {
-        if (event.eventType != AccessibilityEvent.TYPE_VIEW_CLICKED &&
-            event.eventType != AccessibilityEvent.TYPE_VIEW_SELECTED) return
+        // Instagram emite VIEW_SELECTED de la barra subyacente mientras un
+        // perfil está abierto. Solo un toque real puede cambiar la superficie.
+        if (event.eventType != AccessibilityEvent.TYPE_VIEW_CLICKED) return
         when (event.contentDescription?.toString()) {
             "Home" -> {
                 selectedInstagramTab = TAB_HOME
