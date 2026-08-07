@@ -33,6 +33,7 @@ class AntiScrollAccessibilityService : AccessibilityService() {
     @Volatile private var lastHomeActivityCheckAt = 0L
     @Volatile private var lastProfileSurfaceCheckAt = 0L
     @Volatile private var isInstagramSystemProfileSurface = false
+    @Volatile private var isInstagramSystemDirectSurface = false
     @Volatile private var selectedInstagramTab = TAB_UNKNOWN
 
     override fun onServiceConnected() {
@@ -234,27 +235,36 @@ class AntiScrollAccessibilityService : AccessibilityService() {
             isInstagramMainTab = top?.contains("com.instagram.android/.activity.MainTabActivity") == true
             isInstagramConversationSurface = top?.contains("com.instagram.modal.") == true ||
                 top?.contains("Direct") == true
-            isInstagramSystemProfileSurface = isProfileVisibleToSystem()
+            refreshSystemInstagramSurface()
         }
         if (!isInstagramMainTab || isInstagramConversationSurface || isInstagramDirectSurface ||
             isExternalProfileSurface()) {
             resetHomeScrollCounter()
             return false
         }
-        if (isInstagramSystemProfileSurface) {
-            isInstagramExternalProfileSurface = true
+        if (isInstagramSystemProfileSurface || isInstagramSystemDirectSurface) {
+            if (isInstagramSystemProfileSurface) isInstagramExternalProfileSurface = true
+            if (isInstagramSystemDirectSurface) isInstagramDirectSurface = true
             resetHomeScrollCounter()
             return false
         }
         return true
     }
 
-    private fun isProfileVisibleToSystem(): Boolean {
-        if (!ShizukuManager.hasPermission()) return false
-        val tree = ShizukuManager.execShellCapture(
-            "uiautomator dump /dev/tty 2>/dev/null | grep -m1 'profile_action_bar'"
-        ) ?: return false
-        return tree.contains("profile_action_bar")
+    /** La UI real decide: Inicio es la única superficie que puede contar. */
+    private fun refreshSystemInstagramSurface() {
+        if (!ShizukuManager.hasPermission()) {
+            isInstagramSystemProfileSurface = false
+            isInstagramSystemDirectSurface = false
+            return
+        }
+        val marker = ShizukuManager.execShellCapture(
+            "uiautomator dump /dev/tty 2>/dev/null | grep -m1 -E " +
+                "'profile_action_bar|direct_inbox_action_bar|direct_thread_header|thread_fragment_container'"
+        ).orEmpty()
+        isInstagramSystemProfileSurface = marker.contains("profile_action_bar")
+        isInstagramSystemDirectSurface = marker.contains("direct_inbox_action_bar") ||
+            marker.contains("direct_thread_header") || marker.contains("thread_fragment_container")
     }
 
     /**
