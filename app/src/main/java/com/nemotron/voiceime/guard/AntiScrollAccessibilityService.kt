@@ -224,7 +224,10 @@ class AntiScrollAccessibilityService : AccessibilityService() {
             try {
                 val isSearch = tabs.any { it.isSelected }
                 if (isSearch) selectedInstagramTab = TAB_SEARCH
-                return isSearch
+                // En algunos scrolls Instagram entrega una ventana parcial:
+                // en ese caso la pestaña no viene en el árbol aunque el
+                // evento de selección ya confirmó que estamos en Search.
+                return isSearch || selectedInstagramTab == TAB_SEARCH
             } finally {
                 tabs.forEach { it.recycle() }
             }
