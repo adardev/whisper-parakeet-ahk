@@ -32,6 +32,7 @@ class AntiScrollAccessibilityService : AccessibilityService() {
     @Volatile private var lastInstagramActivityCheckAt = 0L
     @Volatile private var lastHomeActivityCheckAt = 0L
     @Volatile private var lastProfileSurfaceCheckAt = 0L
+    @Volatile private var isInstagramSystemProfileSurface = false
     @Volatile private var selectedInstagramTab = TAB_UNKNOWN
 
     override fun onServiceConnected() {
@@ -75,8 +76,7 @@ class AntiScrollAccessibilityService : AccessibilityService() {
                         isDirectSurfaceNow())
                 val isReels = isReelsViewer(event)
                 val blockReels = !isExcludedInstagramScroll && isReels && shouldBlockReels()
-                val blockHome = !isExcludedInstagramScroll && selectedInstagramTab == TAB_HOME &&
-                    isHomeFeedScrollCandidate(event) &&
+                val blockHome = !isExcludedInstagramScroll && isHomeFeedScrollCandidate(event) &&
                     canCountHomeScroll() && isConsiderableHomeFeedScroll(event)
                 val blockSearch = !isExcludedInstagramScroll && selectedInstagramTab == TAB_SEARCH &&
                     isConsiderableSearchScroll(event)
@@ -181,7 +181,6 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         // Instagram emite VIEW_SELECTED de la barra subyacente mientras un
         // perfil está abierto. Solo un toque real puede cambiar la superficie.
         if (event.eventType != AccessibilityEvent.TYPE_VIEW_CLICKED) return
-        Log.d(TAG, "DEBUG click desc=${event.contentDescription} text=${event.text} class=${event.className}")
         when (event.contentDescription?.toString()) {
             "Home" -> {
                 selectedInstagramTab = TAB_HOME
@@ -235,13 +234,27 @@ class AntiScrollAccessibilityService : AccessibilityService() {
             isInstagramMainTab = top?.contains("com.instagram.android/.activity.MainTabActivity") == true
             isInstagramConversationSurface = top?.contains("com.instagram.modal.") == true ||
                 top?.contains("Direct") == true
+            isInstagramSystemProfileSurface = isProfileVisibleToSystem()
         }
         if (!isInstagramMainTab || isInstagramConversationSurface || isInstagramDirectSurface ||
             isExternalProfileSurface()) {
             resetHomeScrollCounter()
             return false
         }
+        if (isInstagramSystemProfileSurface) {
+            isInstagramExternalProfileSurface = true
+            resetHomeScrollCounter()
+            return false
+        }
         return true
+    }
+
+    private fun isProfileVisibleToSystem(): Boolean {
+        if (!ShizukuManager.hasPermission()) return false
+        val tree = ShizukuManager.execShellCapture(
+            "uiautomator dump /dev/tty 2>/dev/null | grep -m1 'profile_action_bar'"
+        ) ?: return false
+        return tree.contains("profile_action_bar")
     }
 
     /**
