@@ -3,6 +3,7 @@ package com.nemotron.voiceime.guard
 import android.accessibilityservice.AccessibilityService
 import android.content.ComponentName
 import android.content.Context
+import android.os.Build
 import android.provider.Settings
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
@@ -17,10 +18,10 @@ import java.util.concurrent.ConcurrentHashMap
  * cuando hay cambios de UI en Instagram o WhatsApp. En reposo o pantalla
  * apagada no consume nada.
  *
- * - Instagram Reels: se detecta el SeekBar del visor → cierra la app.
+ * - Instagram Reels: se detecta el SeekBar del visor → bloquea la pantalla.
  * - Instagram Inicio: al acumular un desplazamiento considerable del feed
- *   principal → cierra la app. Las demás pestañas no se bloquean.
- * - WhatsApp Status: al abrirse la reproducción de un Status → cierra la app.
+ *   principal → bloquea la pantalla. Las demás pestañas no se bloquean.
+ * - WhatsApp Status: al abrirse la reproducción de un Status → bloquea la pantalla.
  */
 object AddictionGuard {
 
@@ -44,15 +45,15 @@ object AddictionGuard {
         event.className?.toString()?.contains("StatusPlayback", ignoreCase = true) == true ||
             event.source?.className?.toString()?.contains("StatusPlayback", ignoreCase = true) == true
 
-    /** Sale de la app: force-stop por Shizuku si está, si no te lleva al home. */
+    /** Bloquea la pantalla; en Android 8/8.1 vuelve a Inicio como fallback. */
     fun block(service: AccessibilityService, pkg: String) {
         val now = System.currentTimeMillis()
         if (now - (lastBlocked[pkg] ?: 0L) < BLOCK_COOLDOWN_MS) return
         lastBlocked[pkg] = now
 
-        Log.i(TAG, "Anti-adicción: cerrando $pkg")
-        if (ShizukuManager.hasPermission()) {
-            Thread { ShizukuManager.stopApp(pkg) }.start()
+        Log.i(TAG, "Anti-adicción: bloqueando pantalla por $pkg")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_LOCK_SCREEN)
         } else {
             service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME)
         }
