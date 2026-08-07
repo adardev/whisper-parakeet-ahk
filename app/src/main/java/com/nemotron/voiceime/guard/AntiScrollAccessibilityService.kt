@@ -80,7 +80,10 @@ class AntiScrollAccessibilityService : AccessibilityService() {
                 val blockReels = !isExcludedInstagramScroll && isReels && shouldBlockReels()
                 val blockHome = !isExcludedInstagramScroll && isHomeFeedScrollCandidate(event) &&
                     canCountHomeScroll() && isConsiderableHomeFeedScroll(event)
-                val blockSearch = !isExcludedInstagramScroll && selectedInstagramTab == TAB_SEARCH &&
+                // No dependemos del evento de toque: Instagram a veces no lo
+                // entrega al servicio. El tab seleccionado en el árbol es la
+                // fuente de verdad, incluso si el servicio se reconectó.
+                val blockSearch = !isExcludedInstagramScroll && isInstagramSearchSurfaceNow() &&
                     isConsiderableSearchScroll(event)
                 if (blockReels || blockHome || blockSearch) {
                     AddictionGuard.block(this, AddictionGuard.INSTAGRAM)
@@ -210,6 +213,23 @@ class AntiScrollAccessibilityService : AccessibilityService() {
                 selectedInstagramTab = TAB_OTHER
                 resetHomeScrollCounter()
             }
+        }
+    }
+
+    /** Search se reconoce por su pestaña seleccionada, no por el último toque. */
+    private fun isInstagramSearchSurfaceNow(): Boolean {
+        val root = rootInActiveWindow ?: return selectedInstagramTab == TAB_SEARCH
+        try {
+            val tabs = root.findAccessibilityNodeInfosByViewId(INSTAGRAM_SEARCH_TAB_ID)
+            try {
+                val isSearch = tabs.any { it.isSelected }
+                if (isSearch) selectedInstagramTab = TAB_SEARCH
+                return isSearch
+            } finally {
+                tabs.forEach { it.recycle() }
+            }
+        } finally {
+            root.recycle()
         }
     }
 
@@ -432,21 +452,10 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         return true
     }
 
-    /** La cuadrícula de Search solo suma desplazamiento vertical real. */
+    /** En Search el límite es cero: cualquier scroll de la cuadrícula bloquea. */
     private fun isConsiderableSearchScroll(event: AccessibilityEvent): Boolean {
         if (event.eventType != AccessibilityEvent.TYPE_VIEW_SCROLLED) return false
         if (event.className?.toString()?.contains("RecyclerView") != true) return false
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return false
-        val delta = kotlin.math.abs(event.scrollDeltaY)
-        if (delta == 0) return false
-
-        val now = android.os.SystemClock.elapsedRealtime()
-        if (now - lastSearchScrollAt > SCROLL_SESSION_GAP_MS) searchScrollDistancePx = 0
-        lastSearchScrollAt = now
-        searchScrollDistancePx += delta
-        if (searchScrollDistancePx < SEARCH_SCROLL_LIMIT_PX) return false
-
-        searchScrollDistancePx = 0
         return true
     }
 
@@ -463,6 +472,7 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         private const val MAX_PROFILE_NODES = 120
         private const val MAX_PROFILE_SCROLL_ANCESTORS = 12
         private const val HOME_FEED_RESOURCE_ID = "main_feed_action_bar"
+        private const val INSTAGRAM_SEARCH_TAB_ID = "com.instagram.android:id/search_tab"
         private const val ESTIMATED_POST_HEIGHT_PX = 700
         private const val NO_ITEM_INDEX = -1
         private const val TAB_UNKNOWN = 0
