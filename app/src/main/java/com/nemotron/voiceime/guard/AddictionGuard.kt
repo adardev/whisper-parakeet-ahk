@@ -17,8 +17,8 @@ import java.util.concurrent.ConcurrentHashMap
  * cuando hay cambios de UI en Instagram o WhatsApp. En reposo o pantalla
  * apagada no consume nada.
  *
- * - Instagram Reels: se detecta el SeekBar del visor de Reels en pantalla
- *   (el feed normal no emite ese tipo de eventos) → cierra la app.
+ * - Instagram Inicio: al acumular un desplazamiento considerable del feed
+ *   principal → cierra la app. Reels y las demás pestañas no se bloquean.
  * - WhatsApp Status: al abrirse la reproducción de un Status → cierra la app.
  */
 object AddictionGuard {
@@ -65,7 +65,7 @@ object AddictionGuard {
     }
 
     // ── Auto-reparación: One UI deja el servicio "activo pero no enlazado".
-    // Sin esto, el guard se muere solo. No afecta la detección (SeekBar). ────
+    // Sin esto, el guard se muere solo. No afecta la detección del feed. ─────
 
     fun startSelfHeal(ctx: Context) {
         if (healThread != null) return
@@ -82,7 +82,7 @@ object AddictionGuard {
             try {
                 Thread.sleep(HEAL_INTERVAL_MS)
                 if (!isEnabled(ctx)) return
-                // Con pantalla apagada no se puede ver reels/status: no hace falta reparar.
+                // Con pantalla apagada no se puede ver el feed/status: no hace falta reparar.
                 if (!isScreenOn(ctx)) continue
                 if (!isA11yActive(ctx)) {
                     setAccessibilityServiceEnabled(ctx, true)

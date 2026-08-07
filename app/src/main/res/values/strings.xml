@@ -40,8 +40,8 @@
     <string name="sidekey_uninstall_hint">Si pones como default launcher al boton lateral hay que ELEGIR Nemotron aunque tenga icono igual</string>
     <string name="sidekey_status_unknown">Aun no configurado (prueba el doble-press del boton lateral)</string>
     <!-- Anti-adicción -->
-    <string name="guard_title">Bloquear Reels / Status</string>
-    <string name="guard_summary">Cierra Instagram si abres Reels y WhatsApp si ves Status. Usa el servicio de accesibilidad: no gasta batería (sin polling)</string>
+    <string name="guard_title">Bloquear scroll Inicio / Status</string>
+    <string name="guard_summary">Cierra Instagram tras mucho scroll en Inicio y WhatsApp si ves Status. Usa el servicio de accesibilidad: no gasta batería (sin polling)</string>
     <string name="guard_a11y_label">Nemotron Guard</string>
-    <string name="guard_a11y_desc">Cierra Instagram al detectar Reels y WhatsApp al detectar Status. Solo funciona mientras ves esas apps, no consume batería.</string>
+    <string name="guard_a11y_desc">Cierra Instagram tras mucho scroll en Inicio y WhatsApp al detectar Status. Reels no se bloquea. Solo funciona mientras ves esas apps, no consume batería.</string>
 </resources>

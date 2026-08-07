@@ -2,7 +2,7 @@ package com.nemotron.voiceime.guard
 
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
-import android.os.SystemClock
+import android.os.Build
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 
@@ -11,16 +11,21 @@ import android.view.accessibility.AccessibilityEvent
  * Recibe eventos SOLO de Instagram y WhatsApp (filtrado por packageNames),
  * así que en reposo y con pantalla apagada no consume batería.
  *
- * Reacción instantánea: al primer evento del visor de Reels (SeekBar) o del
- * Status de WhatsApp se dispara el cierre. El cooldown interno evita spam.
+ * En Instagram solo cuenta el desplazamiento sostenido del feed de Inicio;
+ * Reels, Explore, perfiles y las demás pestañas se ignoran. El cooldown
+ * interno evita spam al cerrar.
  */
 class AntiScrollAccessibilityService : AccessibilityService() {
+
+    private var homeScrollDistancePx = 0
+    private var lastHomeScrollAt = 0L
 
     override fun onServiceConnected() {
         super.onServiceConnected()
         val info = serviceInfo ?: AccessibilityServiceInfo()
         info.eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
-            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED
+            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED or
+            AccessibilityEvent.TYPE_VIEW_SCROLLED
         info.feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
         info.flags = AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS or
             AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS
@@ -39,8 +44,7 @@ class AntiScrollAccessibilityService : AccessibilityService() {
 
         when (pkg) {
             AddictionGuard.INSTAGRAM -> {
-                // El visor de Reels manda SeekBar (progreso de video) al instante.
-                if (event.className?.toString()?.contains("SeekBar", ignoreCase = true) == true) {
+                if (isConsiderableHomeFeedScroll(event)) {
                     AddictionGuard.block(this, AddictionGuard.INSTAGRAM)
                 }
             }
@@ -54,7 +58,47 @@ class AntiScrollAccessibilityService : AccessibilityService() {
 
     override fun onInterrupt() {}
 
+    /**
+     * El RecyclerView del feed principal expone android:id/list. Además
+     * comprobamos que el tab `feed_tab` esté seleccionado, para no confundirlo
+     * con listas de perfiles, Explore o Reels.
+     */
+    private fun isConsiderableHomeFeedScroll(event: AccessibilityEvent): Boolean {
+        if (event.eventType != AccessibilityEvent.TYPE_VIEW_SCROLLED) return false
+        if (event.source?.viewIdResourceName != HOME_FEED_LIST_ID) return false
+        if (!isInstagramHomeSelected()) return false
+
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (now - lastHomeScrollAt > SCROLL_SESSION_GAP_MS) {
+            homeScrollDistancePx = 0
+        }
+        lastHomeScrollAt = now
+
+        // scrollDeltaY llegó en API 28. En Android 8/8.1 no hay una señal de
+        // píxeles fiable para RecyclerView, así que no bloqueamos por error.
+        val delta = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            kotlin.math.abs(event.scrollDeltaY)
+        } else {
+            0
+        }
+        if (delta == 0) return false
+        homeScrollDistancePx += delta
+        if (homeScrollDistancePx < HOME_SCROLL_LIMIT_PX) return false
+
+        homeScrollDistancePx = 0
+        return true
+    }
+
+    private fun isInstagramHomeSelected(): Boolean =
+        rootInActiveWindow
+            ?.findAccessibilityNodeInfosByViewId(HOME_TAB_ID)
+            ?.any { it.isSelected } == true
+
     companion object {
         private const val TAG = "AntiScroll"
+        private const val HOME_FEED_LIST_ID = "android:id/list"
+        private const val HOME_TAB_ID = "com.instagram.android:id/feed_tab"
+        private const val HOME_SCROLL_LIMIT_PX = 2_000
+        private const val SCROLL_SESSION_GAP_MS = 4_000L
     }
 }
