@@ -43,16 +43,6 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         // Heartbeat para el auto-reparador (no bloquea nada).
         AddictionGuard.lastEventAt = android.os.SystemClock.elapsedRealtime()
 
-        if (pkg == AddictionGuard.INSTAGRAM) {
-            Log.d(
-                TAG,
-                "IG event type=${event.eventType} class=${event.className} " +
-                    "sourceClass=${event.source?.className} sourceId=${event.source?.viewIdResourceName} " +
-                    "deltaY=${if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) event.scrollDeltaY else 0} " +
-                    "from=${event.fromIndex} to=${event.toIndex}"
-            )
-        }
-
         when (pkg) {
             AddictionGuard.INSTAGRAM -> {
                 if (isReelsViewer(event) || isConsiderableHomeFeedScroll(event)) {
@@ -74,15 +64,16 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         event.className?.toString()?.contains("SeekBar", ignoreCase = true) == true
 
     /**
-     * Instagram no adjunta el sourceId en sus eventos de scroll, pero sí la
-     * clase RecyclerView. Combinada con el tab `feed_tab` seleccionado basta
-     * para aislar el feed de Inicio de Explore, perfiles y Reels.
+     * Instagram no adjunta el sourceId ni el árbol de la ventana al servicio.
+     * El feed de Inicio sí expone un RecyclerView con entre 3 y 7 tarjetas
+     * visibles; esa es la firma que recibimos en los eventos reales del teléfono.
      */
     private fun isConsiderableHomeFeedScroll(event: AccessibilityEvent): Boolean {
         if (event.eventType != AccessibilityEvent.TYPE_VIEW_SCROLLED &&
             event.eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) return false
         if (event.className?.toString()?.contains("RecyclerView") != true) return false
-        if (!isInstagramHomeSelected()) return false
+        val visibleItems = event.toIndex - event.fromIndex
+        if (visibleItems !in HOME_FEED_VISIBLE_ITEMS) return false
 
         val now = android.os.SystemClock.elapsedRealtime()
         if (now - lastHomeScrollAt > SCROLL_SESSION_GAP_MS) {
@@ -115,17 +106,12 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         return true
     }
 
-    private fun isInstagramHomeSelected(): Boolean =
-        rootInActiveWindow
-            ?.findAccessibilityNodeInfosByViewId(HOME_TAB_ID)
-            ?.any { it.isSelected } == true
-
     companion object {
         private const val TAG = "AntiScroll"
-        private const val HOME_TAB_ID = "com.instagram.android:id/feed_tab"
         private const val HOME_SCROLL_LIMIT_PX = 2_000
         private const val SCROLL_SESSION_GAP_MS = 4_000L
         private const val ESTIMATED_POST_HEIGHT_PX = 700
         private const val NO_ITEM_INDEX = -1
+        private val HOME_FEED_VISIBLE_ITEMS = 3..7
     }
 }
