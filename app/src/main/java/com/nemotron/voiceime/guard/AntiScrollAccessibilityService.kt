@@ -76,14 +76,20 @@ class AntiScrollAccessibilityService : AccessibilityService() {
                 val isExcludedInstagramScroll = event.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED &&
                     (isProfileScrollEvent(event) || isExternalProfileSurface() ||
                         isDirectSurfaceNow())
+                // Al entrar a Search Instagram emite cambios de contenido que
+                // se parecen a los del feed/Reels. Search jamás se bloquea por
+                // esos cambios: únicamente por TYPE_VIEW_SCROLLED abajo.
+                val isSearchSurface = isInstagramSearchSurfaceNow()
                 val isReels = isReelsViewer(event)
-                val blockReels = !isExcludedInstagramScroll && isReels && shouldBlockReels()
-                val blockHome = !isExcludedInstagramScroll && isHomeFeedScrollCandidate(event) &&
+                val blockReels = !isExcludedInstagramScroll && !isSearchSurface &&
+                    isReels && shouldBlockReels()
+                val blockHome = !isExcludedInstagramScroll && !isSearchSurface &&
+                    isHomeFeedScrollCandidate(event) &&
                     canCountHomeScroll() && isConsiderableHomeFeedScroll(event)
                 // No dependemos del evento de toque: Instagram a veces no lo
                 // entrega al servicio. El tab seleccionado en el árbol es la
                 // fuente de verdad, incluso si el servicio se reconectó.
-                val blockSearch = !isExcludedInstagramScroll && isInstagramSearchSurfaceNow() &&
+                val blockSearch = !isExcludedInstagramScroll && isSearchSurface &&
                     isConsiderableSearchScroll(event)
                 if (blockReels || blockHome || blockSearch) {
                     AddictionGuard.block(this, AddictionGuard.INSTAGRAM)
