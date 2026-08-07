@@ -142,6 +142,7 @@ class AntiScrollAccessibilityService : AccessibilityService() {
                     "search" -> TAB_SEARCH
                     else -> TAB_OTHER
                 }
+                Log.i(TAG, "Instagram selected tab=$tab resolved=${selectedInstagramTab}")
             } finally {
                 isTabCheckRunning = false
             }
