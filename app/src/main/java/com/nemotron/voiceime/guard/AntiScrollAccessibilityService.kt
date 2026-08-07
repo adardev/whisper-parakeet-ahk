@@ -132,9 +132,22 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         if (event.eventType != AccessibilityEvent.TYPE_VIEW_CLICKED &&
             event.eventType != AccessibilityEvent.TYPE_VIEW_SELECTED) return
         when (event.contentDescription?.toString()) {
-            "Home" -> selectedInstagramTab = TAB_HOME
-            "Search and explore" -> selectedInstagramTab = TAB_SEARCH
-            "Reels", "Message", "Profile" -> selectedInstagramTab = TAB_OTHER
+            "Home" -> {
+                selectedInstagramTab = TAB_HOME
+                isInstagramExternalProfileSurface = false
+            }
+            "Search and explore" -> {
+                selectedInstagramTab = TAB_SEARCH
+                isInstagramExternalProfileSurface = false
+            }
+            "Reels", "Message" -> {
+                selectedInstagramTab = TAB_OTHER
+                isInstagramExternalProfileSurface = false
+            }
+            "Profile" -> {
+                selectedInstagramTab = TAB_OTHER
+                isInstagramExternalProfileSurface = true
+            }
         }
     }
 
@@ -186,7 +199,14 @@ class AntiScrollAccessibilityService : AccessibilityService() {
             return false
         }
         try {
-            isInstagramExternalProfileSurface = treeContainsProfileSurface(root)
+            if (treeContainsProfileSurface(root)) {
+                isInstagramExternalProfileSurface = true
+            } else if (treeContainsHomeFeedSurface(root)) {
+                // Al colapsar la cabecera, Instagram puede dejar de publicar
+                // nodos profile_*. Solo salimos de este estado cuando el árbol
+                // confirma que regresamos al feed principal.
+                isInstagramExternalProfileSurface = false
+            }
             return isInstagramExternalProfileSurface
         } finally {
             root.recycle()
@@ -216,6 +236,21 @@ class AntiScrollAccessibilityService : AccessibilityService() {
             ?.lowercase(Locale.ROOT)
             ?: return false
         return label in EXTERNAL_PROFILE_ACTIONS
+    }
+
+    private fun treeContainsHomeFeedSurface(root: AccessibilityNodeInfo): Boolean {
+        val pending = ArrayDeque<AccessibilityNodeInfo>()
+        pending.add(root)
+        var inspected = 0
+        while (pending.isNotEmpty() && inspected++ < MAX_PROFILE_NODES) {
+            val node = pending.removeFirst()
+            if (node.viewIdResourceName.orEmpty().endsWith(HOME_FEED_RESOURCE_ID) ||
+                node.contentDescription?.toString() == "Instagram Home Feed") return true
+            for (index in 0 until node.childCount) {
+                node.getChild(index)?.let(pending::addLast)
+            }
+        }
+        return false
     }
 
     private fun resetHomeScrollCounter() {
@@ -310,6 +345,7 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         private const val HOME_ACTIVITY_CHECK_GAP_MS = 4_000L
         private const val PROFILE_SURFACE_CHECK_GAP_MS = 750L
         private const val MAX_PROFILE_NODES = 120
+        private const val HOME_FEED_RESOURCE_ID = "main_feed_action_bar"
         private const val ESTIMATED_POST_HEIGHT_PX = 700
         private const val NO_ITEM_INDEX = -1
         private const val TAB_UNKNOWN = 0
