@@ -46,7 +46,6 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         when (pkg) {
             AddictionGuard.INSTAGRAM -> {
                 val isReels = isReelsViewer(event)
-                if (isReels) Log.i(TAG, "Reels pager detected")
                 if (isReels || isConsiderableHomeFeedScroll(event)) {
                     AddictionGuard.block(this, AddictionGuard.INSTAGRAM)
                 }
@@ -65,7 +64,7 @@ class AntiScrollAccessibilityService : AccessibilityService() {
     private fun isReelsViewer(event: AccessibilityEvent): Boolean =
         event.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED &&
             event.className?.toString()?.contains("ViewPager") == true &&
-            event.fromIndex == REELS_TAB_INDEX && event.toIndex == REELS_TAB_INDEX
+            event.toIndex == REELS_TAB_INDEX
 
     /**
      * Instagram no adjunta el sourceId ni el árbol de la ventana al servicio.
