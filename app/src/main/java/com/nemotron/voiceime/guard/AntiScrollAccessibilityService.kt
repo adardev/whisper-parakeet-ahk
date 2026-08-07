@@ -180,9 +180,8 @@ class AntiScrollAccessibilityService : AccessibilityService() {
 
     /** El toque de la barra inferior identifica la pestaña sin consultar la UI. */
     private fun updateInstagramTabFromClick(event: AccessibilityEvent) {
-        // Instagram emite VIEW_SELECTED de la barra subyacente mientras un
-        // perfil está abierto. Solo un toque real puede cambiar la superficie.
-        if (event.eventType != AccessibilityEvent.TYPE_VIEW_CLICKED) return
+        if (event.eventType != AccessibilityEvent.TYPE_VIEW_CLICKED &&
+            event.eventType != AccessibilityEvent.TYPE_VIEW_SELECTED) return
         when (event.contentDescription?.toString()) {
             "Home" -> {
                 selectedInstagramTab = TAB_HOME
@@ -205,6 +204,7 @@ class AntiScrollAccessibilityService : AccessibilityService() {
                 isInstagramDirectSurface = false
             }
             else -> {
+                if (event.eventType != AccessibilityEvent.TYPE_VIEW_CLICKED) return
                 // Abrir un perfil, post o pantalla interna no debe heredar el
                 // permiso de contar que obtuvo el feed de Inicio.
                 selectedInstagramTab = TAB_OTHER
