@@ -19,6 +19,7 @@ class AntiScrollAccessibilityService : AccessibilityService() {
 
     private var homeScrollDistancePx = 0
     private var lastHomeScrollAt = 0L
+    private var lastHomeFeedFirstItem = NO_ITEM_INDEX
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -71,16 +72,26 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         val now = android.os.SystemClock.elapsedRealtime()
         if (now - lastHomeScrollAt > SCROLL_SESSION_GAP_MS) {
             homeScrollDistancePx = 0
+            lastHomeFeedFirstItem = NO_ITEM_INDEX
         }
         lastHomeScrollAt = now
 
-        // scrollDeltaY llegó en API 28. En Android 8/8.1 no hay una señal de
-        // píxeles fiable para RecyclerView, así que no bloqueamos por error.
-        val delta = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        // Algunos RecyclerViews de Instagram mandan scrollDeltaY=0. Como
+        // respaldo, medimos cuántas tarjetas cambiaron en el borde superior.
+        val pixelDelta = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             kotlin.math.abs(event.scrollDeltaY)
         } else {
             0
         }
+        val firstItem = event.fromIndex
+        val itemDelta = if (firstItem >= 0 && lastHomeFeedFirstItem >= 0) {
+            kotlin.math.abs(firstItem - lastHomeFeedFirstItem) * ESTIMATED_POST_HEIGHT_PX
+        } else {
+            0
+        }
+        if (firstItem >= 0) lastHomeFeedFirstItem = firstItem
+
+        val delta = maxOf(pixelDelta, itemDelta)
         if (delta == 0) return false
         homeScrollDistancePx += delta
         if (homeScrollDistancePx < HOME_SCROLL_LIMIT_PX) return false
@@ -100,5 +111,7 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         private const val HOME_TAB_ID = "com.instagram.android:id/feed_tab"
         private const val HOME_SCROLL_LIMIT_PX = 2_000
         private const val SCROLL_SESSION_GAP_MS = 4_000L
+        private const val ESTIMATED_POST_HEIGHT_PX = 700
+        private const val NO_ITEM_INDEX = -1
     }
 }
