@@ -5,7 +5,9 @@ import android.accessibilityservice.AccessibilityServiceInfo
 import android.os.Build
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
 import com.nemotron.voiceime.dhizuku.ShizukuManager
+import java.util.Locale
 
 /**
  * Servicio de accesibilidad anti-adicción. Event-driven: no hace polls.
@@ -25,8 +27,10 @@ class AntiScrollAccessibilityService : AccessibilityService() {
     private var lastSearchScrollAt = 0L
     @Volatile private var isInstagramMainTab = false
     @Volatile private var isInstagramConversationSurface = false
+    @Volatile private var isInstagramExternalProfileSurface = false
     @Volatile private var lastInstagramActivityCheckAt = 0L
     @Volatile private var lastHomeActivityCheckAt = 0L
+    @Volatile private var lastProfileSurfaceCheckAt = 0L
     @Volatile private var selectedInstagramTab = TAB_UNKNOWN
 
     override fun onServiceConnected() {
@@ -40,9 +44,9 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         info.feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
         // Agrupa ráfagas de cambios visuales sin afectar los gestos largos.
         info.notificationTimeout = EVENT_COALESCE_MS
-        // El guard solo usa clase/tipo del evento: no necesita IDs ni nodos
-        // secundarios, que son la parte más costosa de accesibilidad.
-        info.flags = 0
+        // Los IDs distinguen de forma fiable perfil y feed dentro de la misma
+        // MainTabActivity. Solo se inspeccionan durante un scroll candidato.
+        info.flags = AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
         info.packageNames = arrayOf(AddictionGuard.INSTAGRAM, AddictionGuard.WHATSAPP)
         serviceInfo = info
         Log.i(TAG, "onServiceConnected eventTypes=${serviceInfo.eventTypes}")
@@ -90,9 +94,9 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         if (windowClass.contains("com.instagram.modal.") || windowClass.contains("Direct")) {
             isInstagramConversationSurface = true
             isInstagramMainTab = false
+            isInstagramExternalProfileSurface = false
             selectedInstagramTab = TAB_OTHER
-            homeScrollDistancePx = 0
-            lastHomeFeedFirstItem = NO_ITEM_INDEX
+            resetHomeScrollCounter()
             return
         }
         if (windowClass.contains(".activity.MainTabActivity")) {
@@ -112,8 +116,7 @@ class AntiScrollAccessibilityService : AccessibilityService() {
             isInstagramConversationSurface = top.contains("com.instagram.modal.") ||
                 top.contains("Direct")
             if (!isInstagramMainTab) {
-                homeScrollDistancePx = 0
-                lastHomeFeedFirstItem = NO_ITEM_INDEX
+                resetHomeScrollCounter()
             }
         }.start()
     }
@@ -153,7 +156,65 @@ class AntiScrollAccessibilityService : AccessibilityService() {
             isInstagramConversationSurface = top?.contains("com.instagram.modal.") == true ||
                 top?.contains("Direct") == true
         }
-        return isInstagramMainTab && !isInstagramConversationSurface
+        if (!isInstagramMainTab || isInstagramConversationSurface || isExternalProfileSurface()) {
+            resetHomeScrollCounter()
+            return false
+        }
+        return true
+    }
+
+    /**
+     * Un perfil se abre dentro de MainTabActivity, por lo que la actividad por
+     * sí sola no basta para distinguirlo del feed. Instagram expone nodos
+     * profile_* en esa pantalla; si aparecen, preferimos no contar nada. Es
+     * deliberadamente conservador: ante duda no se bloquea un perfil.
+     */
+    private fun isExternalProfileSurface(): Boolean {
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (now - lastProfileSurfaceCheckAt < PROFILE_SURFACE_CHECK_GAP_MS) {
+            return isInstagramExternalProfileSurface
+        }
+        lastProfileSurfaceCheckAt = now
+        val root = rootInActiveWindow ?: run {
+            isInstagramExternalProfileSurface = false
+            return false
+        }
+        try {
+            isInstagramExternalProfileSurface = treeContainsProfileSurface(root)
+            return isInstagramExternalProfileSurface
+        } finally {
+            root.recycle()
+        }
+    }
+
+    private fun treeContainsProfileSurface(root: AccessibilityNodeInfo): Boolean {
+        val pending = ArrayDeque<AccessibilityNodeInfo>()
+        pending.add(root)
+        var inspected = 0
+        while (pending.isNotEmpty() && inspected++ < MAX_PROFILE_NODES) {
+            val node = pending.removeFirst()
+            if (isProfileSurfaceNode(node)) return true
+            for (index in 0 until node.childCount) {
+                node.getChild(index)?.let(pending::addLast)
+            }
+        }
+        return false
+    }
+
+    private fun isProfileSurfaceNode(node: AccessibilityNodeInfo): Boolean {
+        val resourceId = node.viewIdResourceName.orEmpty()
+        if (PROFILE_SURFACE_RESOURCE_IDS.any(resourceId::endsWith)) return true
+        val label = (node.text ?: node.contentDescription)
+            ?.toString()
+            ?.trim()
+            ?.lowercase(Locale.ROOT)
+            ?: return false
+        return label in EXTERNAL_PROFILE_ACTIONS
+    }
+
+    private fun resetHomeScrollCounter() {
+        homeScrollDistancePx = 0
+        lastHomeFeedFirstItem = NO_ITEM_INDEX
     }
 
     /**
@@ -241,6 +302,8 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         private const val ACTIVITY_CHECK_GAP_MS = 500L
         // Solo una comprobación de actividad por sesión continua de scroll.
         private const val HOME_ACTIVITY_CHECK_GAP_MS = 4_000L
+        private const val PROFILE_SURFACE_CHECK_GAP_MS = 750L
+        private const val MAX_PROFILE_NODES = 120
         private const val ESTIMATED_POST_HEIGHT_PX = 700
         private const val NO_ITEM_INDEX = -1
         private const val TAB_UNKNOWN = 0
@@ -249,5 +312,15 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         private const val TAB_OTHER = 3
         private val REELS_PAGER_INDICES = 1..2
         private val HOME_FEED_VISIBLE_ITEMS = 3..7
+        private val PROFILE_SURFACE_RESOURCE_IDS = setOf(
+            "profile_action_bar",
+            "profile_header_container",
+            "profile_tabs_container",
+            "profile_viewpager"
+        )
+        private val EXTERNAL_PROFILE_ACTIONS = setOf(
+            "follow", "following", "follow back", "requested",
+            "seguir", "siguiendo", "seguir también", "solicitado"
+        )
     }
 }
