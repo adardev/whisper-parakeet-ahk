@@ -28,6 +28,7 @@ class AntiScrollAccessibilityService : AccessibilityService() {
     @Volatile private var lastInstagramActivityCheckAt = 0L
     @Volatile private var selectedInstagramTab = TAB_UNKNOWN
     @Volatile private var isTabCheckRunning = false
+    @Volatile private var lastTabCheckAt = 0L
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -129,9 +130,13 @@ class AntiScrollAccessibilityService : AccessibilityService() {
      * el resultado queda en memoria hasta que Instagram cambia de página.
      */
     private fun refreshSelectedTabIfNeeded(event: AccessibilityEvent) {
-        if (selectedInstagramTab != TAB_UNKNOWN || isTabCheckRunning) return
+        if ((selectedInstagramTab != TAB_UNKNOWN && selectedInstagramTab != TAB_OTHER) ||
+            isInstagramConversationSurface || isTabCheckRunning) return
         if (event.className?.toString()?.contains("RecyclerView") != true) return
         if (!ShizukuManager.hasPermission()) return
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (now - lastTabCheckAt < TAB_RECHECK_GAP_MS) return
+        lastTabCheckAt = now
         isTabCheckRunning = true
         Thread {
             try {
@@ -255,6 +260,7 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         private const val SCROLL_SESSION_GAP_MS = 4_000L
         private const val EVENT_COALESCE_MS = 100L
         private const val ACTIVITY_CHECK_GAP_MS = 500L
+        private const val TAB_RECHECK_GAP_MS = 2_000L
         private const val ESTIMATED_POST_HEIGHT_PX = 700
         private const val NO_ITEM_INDEX = -1
         private const val TAB_UNKNOWN = 0
