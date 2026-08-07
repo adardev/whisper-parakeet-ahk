@@ -214,7 +214,7 @@ class AntiScrollAccessibilityService : AccessibilityService() {
     companion object {
         private const val TAG = "AntiScroll"
         private const val HOME_SCROLL_LIMIT_PX = 5_000
-        private const val SEARCH_SCROLL_LIMIT_PX = 2_500
+        private const val SEARCH_SCROLL_LIMIT_PX = 500
         private const val SCROLL_SESSION_GAP_MS = 4_000L
         private const val EVENT_COALESCE_MS = 100L
         private const val ACTIVITY_CHECK_GAP_MS = 500L
