@@ -34,7 +34,8 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         info.eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
             AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED or
             AccessibilityEvent.TYPE_VIEW_SCROLLED or
-            AccessibilityEvent.TYPE_VIEW_CLICKED
+            AccessibilityEvent.TYPE_VIEW_CLICKED or
+            AccessibilityEvent.TYPE_VIEW_SELECTED
         info.feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
         // Agrupa ráfagas de cambios visuales sin afectar los gestos largos.
         info.notificationTimeout = EVENT_COALESCE_MS
@@ -116,8 +117,9 @@ class AntiScrollAccessibilityService : AccessibilityService() {
 
     /** El toque de la barra inferior identifica la pestaña sin consultar la UI. */
     private fun updateInstagramTabFromClick(event: AccessibilityEvent) {
-        if (event.eventType != AccessibilityEvent.TYPE_VIEW_CLICKED) return
-        Log.i(TAG, "Instagram tab click=${event.contentDescription}")
+        if (event.eventType != AccessibilityEvent.TYPE_VIEW_CLICKED &&
+            event.eventType != AccessibilityEvent.TYPE_VIEW_SELECTED) return
+        Log.i(TAG, "Instagram tab event=${event.eventType} desc=${event.contentDescription}")
         when (event.contentDescription?.toString()) {
             "Home" -> selectedInstagramTab = TAB_HOME
             "Search and explore" -> selectedInstagramTab = TAB_SEARCH
