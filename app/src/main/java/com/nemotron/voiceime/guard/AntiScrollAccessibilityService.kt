@@ -465,7 +465,14 @@ class AntiScrollAccessibilityService : AccessibilityService() {
     private fun isConsiderableSearchScroll(event: AccessibilityEvent): Boolean {
         if (event.eventType != AccessibilityEvent.TYPE_VIEW_SCROLLED) return false
         if (event.className?.toString()?.contains("RecyclerView") != true) return false
-        return true
+        val deltaY = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            event.scrollDeltaY
+        } else {
+            0
+        }
+        // Al abrir Search Instagram emite un VIEW_SCROLLED sintético sin
+        // desplazamiento ni índices (-1/-1). No es un gesto del usuario.
+        return deltaY != 0 || event.fromIndex >= 0 || event.toIndex >= 0
     }
 
     companion object {
