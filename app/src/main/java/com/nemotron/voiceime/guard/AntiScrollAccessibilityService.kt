@@ -52,7 +52,7 @@ class AntiScrollAccessibilityService : AccessibilityService() {
             AddictionGuard.INSTAGRAM -> {
                 refreshInstagramScreenIfNeeded(event)
                 val isReels = isReelsViewer(event)
-                if (isReels || (isInstagramMainTab && isConsiderableHomeFeedScroll(event))) {
+                if (isInstagramMainTab && (isReels || isConsiderableHomeFeedScroll(event))) {
                     AddictionGuard.block(this, AddictionGuard.INSTAGRAM)
                 }
             }
@@ -72,6 +72,15 @@ class AntiScrollAccessibilityService : AccessibilityService() {
      */
     private fun refreshInstagramScreenIfNeeded(event: AccessibilityEvent) {
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
+        val windowClass = event.className?.toString().orEmpty()
+        // Los Reels compartidos por DM viven en ModalActivity, no en el visor
+        // principal. Se desarma sin esperar a la consulta por Shizuku.
+        if (windowClass.contains("modal.ModalActivity") || windowClass.contains("Direct")) {
+            isInstagramMainTab = false
+            homeScrollDistancePx = 0
+            lastHomeFeedFirstItem = NO_ITEM_INDEX
+            return
+        }
         val now = android.os.SystemClock.elapsedRealtime()
         if (now - lastInstagramActivityCheckAt < ACTIVITY_CHECK_GAP_MS) return
         lastInstagramActivityCheckAt = now
