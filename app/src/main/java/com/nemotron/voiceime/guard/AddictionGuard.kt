@@ -3,10 +3,10 @@ package com.nemotron.voiceime.guard
 import android.accessibilityservice.AccessibilityService
 import android.content.ComponentName
 import android.content.Context
-import android.os.Build
 import android.provider.Settings
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
+import android.widget.Toast
 import com.nemotron.voiceime.data.SecureStore
 import com.nemotron.voiceime.dhizuku.ShizukuManager
 import java.util.concurrent.ConcurrentHashMap
@@ -51,15 +51,8 @@ object AddictionGuard {
         if (now - (lastBlocked[pkg] ?: 0L) < BLOCK_COOLDOWN_MS) return
         lastBlocked[pkg] = now
 
-        Log.i(TAG, "Anti-adicción: bloqueando pantalla y cerrando $pkg")
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_LOCK_SCREEN)
-        } else {
-            service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME)
-        }
-        if (ShizukuManager.hasPermission()) {
-            Thread { ShizukuManager.stopApp(pkg) }.start()
-        }
+        Log.w(TAG, "DEBUG guard activado para $pkg")
+        Toast.makeText(service, "DEBUG guard: $pkg", Toast.LENGTH_SHORT).show()
     }
 
     // ── Activación del servicio de accesibilidad (WRITE_SECURE_SETTINGS) ──
