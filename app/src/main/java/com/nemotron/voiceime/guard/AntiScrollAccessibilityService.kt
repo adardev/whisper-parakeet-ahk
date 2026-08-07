@@ -79,7 +79,8 @@ class AntiScrollAccessibilityService : AccessibilityService() {
      * para aislar el feed de Inicio de Explore, perfiles y Reels.
      */
     private fun isConsiderableHomeFeedScroll(event: AccessibilityEvent): Boolean {
-        if (event.eventType != AccessibilityEvent.TYPE_VIEW_SCROLLED) return false
+        if (event.eventType != AccessibilityEvent.TYPE_VIEW_SCROLLED &&
+            event.eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) return false
         if (event.className?.toString()?.contains("RecyclerView") != true) return false
         if (!isInstagramHomeSelected()) return false
 
