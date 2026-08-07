@@ -74,11 +74,14 @@ class AntiScrollAccessibilityService : AccessibilityService() {
                     (isProfileScrollEvent(event) || isExternalProfileSurface() ||
                         isDirectSurfaceNow())
                 val isReels = isReelsViewer(event)
-                if ((!isExcludedInstagramScroll && isReels && shouldBlockReels()) ||
-                    (!isExcludedInstagramScroll && isHomeFeedScrollCandidate(event) && canCountHomeScroll() &&
-                        isConsiderableHomeFeedScroll(event)) ||
-                    (!isExcludedInstagramScroll && selectedInstagramTab == TAB_SEARCH &&
-                        isConsiderableSearchScroll(event))) {
+                val blockReels = !isExcludedInstagramScroll && isReels && shouldBlockReels()
+                val blockHome = !isExcludedInstagramScroll && isHomeFeedScrollCandidate(event) &&
+                    canCountHomeScroll() && isConsiderableHomeFeedScroll(event)
+                val blockSearch = !isExcludedInstagramScroll && selectedInstagramTab == TAB_SEARCH &&
+                    isConsiderableSearchScroll(event)
+                if (blockReels || blockHome || blockSearch) {
+                    Log.w(TAG, "DEBUG trigger reels=$blockReels home=$blockHome search=$blockSearch " +
+                        "profile=$isInstagramExternalProfileSurface direct=$isInstagramDirectSurface")
                     AddictionGuard.block(this, AddictionGuard.INSTAGRAM)
                 }
             }
