@@ -21,9 +21,13 @@ class AntiScrollAccessibilityService : AccessibilityService() {
     private var homeScrollDistancePx = 0
     private var lastHomeScrollAt = 0L
     private var lastHomeFeedFirstItem = NO_ITEM_INDEX
+    private var searchScrollDistancePx = 0
+    private var lastSearchScrollAt = 0L
     @Volatile private var isInstagramMainTab = false
     @Volatile private var isInstagramConversationSurface = false
     @Volatile private var lastInstagramActivityCheckAt = 0L
+    @Volatile private var selectedInstagramTab = TAB_UNKNOWN
+    @Volatile private var isTabCheckRunning = false
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -49,21 +53,18 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         // Heartbeat para el auto-reparador (no bloquea nada).
         AddictionGuard.lastEventAt = android.os.SystemClock.elapsedRealtime()
 
-        if (pkg == AddictionGuard.INSTAGRAM &&
-            event.className?.toString()?.contains("RecyclerView") == true) {
-            Log.d(
-                TAG,
-                "Recycler type=${event.eventType} from=${event.fromIndex} to=${event.toIndex} " +
-                    "delta=${if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) event.scrollDeltaY else 0}"
-            )
-        }
-
         when (pkg) {
             AddictionGuard.INSTAGRAM -> {
                 refreshInstagramScreenIfNeeded(event)
+                if (event.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED &&
+                    event.className?.toString()?.contains("ViewPager") == true) {
+                    selectedInstagramTab = TAB_UNKNOWN
+                }
+                refreshSelectedTabIfNeeded(event)
                 val isReels = isReelsViewer(event)
                 if ((isReels && shouldBlockReels()) ||
-                    (isInstagramMainTab && isConsiderableHomeFeedScroll(event))) {
+                    (selectedInstagramTab == TAB_HOME && isConsiderableHomeFeedScroll(event)) ||
+                    (selectedInstagramTab == TAB_SEARCH && isConsiderableSearchScroll(event))) {
                     AddictionGuard.block(this, AddictionGuard.INSTAGRAM)
                 }
             }
@@ -89,6 +90,7 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         if (windowClass.contains("com.instagram.modal.") || windowClass.contains("Direct")) {
             isInstagramConversationSurface = true
             isInstagramMainTab = false
+            selectedInstagramTab = TAB_OTHER
             homeScrollDistancePx = 0
             lastHomeFeedFirstItem = NO_ITEM_INDEX
             return
@@ -96,6 +98,7 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         if (windowClass.contains(".activity.MainTabActivity")) {
             isInstagramConversationSurface = false
             isInstagramMainTab = true
+            selectedInstagramTab = TAB_UNKNOWN
         }
         val now = android.os.SystemClock.elapsedRealtime()
         if (now - lastInstagramActivityCheckAt < ACTIVITY_CHECK_GAP_MS) return
@@ -108,9 +111,39 @@ class AntiScrollAccessibilityService : AccessibilityService() {
             isInstagramMainTab = top.contains("com.instagram.android/.activity.MainTabActivity")
             isInstagramConversationSurface = top.contains("com.instagram.modal.") ||
                 top.contains("Direct")
+            if (isInstagramMainTab) selectedInstagramTab = TAB_UNKNOWN
             if (!isInstagramMainTab) {
                 homeScrollDistancePx = 0
                 lastHomeFeedFirstItem = NO_ITEM_INDEX
+            }
+        }.start()
+    }
+
+    /**
+     * La jerarquía no viene adjunta a los eventos de Instagram. Por eso, solo
+     * al primer RecyclerView de una pestaña consultamos qué tab está marcado;
+     * el resultado queda en memoria hasta que Instagram cambia de página.
+     */
+    private fun refreshSelectedTabIfNeeded(event: AccessibilityEvent) {
+        if (!isInstagramMainTab || selectedInstagramTab != TAB_UNKNOWN || isTabCheckRunning) return
+        if (event.className?.toString()?.contains("RecyclerView") != true) return
+        if (!ShizukuManager.hasPermission()) return
+        isTabCheckRunning = true
+        Thread {
+            try {
+                val tab = ShizukuManager.execShellCapture(
+                    "uiautomator dump /sdcard/nemotron-guard.xml >/dev/null; " +
+                        "if grep -q 'resource-id=\"com.instagram.android:id/feed_tab\"[^>]*selected=\"true\"' /sdcard/nemotron-guard.xml; then echo home; " +
+                        "elif grep -q 'resource-id=\"com.instagram.android:id/search_tab\"[^>]*selected=\"true\"' /sdcard/nemotron-guard.xml; then echo search; " +
+                        "else echo other; fi"
+                )
+                selectedInstagramTab = when (tab) {
+                    "home" -> TAB_HOME
+                    "search" -> TAB_SEARCH
+                    else -> TAB_OTHER
+                }
+            } finally {
+                isTabCheckRunning = false
             }
         }.start()
     }
@@ -181,14 +214,37 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         return true
     }
 
+    /** La cuadrícula de Search solo suma desplazamiento vertical real. */
+    private fun isConsiderableSearchScroll(event: AccessibilityEvent): Boolean {
+        if (event.eventType != AccessibilityEvent.TYPE_VIEW_SCROLLED) return false
+        if (event.className?.toString()?.contains("RecyclerView") != true) return false
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) return false
+        val delta = kotlin.math.abs(event.scrollDeltaY)
+        if (delta == 0) return false
+
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (now - lastSearchScrollAt > SCROLL_SESSION_GAP_MS) searchScrollDistancePx = 0
+        lastSearchScrollAt = now
+        searchScrollDistancePx += delta
+        if (searchScrollDistancePx < SEARCH_SCROLL_LIMIT_PX) return false
+
+        searchScrollDistancePx = 0
+        return true
+    }
+
     companion object {
         private const val TAG = "AntiScroll"
         private const val HOME_SCROLL_LIMIT_PX = 5_000
+        private const val SEARCH_SCROLL_LIMIT_PX = 5_000
         private const val SCROLL_SESSION_GAP_MS = 4_000L
         private const val EVENT_COALESCE_MS = 100L
         private const val ACTIVITY_CHECK_GAP_MS = 500L
         private const val ESTIMATED_POST_HEIGHT_PX = 700
         private const val NO_ITEM_INDEX = -1
+        private const val TAB_UNKNOWN = 0
+        private const val TAB_HOME = 1
+        private const val TAB_SEARCH = 2
+        private const val TAB_OTHER = 3
         private val REELS_PAGER_INDICES = 1..2
         private val HOME_FEED_VISIBLE_ITEMS = 3..7
     }
