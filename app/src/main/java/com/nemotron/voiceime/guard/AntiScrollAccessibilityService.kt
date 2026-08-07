@@ -137,6 +137,7 @@ class AntiScrollAccessibilityService : AccessibilityService() {
                 isInstagramMainTab = top?.contains("com.instagram.android/.activity.MainTabActivity") == true
                 isInstagramConversationSurface = top?.contains("com.instagram.modal.") == true ||
                     top?.contains("Direct") == true
+                Log.i(TAG, "tab check main=$isInstagramMainTab chat=$isInstagramConversationSurface top=$top")
                 if (!isInstagramMainTab || isInstagramConversationSurface) {
                     selectedInstagramTab = TAB_OTHER
                     return@Thread
@@ -152,6 +153,7 @@ class AntiScrollAccessibilityService : AccessibilityService() {
                     "search" -> TAB_SEARCH
                     else -> TAB_OTHER
                 }
+                Log.i(TAG, "tab check result=$tab selected=$selectedInstagramTab")
             } finally {
                 isTabCheckRunning = false
             }
