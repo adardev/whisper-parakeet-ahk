@@ -43,14 +43,6 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         // Heartbeat para el auto-reparador (no bloquea nada).
         AddictionGuard.lastEventAt = android.os.SystemClock.elapsedRealtime()
 
-        if (pkg == AddictionGuard.INSTAGRAM) {
-            Log.d(
-                TAG,
-                "IG type=${event.eventType} class=${event.className} " +
-                    "from=${event.fromIndex} to=${event.toIndex}"
-            )
-        }
-
         when (pkg) {
             AddictionGuard.INSTAGRAM -> {
                 val isReels = isReelsViewer(event)
@@ -68,11 +60,9 @@ class AntiScrollAccessibilityService : AccessibilityService() {
 
     override fun onInterrupt() {}
 
-    /** La pestaña Reels es la página 1 del ViewPager principal de Instagram. */
+    /** El visor de Reels expone un SeekBar con el progreso del video. */
     private fun isReelsViewer(event: AccessibilityEvent): Boolean =
-        event.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED &&
-            event.className?.toString()?.contains("ViewPager") == true &&
-            event.toIndex == REELS_TAB_INDEX
+        event.className?.toString()?.contains("SeekBar", ignoreCase = true) == true
 
     /**
      * Instagram no adjunta el sourceId ni el árbol de la ventana al servicio.
@@ -123,7 +113,6 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         private const val SCROLL_SESSION_GAP_MS = 4_000L
         private const val ESTIMATED_POST_HEIGHT_PX = 700
         private const val NO_ITEM_INDEX = -1
-        private const val REELS_TAB_INDEX = 1
         private val HOME_FEED_VISIBLE_ITEMS = 3..7
     }
 }
