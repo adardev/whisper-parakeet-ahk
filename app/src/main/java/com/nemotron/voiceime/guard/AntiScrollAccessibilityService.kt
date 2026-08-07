@@ -11,8 +11,8 @@ import android.view.accessibility.AccessibilityEvent
  * Recibe eventos SOLO de Instagram y WhatsApp (filtrado por packageNames),
  * así que en reposo y con pantalla apagada no consume batería.
  *
- * En Instagram solo cuenta el desplazamiento sostenido del feed de Inicio;
- * Reels, Explore, perfiles y las demás pestañas se ignoran. El cooldown
+ * En Instagram bloquea al abrir Reels y también cuenta el desplazamiento
+ * sostenido del feed de Inicio. Explore y perfiles se ignoran. El cooldown
  * interno evita spam al cerrar.
  */
 class AntiScrollAccessibilityService : AccessibilityService() {
@@ -45,7 +45,7 @@ class AntiScrollAccessibilityService : AccessibilityService() {
 
         when (pkg) {
             AddictionGuard.INSTAGRAM -> {
-                if (isConsiderableHomeFeedScroll(event)) {
+                if (isReelsViewer(event) || isConsiderableHomeFeedScroll(event)) {
                     AddictionGuard.block(this, AddictionGuard.INSTAGRAM)
                 }
             }
@@ -58,6 +58,10 @@ class AntiScrollAccessibilityService : AccessibilityService() {
     }
 
     override fun onInterrupt() {}
+
+    /** El visor de Reels expone un SeekBar con el progreso del video. */
+    private fun isReelsViewer(event: AccessibilityEvent): Boolean =
+        event.className?.toString()?.contains("SeekBar", ignoreCase = true) == true
 
     /**
      * El RecyclerView del feed principal expone android:id/list. Además

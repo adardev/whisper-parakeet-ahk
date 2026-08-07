@@ -238,7 +238,7 @@ object SecureStore {
         }
     }
 
-    // ── Guard anti-adicción (bloquear scroll de Inicio / Status) ────────
+    // ── Guard anti-adicción (bloquear Reels / scroll de Inicio / Status) ─
 
     fun isAddictionGuardEnabled(ctx: Context): Boolean =
         plainPrefs(ctx).getBoolean(KEY_GUARD_ENABLED, false)

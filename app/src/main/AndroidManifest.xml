@@ -105,7 +105,7 @@
             android:exported="false"
             android:foregroundServiceType="microphone" />
 
-        <!-- Guard anti-adicción: cierra Instagram tras mucho scroll en Inicio y WhatsApp si ves Status.
+        <!-- Guard anti-adicción: cierra Instagram al abrir Reels o tras mucho scroll en Inicio, y WhatsApp si ves Status.
              Event-driven (accesibilidad), sin polling ni gasto de batería -->
         <service
             android:name=".guard.AntiScrollAccessibilityService"
