@@ -125,12 +125,22 @@ class AntiScrollAccessibilityService : AccessibilityService() {
      * el resultado queda en memoria hasta que Instagram cambia de página.
      */
     private fun refreshSelectedTabIfNeeded(event: AccessibilityEvent) {
-        if (!isInstagramMainTab || selectedInstagramTab != TAB_UNKNOWN || isTabCheckRunning) return
+        if (selectedInstagramTab != TAB_UNKNOWN || isTabCheckRunning) return
         if (event.className?.toString()?.contains("RecyclerView") != true) return
         if (!ShizukuManager.hasPermission()) return
         isTabCheckRunning = true
         Thread {
             try {
+                val top = ShizukuManager.execShellCapture(
+                    "dumpsys activity activities | grep -m1 topResumedActivity"
+                )
+                isInstagramMainTab = top?.contains("com.instagram.android/.activity.MainTabActivity") == true
+                isInstagramConversationSurface = top?.contains("com.instagram.modal.") == true ||
+                    top?.contains("Direct") == true
+                if (!isInstagramMainTab || isInstagramConversationSurface) {
+                    selectedInstagramTab = TAB_OTHER
+                    return@Thread
+                }
                 val tab = ShizukuManager.execShellCapture(
                     "uiautomator dump /sdcard/nemotron-guard.xml >/dev/null; " +
                         "if grep -q 'resource-id=\"com.instagram.android:id/feed_tab\"[^>]*selected=\"true\"' /sdcard/nemotron-guard.xml; then echo home; " +
