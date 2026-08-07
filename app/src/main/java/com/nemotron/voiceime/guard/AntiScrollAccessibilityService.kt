@@ -75,15 +75,12 @@ class AntiScrollAccessibilityService : AccessibilityService() {
                         isDirectSurfaceNow())
                 val isReels = isReelsViewer(event)
                 val blockReels = !isExcludedInstagramScroll && isReels && shouldBlockReels()
-                val blockHome = !isExcludedInstagramScroll && isHomeFeedScrollCandidate(event) &&
+                val blockHome = !isExcludedInstagramScroll && selectedInstagramTab == TAB_HOME &&
+                    isHomeFeedScrollCandidate(event) &&
                     canCountHomeScroll() && isConsiderableHomeFeedScroll(event)
                 val blockSearch = !isExcludedInstagramScroll && selectedInstagramTab == TAB_SEARCH &&
                     isConsiderableSearchScroll(event)
                 if (blockReels || blockHome || blockSearch) {
-                    val source = event.source
-                    Log.w(TAG, "DEBUG trigger reels=$blockReels home=$blockHome search=$blockSearch " +
-                        "profile=$isInstagramExternalProfileSurface direct=$isInstagramDirectSurface " +
-                        "class=${event.className} source=${source?.viewIdResourceName}")
                     AddictionGuard.block(this, AddictionGuard.INSTAGRAM)
                 }
             }
@@ -204,6 +201,12 @@ class AntiScrollAccessibilityService : AccessibilityService() {
                 selectedInstagramTab = TAB_OTHER
                 isInstagramExternalProfileSurface = true
                 isInstagramDirectSurface = false
+            }
+            else -> {
+                // Abrir un perfil, post o pantalla interna no debe heredar el
+                // permiso de contar que obtuvo el feed de Inicio.
+                selectedInstagramTab = TAB_OTHER
+                resetHomeScrollCounter()
             }
         }
     }
