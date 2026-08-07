@@ -41,7 +41,7 @@
     <string name="sidekey_status_unknown">Aun no configurado (prueba el doble-press del boton lateral)</string>
     <!-- Anti-adicción -->
     <string name="guard_title">Bloquear Reels / scroll Inicio / Status</string>
-    <string name="guard_summary">Apaga la pantalla al abrir Reels o tras mucho scroll en Inicio, y si ves Status de WhatsApp. Usa el servicio de accesibilidad: no gasta batería (sin polling)</string>
+    <string name="guard_summary">Apaga la pantalla y cierra Instagram al abrir Reels o tras mucho scroll en Inicio, y WhatsApp si ves Status. Usa el servicio de accesibilidad: no gasta batería (sin polling)</string>
     <string name="guard_a11y_label">Nemotron Guard</string>
-    <string name="guard_a11y_desc">Apaga la pantalla al abrir Reels o tras mucho scroll en Inicio, y al detectar Status de WhatsApp. Solo funciona mientras ves esas apps, no consume batería.</string>
+    <string name="guard_a11y_desc">Apaga la pantalla y cierra Instagram al abrir Reels o tras mucho scroll en Inicio, y WhatsApp al detectar Status. Solo funciona mientras ves esas apps, no consume batería.</string>
 </resources>

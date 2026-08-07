@@ -18,10 +18,10 @@ import java.util.concurrent.ConcurrentHashMap
  * cuando hay cambios de UI en Instagram o WhatsApp. En reposo o pantalla
  * apagada no consume nada.
  *
- * - Instagram Reels: se detecta el SeekBar del visor → bloquea la pantalla.
+ * - Instagram Reels: se detecta el SeekBar del visor → bloquea la pantalla y cierra la app.
  * - Instagram Inicio: al acumular un desplazamiento considerable del feed
- *   principal → bloquea la pantalla. Las demás pestañas no se bloquean.
- * - WhatsApp Status: al abrirse la reproducción de un Status → bloquea la pantalla.
+ *   principal → bloquea la pantalla y cierra la app. Las demás pestañas no se bloquean.
+ * - WhatsApp Status: al abrirse la reproducción de un Status → bloquea la pantalla y cierra la app.
  */
 object AddictionGuard {
 
@@ -45,17 +45,20 @@ object AddictionGuard {
         event.className?.toString()?.contains("StatusPlayback", ignoreCase = true) == true ||
             event.source?.className?.toString()?.contains("StatusPlayback", ignoreCase = true) == true
 
-    /** Bloquea la pantalla; en Android 8/8.1 vuelve a Inicio como fallback. */
+    /** Bloquea la pantalla y, con Shizuku, también hace force-stop de la app. */
     fun block(service: AccessibilityService, pkg: String) {
         val now = System.currentTimeMillis()
         if (now - (lastBlocked[pkg] ?: 0L) < BLOCK_COOLDOWN_MS) return
         lastBlocked[pkg] = now
 
-        Log.i(TAG, "Anti-adicción: bloqueando pantalla por $pkg")
+        Log.i(TAG, "Anti-adicción: bloqueando pantalla y cerrando $pkg")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_LOCK_SCREEN)
         } else {
             service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME)
+        }
+        if (ShizukuManager.hasPermission()) {
+            Thread { ShizukuManager.stopApp(pkg) }.start()
         }
     }
 
