@@ -26,6 +26,7 @@ class AntiScrollAccessibilityService : AccessibilityService() {
     @Volatile private var isInstagramMainTab = false
     @Volatile private var isInstagramConversationSurface = false
     @Volatile private var lastInstagramActivityCheckAt = 0L
+    @Volatile private var lastHomeActivityCheckAt = 0L
     @Volatile private var selectedInstagramTab = TAB_UNKNOWN
 
     override fun onServiceConnected() {
@@ -60,7 +61,7 @@ class AntiScrollAccessibilityService : AccessibilityService() {
                 updateInstagramTabFromClick(event)
                 val isReels = isReelsViewer(event)
                 if ((isReels && shouldBlockReels()) ||
-                    (isInstagramMainTab && !isInstagramConversationSurface &&
+                    (isHomeFeedScrollCandidate(event) && canCountHomeScroll() &&
                         isConsiderableHomeFeedScroll(event)) ||
                     (selectedInstagramTab == TAB_SEARCH && isConsiderableSearchScroll(event))) {
                     AddictionGuard.block(this, AddictionGuard.INSTAGRAM)
@@ -138,6 +139,22 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         return !isInstagramConversationSurface
     }
 
+    /** Consulta la actividad como máximo una vez por segundo durante el feed. */
+    private fun canCountHomeScroll(): Boolean {
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (now - lastHomeActivityCheckAt >= HOME_ACTIVITY_CHECK_GAP_MS &&
+            ShizukuManager.hasPermission()) {
+            lastHomeActivityCheckAt = now
+            val top = ShizukuManager.execShellCapture(
+                "dumpsys activity activities | grep -m1 topResumedActivity"
+            )
+            isInstagramMainTab = top?.contains("com.instagram.android/.activity.MainTabActivity") == true
+            isInstagramConversationSurface = top?.contains("com.instagram.modal.") == true ||
+                top?.contains("Direct") == true
+        }
+        return isInstagramMainTab && !isInstagramConversationSurface
+    }
+
     /**
      * Según la versión de Instagram, Reels expone un SeekBar o un ViewPager.
      * En este último, los avances verticales de Reels usan los índices 1 y 2.
@@ -155,12 +172,15 @@ class AntiScrollAccessibilityService : AccessibilityService() {
      * El feed de Inicio sí expone un RecyclerView con entre 3 y 7 tarjetas
      * visibles; esa es la firma que recibimos en los eventos reales del teléfono.
      */
-    private fun isConsiderableHomeFeedScroll(event: AccessibilityEvent): Boolean {
+    private fun isHomeFeedScrollCandidate(event: AccessibilityEvent): Boolean {
         if (event.eventType != AccessibilityEvent.TYPE_VIEW_SCROLLED &&
             event.eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) return false
         if (event.className?.toString()?.contains("RecyclerView") != true) return false
-        val visibleItems = event.toIndex - event.fromIndex
-        if (visibleItems !in HOME_FEED_VISIBLE_ITEMS) return false
+        return event.toIndex - event.fromIndex in HOME_FEED_VISIBLE_ITEMS
+    }
+
+    private fun isConsiderableHomeFeedScroll(event: AccessibilityEvent): Boolean {
+        if (!isHomeFeedScrollCandidate(event)) return false
 
         val now = android.os.SystemClock.elapsedRealtime()
         if (now - lastHomeScrollAt > SCROLL_SESSION_GAP_MS) {
@@ -218,6 +238,7 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         private const val SCROLL_SESSION_GAP_MS = 4_000L
         private const val EVENT_COALESCE_MS = 100L
         private const val ACTIVITY_CHECK_GAP_MS = 500L
+        private const val HOME_ACTIVITY_CHECK_GAP_MS = 1_000L
         private const val ESTIMATED_POST_HEIGHT_PX = 700
         private const val NO_ITEM_INDEX = -1
         private const val TAB_UNKNOWN = 0
