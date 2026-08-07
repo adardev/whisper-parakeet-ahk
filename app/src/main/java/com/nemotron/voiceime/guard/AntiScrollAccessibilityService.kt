@@ -74,13 +74,13 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         event.className?.toString()?.contains("SeekBar", ignoreCase = true) == true
 
     /**
-     * El RecyclerView del feed principal expone android:id/list. Además
-     * comprobamos que el tab `feed_tab` esté seleccionado, para no confundirlo
-     * con listas de perfiles, Explore o Reels.
+     * Instagram no adjunta el sourceId en sus eventos de scroll, pero sí la
+     * clase RecyclerView. Combinada con el tab `feed_tab` seleccionado basta
+     * para aislar el feed de Inicio de Explore, perfiles y Reels.
      */
     private fun isConsiderableHomeFeedScroll(event: AccessibilityEvent): Boolean {
         if (event.eventType != AccessibilityEvent.TYPE_VIEW_SCROLLED) return false
-        if (event.source?.viewIdResourceName != HOME_FEED_LIST_ID) return false
+        if (event.className?.toString()?.contains("RecyclerView") != true) return false
         if (!isInstagramHomeSelected()) return false
 
         val now = android.os.SystemClock.elapsedRealtime()
@@ -121,7 +121,6 @@ class AntiScrollAccessibilityService : AccessibilityService() {
 
     companion object {
         private const val TAG = "AntiScroll"
-        private const val HOME_FEED_LIST_ID = "android:id/list"
         private const val HOME_TAB_ID = "com.instagram.android:id/feed_tab"
         private const val HOME_SCROLL_LIMIT_PX = 2_000
         private const val SCROLL_SESSION_GAP_MS = 4_000L
