@@ -265,6 +265,11 @@ class AntiScrollAccessibilityService : AccessibilityService() {
     }
 
     private fun treeContainsProfileSurface(root: AccessibilityNodeInfo): Boolean {
+        if (PROFILE_SURFACE_RESOURCE_IDS.any { resourceId ->
+                root.findAccessibilityNodeInfosByViewId(
+                    "${AddictionGuard.INSTAGRAM}:id/$resourceId"
+                ).isNotEmpty()
+            }) return true
         val pending = ArrayDeque<AccessibilityNodeInfo>()
         pending.add(root)
         var inspected = 0
