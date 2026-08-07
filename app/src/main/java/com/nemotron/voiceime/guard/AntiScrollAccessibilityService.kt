@@ -60,7 +60,8 @@ class AntiScrollAccessibilityService : AccessibilityService() {
                 updateInstagramTabFromClick(event)
                 val isReels = isReelsViewer(event)
                 if ((isReels && shouldBlockReels()) ||
-                    (selectedInstagramTab == TAB_HOME && isConsiderableHomeFeedScroll(event)) ||
+                    (isInstagramMainTab && !isInstagramConversationSurface &&
+                        isConsiderableHomeFeedScroll(event)) ||
                     (selectedInstagramTab == TAB_SEARCH && isConsiderableSearchScroll(event))) {
                     AddictionGuard.block(this, AddictionGuard.INSTAGRAM)
                 }
@@ -119,7 +120,6 @@ class AntiScrollAccessibilityService : AccessibilityService() {
     private fun updateInstagramTabFromClick(event: AccessibilityEvent) {
         if (event.eventType != AccessibilityEvent.TYPE_VIEW_CLICKED &&
             event.eventType != AccessibilityEvent.TYPE_VIEW_SELECTED) return
-        Log.i(TAG, "Instagram tab event=${event.eventType} desc=${event.contentDescription}")
         when (event.contentDescription?.toString()) {
             "Home" -> selectedInstagramTab = TAB_HOME
             "Search and explore" -> selectedInstagramTab = TAB_SEARCH
