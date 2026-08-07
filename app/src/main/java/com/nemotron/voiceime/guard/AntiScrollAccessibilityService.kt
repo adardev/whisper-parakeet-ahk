@@ -71,7 +71,8 @@ class AntiScrollAccessibilityService : AccessibilityService() {
                 // visor de Reels. La pantalla de perfil siempre tiene
                 // prioridad: allí no se bloquea por ningún desplazamiento.
                 val isExcludedInstagramScroll = event.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED &&
-                    (isExternalProfileSurface() || isDirectSurfaceNow())
+                    (isProfileScrollEvent(event) || isExternalProfileSurface() ||
+                        isDirectSurfaceNow())
                 val isReels = isReelsViewer(event)
                 if ((!isExcludedInstagramScroll && isReels && shouldBlockReels()) ||
                     (!isExcludedInstagramScroll && isHomeFeedScrollCandidate(event) && canCountHomeScroll() &&
@@ -252,11 +253,6 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         try {
             if (treeContainsProfileSurface(root)) {
                 isInstagramExternalProfileSurface = true
-            } else if (treeContainsHomeFeedSurface(root)) {
-                // Al colapsar la cabecera, Instagram puede dejar de publicar
-                // nodos profile_*. Solo salimos de este estado cuando el árbol
-                // confirma que regresamos al feed principal.
-                isInstagramExternalProfileSurface = false
             }
             return isInstagramExternalProfileSurface
         } finally {
@@ -287,6 +283,20 @@ class AntiScrollAccessibilityService : AccessibilityService() {
             ?.lowercase(Locale.ROOT)
             ?: return false
         return label in EXTERNAL_PROFILE_ACTIONS
+    }
+
+    /** La lista interna del perfil conserva profile_viewpager como ancestro. */
+    private fun isProfileScrollEvent(event: AccessibilityEvent): Boolean {
+        var node = event.source ?: return false
+        repeat(MAX_PROFILE_SCROLL_ANCESTORS) {
+            if (isProfileSurfaceNode(node)) {
+                isInstagramExternalProfileSurface = true
+                resetHomeScrollCounter()
+                return true
+            }
+            node = node.parent ?: return false
+        }
+        return false
     }
 
     private fun treeContainsHomeFeedSurface(root: AccessibilityNodeInfo): Boolean {
@@ -412,6 +422,7 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         private const val HOME_ACTIVITY_CHECK_GAP_MS = 4_000L
         private const val PROFILE_SURFACE_CHECK_GAP_MS = 750L
         private const val MAX_PROFILE_NODES = 120
+        private const val MAX_PROFILE_SCROLL_ANCESTORS = 12
         private const val HOME_FEED_RESOURCE_ID = "main_feed_action_bar"
         private const val ESTIMATED_POST_HEIGHT_PX = 700
         private const val NO_ITEM_INDEX = -1
