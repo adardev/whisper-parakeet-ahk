@@ -239,7 +239,8 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         private const val SCROLL_SESSION_GAP_MS = 4_000L
         private const val EVENT_COALESCE_MS = 200L
         private const val ACTIVITY_CHECK_GAP_MS = 500L
-        private const val HOME_ACTIVITY_CHECK_GAP_MS = 1_000L
+        // Solo una comprobación de actividad por sesión continua de scroll.
+        private const val HOME_ACTIVITY_CHECK_GAP_MS = 4_000L
         private const val ESTIMATED_POST_HEIGHT_PX = 700
         private const val NO_ITEM_INDEX = -1
         private const val TAB_UNKNOWN = 0
