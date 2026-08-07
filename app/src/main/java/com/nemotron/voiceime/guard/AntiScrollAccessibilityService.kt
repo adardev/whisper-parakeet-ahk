@@ -53,6 +53,10 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         // Heartbeat para el auto-reparador (no bloquea nada).
         AddictionGuard.lastEventAt = android.os.SystemClock.elapsedRealtime()
 
+        if (pkg == AddictionGuard.INSTAGRAM) {
+            Log.i(TAG, "event type=${event.eventType} class=${event.className} from=${event.fromIndex} to=${event.toIndex}")
+        }
+
         when (pkg) {
             AddictionGuard.INSTAGRAM -> {
                 refreshInstagramScreenIfNeeded(event)
