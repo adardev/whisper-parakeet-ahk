@@ -71,7 +71,7 @@ class AntiScrollAccessibilityService : AccessibilityService() {
                 // visor de Reels. La pantalla de perfil siempre tiene
                 // prioridad: allí no se bloquea por ningún desplazamiento.
                 val isExcludedInstagramScroll = event.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED &&
-                    (isExternalProfileSurface() || isInstagramDirectSurface)
+                    (isExternalProfileSurface() || isDirectSurfaceNow())
                 val isReels = isReelsViewer(event)
                 if ((!isExcludedInstagramScroll && isReels && shouldBlockReels()) ||
                     (!isExcludedInstagramScroll && isHomeFeedScrollCandidate(event) && canCountHomeScroll() &&
@@ -144,10 +144,32 @@ class AntiScrollAccessibilityService : AccessibilityService() {
             event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         val root = rootInActiveWindow ?: return
         try {
-            isInstagramDirectSurface = treeContainsDirectSurface(root)
-            if (isInstagramDirectSurface) resetHomeScrollCounter()
+            updateDirectSurfaceFromTree(root)
         } finally {
             root.recycle()
+        }
+    }
+
+    /** Cubre un rebind del servicio justo antes de un gesto en Mensajes. */
+    private fun isDirectSurfaceNow(): Boolean {
+        if (isInstagramDirectSurface) return true
+        val root = rootInActiveWindow ?: return false
+        try {
+            updateDirectSurfaceFromTree(root)
+            return isInstagramDirectSurface
+        } finally {
+            root.recycle()
+        }
+    }
+
+    private fun updateDirectSurfaceFromTree(root: AccessibilityNodeInfo) {
+        if (treeContainsDirectSurface(root)) {
+            isInstagramDirectSurface = true
+            resetHomeScrollCounter()
+        } else if (treeContainsHomeFeedSurface(root)) {
+            // Igual que el perfil: Direct conserva su estado durante el
+            // desplazamiento y solo se libera al confirmar que ya es Inicio.
+            isInstagramDirectSurface = false
         }
     }
 
@@ -159,18 +181,22 @@ class AntiScrollAccessibilityService : AccessibilityService() {
             "Home" -> {
                 selectedInstagramTab = TAB_HOME
                 isInstagramExternalProfileSurface = false
+                isInstagramDirectSurface = false
             }
             "Search and explore" -> {
                 selectedInstagramTab = TAB_SEARCH
                 isInstagramExternalProfileSurface = false
+                isInstagramDirectSurface = false
             }
             "Reels", "Message" -> {
                 selectedInstagramTab = TAB_OTHER
                 isInstagramExternalProfileSurface = false
+                isInstagramDirectSurface = false
             }
             "Profile" -> {
                 selectedInstagramTab = TAB_OTHER
                 isInstagramExternalProfileSurface = true
+                isInstagramDirectSurface = false
             }
         }
     }
