@@ -40,8 +40,9 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         info.feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
         // Agrupa ráfagas de cambios visuales sin afectar los gestos largos.
         info.notificationTimeout = EVENT_COALESCE_MS
-        info.flags = AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS or
-            AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS
+        // El guard solo usa clase/tipo del evento: no necesita IDs ni nodos
+        // secundarios, que son la parte más costosa de accesibilidad.
+        info.flags = 0
         info.packageNames = arrayOf(AddictionGuard.INSTAGRAM, AddictionGuard.WHATSAPP)
         serviceInfo = info
         Log.i(TAG, "onServiceConnected eventTypes=${serviceInfo.eventTypes}")
@@ -236,7 +237,7 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         private const val HOME_SCROLL_LIMIT_PX = 5_000
         private const val SEARCH_SCROLL_LIMIT_PX = 0
         private const val SCROLL_SESSION_GAP_MS = 4_000L
-        private const val EVENT_COALESCE_MS = 100L
+        private const val EVENT_COALESCE_MS = 200L
         private const val ACTIVITY_CHECK_GAP_MS = 500L
         private const val HOME_ACTIVITY_CHECK_GAP_MS = 1_000L
         private const val ESTIMATED_POST_HEIGHT_PX = 700
