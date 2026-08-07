@@ -80,8 +80,10 @@ class AntiScrollAccessibilityService : AccessibilityService() {
                 val blockSearch = !isExcludedInstagramScroll && selectedInstagramTab == TAB_SEARCH &&
                     isConsiderableSearchScroll(event)
                 if (blockReels || blockHome || blockSearch) {
+                    val source = event.source
                     Log.w(TAG, "DEBUG trigger reels=$blockReels home=$blockHome search=$blockSearch " +
-                        "profile=$isInstagramExternalProfileSurface direct=$isInstagramDirectSurface")
+                        "profile=$isInstagramExternalProfileSurface direct=$isInstagramDirectSurface " +
+                        "class=${event.className} source=${source?.viewIdResourceName}")
                     AddictionGuard.block(this, AddictionGuard.INSTAGRAM)
                 }
             }
