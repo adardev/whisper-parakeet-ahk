@@ -187,6 +187,7 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         }
         try {
             isInstagramExternalProfileSurface = treeContainsProfileSurface(root)
+            Log.d(TAG, "DEBUG profileSurface=$isInstagramExternalProfileSurface")
             return isInstagramExternalProfileSurface
         } finally {
             root.recycle()
