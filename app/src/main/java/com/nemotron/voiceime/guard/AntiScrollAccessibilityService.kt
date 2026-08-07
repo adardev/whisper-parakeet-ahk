@@ -181,6 +181,7 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         // Instagram emite VIEW_SELECTED de la barra subyacente mientras un
         // perfil está abierto. Solo un toque real puede cambiar la superficie.
         if (event.eventType != AccessibilityEvent.TYPE_VIEW_CLICKED) return
+        Log.d(TAG, "DEBUG click desc=${event.contentDescription} text=${event.text} class=${event.className}")
         when (event.contentDescription?.toString()) {
             "Home" -> {
                 selectedInstagramTab = TAB_HOME
