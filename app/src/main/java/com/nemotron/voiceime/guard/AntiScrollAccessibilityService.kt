@@ -45,7 +45,9 @@ class AntiScrollAccessibilityService : AccessibilityService() {
 
         when (pkg) {
             AddictionGuard.INSTAGRAM -> {
-                if (isReelsViewer(event) || isConsiderableHomeFeedScroll(event)) {
+                val isReels = isReelsViewer(event)
+                if (isReels) Log.i(TAG, "Reels pager detected")
+                if (isReels || isConsiderableHomeFeedScroll(event)) {
                     AddictionGuard.block(this, AddictionGuard.INSTAGRAM)
                 }
             }
