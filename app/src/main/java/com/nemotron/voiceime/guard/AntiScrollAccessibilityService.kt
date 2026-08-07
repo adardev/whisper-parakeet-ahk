@@ -43,15 +43,6 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         // Heartbeat para el auto-reparador (no bloquea nada).
         AddictionGuard.lastEventAt = android.os.SystemClock.elapsedRealtime()
 
-        if (pkg == AddictionGuard.INSTAGRAM) {
-            Log.d(
-                TAG,
-                "IG type=${event.eventType} class=${event.className} " +
-                    "from=${event.fromIndex} to=${event.toIndex} " +
-                    "dy=${if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) event.scrollDeltaY else 0}"
-            )
-        }
-
         when (pkg) {
             AddictionGuard.INSTAGRAM -> {
                 val isReels = isReelsViewer(event)
@@ -69,9 +60,17 @@ class AntiScrollAccessibilityService : AccessibilityService() {
 
     override fun onInterrupt() {}
 
-    /** El visor de Reels expone un SeekBar con el progreso del video. */
-    private fun isReelsViewer(event: AccessibilityEvent): Boolean =
-        event.className?.toString()?.contains("SeekBar", ignoreCase = true) == true
+    /**
+     * Según la versión de Instagram, Reels expone un SeekBar o un ViewPager.
+     * En este último, los avances verticales de Reels usan los índices 1 y 2.
+     */
+    private fun isReelsViewer(event: AccessibilityEvent): Boolean {
+        if (event.className?.toString()?.contains("SeekBar", ignoreCase = true) == true) return true
+        if (event.eventType != AccessibilityEvent.TYPE_VIEW_SCROLLED) return false
+        if (event.className?.toString()?.contains("ViewPager") != true) return false
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P || event.scrollDeltaY <= 0) return false
+        return event.toIndex in REELS_PAGER_INDICES
+    }
 
     /**
      * Instagram no adjunta el sourceId ni el árbol de la ventana al servicio.
@@ -122,6 +121,7 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         private const val SCROLL_SESSION_GAP_MS = 4_000L
         private const val ESTIMATED_POST_HEIGHT_PX = 700
         private const val NO_ITEM_INDEX = -1
+        private val REELS_PAGER_INDICES = 1..2
         private val HOME_FEED_VISIBLE_ITEMS = 3..7
     }
 }
