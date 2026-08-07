@@ -63,6 +63,7 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         when (pkg) {
             AddictionGuard.INSTAGRAM -> {
                 refreshInstagramScreenIfNeeded(event)
+                refreshInstagramProfileSurfaceIfNeeded(event)
                 updateInstagramTabFromClick(event)
                 // El ViewPager de una página de perfil puede parecerse al del
                 // visor de Reels. La pantalla de perfil siempre tiene
@@ -127,6 +128,13 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         }.start()
     }
 
+    /** Registra la entrada a un perfil antes del primer gesto de scroll. */
+    private fun refreshInstagramProfileSurfaceIfNeeded(event: AccessibilityEvent) {
+        if (event.eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED &&
+            event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
+        isExternalProfileSurface(forceRefresh = true)
+    }
+
     /** El toque de la barra inferior identifica la pestaña sin consultar la UI. */
     private fun updateInstagramTabFromClick(event: AccessibilityEvent) {
         if (event.eventType != AccessibilityEvent.TYPE_VIEW_CLICKED &&
@@ -188,9 +196,9 @@ class AntiScrollAccessibilityService : AccessibilityService() {
      * profile_* en esa pantalla; si aparecen, preferimos no contar nada. Es
      * deliberadamente conservador: ante duda no se bloquea un perfil.
      */
-    private fun isExternalProfileSurface(): Boolean {
+    private fun isExternalProfileSurface(forceRefresh: Boolean = false): Boolean {
         val now = android.os.SystemClock.elapsedRealtime()
-        if (now - lastProfileSurfaceCheckAt < PROFILE_SURFACE_CHECK_GAP_MS) {
+        if (!forceRefresh && now - lastProfileSurfaceCheckAt < PROFILE_SURFACE_CHECK_GAP_MS) {
             return isInstagramExternalProfileSurface
         }
         lastProfileSurfaceCheckAt = now
