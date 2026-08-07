@@ -109,7 +109,7 @@ class AntiScrollAccessibilityService : AccessibilityService() {
 
     companion object {
         private const val TAG = "AntiScroll"
-        private const val HOME_SCROLL_LIMIT_PX = 20_000
+        private const val HOME_SCROLL_LIMIT_PX = 10_000
         private const val SCROLL_SESSION_GAP_MS = 4_000L
         private const val ESTIMATED_POST_HEIGHT_PX = 700
         private const val NO_ITEM_INDEX = -1
