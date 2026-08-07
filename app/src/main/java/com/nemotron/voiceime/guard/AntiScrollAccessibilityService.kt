@@ -43,6 +43,14 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         // Heartbeat para el auto-reparador (no bloquea nada).
         AddictionGuard.lastEventAt = android.os.SystemClock.elapsedRealtime()
 
+        if (pkg == AddictionGuard.INSTAGRAM) {
+            Log.d(
+                TAG,
+                "IG type=${event.eventType} class=${event.className} " +
+                    "from=${event.fromIndex} to=${event.toIndex}"
+            )
+        }
+
         when (pkg) {
             AddictionGuard.INSTAGRAM -> {
                 val isReels = isReelsViewer(event)
