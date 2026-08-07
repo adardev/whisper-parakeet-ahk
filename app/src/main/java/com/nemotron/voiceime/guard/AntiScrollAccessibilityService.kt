@@ -152,9 +152,9 @@ class AntiScrollAccessibilityService : AccessibilityService() {
                     return@Thread
                 }
                 val tab = ShizukuManager.execShellCapture(
-                    "uiautomator dump /sdcard/nemotron-guard.xml >/dev/null; " +
-                        "if grep -q 'resource-id=\"com.instagram.android:id/feed_tab\"[^>]*selected=\"true\"' /sdcard/nemotron-guard.xml; then echo home; " +
-                        "elif grep -q 'resource-id=\"com.instagram.android:id/search_tab\"[^>]*selected=\"true\"' /sdcard/nemotron-guard.xml; then echo search; " +
+                    "uiautomator dump /data/local/tmp/nemotron-guard.xml >/dev/null; " +
+                        "if grep -q 'resource-id=\"com.instagram.android:id/feed_tab\"[^>]*selected=\"true\"' /data/local/tmp/nemotron-guard.xml; then echo home; " +
+                        "elif grep -q 'resource-id=\"com.instagram.android:id/search_tab\"[^>]*selected=\"true\"' /data/local/tmp/nemotron-guard.xml; then echo search; " +
                         "else echo other; fi"
                 )
                 selectedInstagramTab = when (tab) {
