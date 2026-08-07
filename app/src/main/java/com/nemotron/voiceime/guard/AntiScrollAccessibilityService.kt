@@ -5,6 +5,7 @@ import android.accessibilityservice.AccessibilityServiceInfo
 import android.os.Build
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
+import com.nemotron.voiceime.dhizuku.ShizukuManager
 
 /**
  * Servicio de accesibilidad anti-adicción. Event-driven: no hace polls.
@@ -20,6 +21,8 @@ class AntiScrollAccessibilityService : AccessibilityService() {
     private var homeScrollDistancePx = 0
     private var lastHomeScrollAt = 0L
     private var lastHomeFeedFirstItem = NO_ITEM_INDEX
+    @Volatile private var isInstagramMainTab = false
+    @Volatile private var lastInstagramActivityCheckAt = 0L
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -28,6 +31,8 @@ class AntiScrollAccessibilityService : AccessibilityService() {
             AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED or
             AccessibilityEvent.TYPE_VIEW_SCROLLED
         info.feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
+        // Agrupa ráfagas de cambios visuales sin afectar los gestos largos.
+        info.notificationTimeout = EVENT_COALESCE_MS
         info.flags = AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS or
             AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS
         info.packageNames = arrayOf(AddictionGuard.INSTAGRAM, AddictionGuard.WHATSAPP)
@@ -45,8 +50,9 @@ class AntiScrollAccessibilityService : AccessibilityService() {
 
         when (pkg) {
             AddictionGuard.INSTAGRAM -> {
+                refreshInstagramScreenIfNeeded(event)
                 val isReels = isReelsViewer(event)
-                if (isReels || isConsiderableHomeFeedScroll(event)) {
+                if (isReels || (isInstagramMainTab && isConsiderableHomeFeedScroll(event))) {
                     AddictionGuard.block(this, AddictionGuard.INSTAGRAM)
                 }
             }
@@ -59,6 +65,28 @@ class AntiScrollAccessibilityService : AccessibilityService() {
     }
 
     override fun onInterrupt() {}
+
+    /**
+     * Solo se consulta la actividad cuando cambia de ventana, nunca en cada
+     * scroll. DirectThreadActivity desarma el contador y evita bloquear chats.
+     */
+    private fun refreshInstagramScreenIfNeeded(event: AccessibilityEvent) {
+        if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (now - lastInstagramActivityCheckAt < ACTIVITY_CHECK_GAP_MS) return
+        lastInstagramActivityCheckAt = now
+        if (!ShizukuManager.hasPermission()) return
+        Thread {
+            val top = ShizukuManager.execShellCapture(
+                "dumpsys activity activities | grep -m1 topResumedActivity"
+            ) ?: return@Thread
+            isInstagramMainTab = top.contains("com.instagram.android/.activity.MainTabActivity")
+            if (!isInstagramMainTab) {
+                homeScrollDistancePx = 0
+                lastHomeFeedFirstItem = NO_ITEM_INDEX
+            }
+        }.start()
+    }
 
     /**
      * Según la versión de Instagram, Reels expone un SeekBar o un ViewPager.
@@ -119,6 +147,8 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         private const val TAG = "AntiScroll"
         private const val HOME_SCROLL_LIMIT_PX = 5_000
         private const val SCROLL_SESSION_GAP_MS = 4_000L
+        private const val EVENT_COALESCE_MS = 100L
+        private const val ACTIVITY_CHECK_GAP_MS = 500L
         private const val ESTIMATED_POST_HEIGHT_PX = 700
         private const val NO_ITEM_INDEX = -1
         private val REELS_PAGER_INDICES = 1..2
