@@ -64,11 +64,17 @@ class AntiScrollAccessibilityService : AccessibilityService() {
             AddictionGuard.INSTAGRAM -> {
                 refreshInstagramScreenIfNeeded(event)
                 updateInstagramTabFromClick(event)
+                // El ViewPager de una página de perfil puede parecerse al del
+                // visor de Reels. La pantalla de perfil siempre tiene
+                // prioridad: allí no se bloquea por ningún desplazamiento.
+                val isProfileScroll = event.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED &&
+                    isExternalProfileSurface()
                 val isReels = isReelsViewer(event)
-                if ((isReels && shouldBlockReels()) ||
-                    (isHomeFeedScrollCandidate(event) && canCountHomeScroll() &&
+                if ((!isProfileScroll && isReels && shouldBlockReels()) ||
+                    (!isProfileScroll && isHomeFeedScrollCandidate(event) && canCountHomeScroll() &&
                         isConsiderableHomeFeedScroll(event)) ||
-                    (selectedInstagramTab == TAB_SEARCH && isConsiderableSearchScroll(event))) {
+                    (!isProfileScroll && selectedInstagramTab == TAB_SEARCH &&
+                        isConsiderableSearchScroll(event))) {
                     AddictionGuard.block(this, AddictionGuard.INSTAGRAM)
                 }
             }
