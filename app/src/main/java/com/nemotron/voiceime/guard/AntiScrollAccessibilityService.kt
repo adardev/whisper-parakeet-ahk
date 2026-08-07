@@ -43,6 +43,16 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         // Heartbeat para el auto-reparador (no bloquea nada).
         AddictionGuard.lastEventAt = android.os.SystemClock.elapsedRealtime()
 
+        if (pkg == AddictionGuard.INSTAGRAM) {
+            Log.d(
+                TAG,
+                "IG event type=${event.eventType} class=${event.className} " +
+                    "sourceClass=${event.source?.className} sourceId=${event.source?.viewIdResourceName} " +
+                    "deltaY=${if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) event.scrollDeltaY else 0} " +
+                    "from=${event.fromIndex} to=${event.toIndex}"
+            )
+        }
+
         when (pkg) {
             AddictionGuard.INSTAGRAM -> {
                 if (isReelsViewer(event) || isConsiderableHomeFeedScroll(event)) {
