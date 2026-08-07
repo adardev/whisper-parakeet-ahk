@@ -47,9 +47,10 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         info.feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
         // Agrupa ráfagas de cambios visuales sin afectar los gestos largos.
         info.notificationTimeout = EVENT_COALESCE_MS
-        // Los IDs distinguen de forma fiable perfil y feed dentro de la misma
-        // MainTabActivity. Solo se inspeccionan durante un scroll candidato.
-        info.flags = AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
+        // Instagram omite el source de algunos RecyclerViews si no se pide el
+        // árbol completo. Sin él, Direct y perfiles se confunden con Inicio.
+        info.flags = AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS or
+            AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS
         info.packageNames = arrayOf(AddictionGuard.INSTAGRAM, AddictionGuard.WHATSAPP)
         serviceInfo = info
         Log.i(TAG, "onServiceConnected eventTypes=${serviceInfo.eventTypes}")
