@@ -49,6 +49,15 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         // Heartbeat para el auto-reparador (no bloquea nada).
         AddictionGuard.lastEventAt = android.os.SystemClock.elapsedRealtime()
 
+        if (pkg == AddictionGuard.INSTAGRAM &&
+            event.className?.toString()?.contains("RecyclerView") == true) {
+            Log.d(
+                TAG,
+                "Recycler type=${event.eventType} from=${event.fromIndex} to=${event.toIndex} " +
+                    "delta=${if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) event.scrollDeltaY else 0}"
+            )
+        }
+
         when (pkg) {
             AddictionGuard.INSTAGRAM -> {
                 refreshInstagramScreenIfNeeded(event)
