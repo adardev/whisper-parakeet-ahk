@@ -27,15 +27,14 @@ class AntiScrollAccessibilityService : AccessibilityService() {
     @Volatile private var isInstagramConversationSurface = false
     @Volatile private var lastInstagramActivityCheckAt = 0L
     @Volatile private var selectedInstagramTab = TAB_UNKNOWN
-    @Volatile private var isTabCheckRunning = false
-    @Volatile private var lastTabCheckAt = 0L
 
     override fun onServiceConnected() {
         super.onServiceConnected()
         val info = serviceInfo ?: AccessibilityServiceInfo()
         info.eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
             AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED or
-            AccessibilityEvent.TYPE_VIEW_SCROLLED
+            AccessibilityEvent.TYPE_VIEW_SCROLLED or
+            AccessibilityEvent.TYPE_VIEW_CLICKED
         info.feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
         // Agrupa ráfagas de cambios visuales sin afectar los gestos largos.
         info.notificationTimeout = EVENT_COALESCE_MS
@@ -54,18 +53,10 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         // Heartbeat para el auto-reparador (no bloquea nada).
         AddictionGuard.lastEventAt = android.os.SystemClock.elapsedRealtime()
 
-        if (pkg == AddictionGuard.INSTAGRAM) {
-            Log.i(TAG, "event type=${event.eventType} class=${event.className} from=${event.fromIndex} to=${event.toIndex}")
-        }
-
         when (pkg) {
             AddictionGuard.INSTAGRAM -> {
                 refreshInstagramScreenIfNeeded(event)
-                if (event.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED &&
-                    event.className?.toString()?.contains("ViewPager") == true) {
-                    selectedInstagramTab = TAB_UNKNOWN
-                }
-                refreshSelectedTabIfNeeded(event)
+                updateInstagramTabFromClick(event)
                 val isReels = isReelsViewer(event)
                 if ((isReels && shouldBlockReels()) ||
                     (selectedInstagramTab == TAB_HOME && isConsiderableHomeFeedScroll(event)) ||
@@ -116,7 +107,6 @@ class AntiScrollAccessibilityService : AccessibilityService() {
             isInstagramMainTab = top.contains("com.instagram.android/.activity.MainTabActivity")
             isInstagramConversationSurface = top.contains("com.instagram.modal.") ||
                 top.contains("Direct")
-            if (isInstagramMainTab) selectedInstagramTab = TAB_UNKNOWN
             if (!isInstagramMainTab) {
                 homeScrollDistancePx = 0
                 lastHomeFeedFirstItem = NO_ITEM_INDEX
@@ -124,49 +114,15 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         }.start()
     }
 
-    /**
-     * La jerarquía no viene adjunta a los eventos de Instagram. Por eso, solo
-     * al primer RecyclerView de una pestaña consultamos qué tab está marcado;
-     * el resultado queda en memoria hasta que Instagram cambia de página.
-     */
-    private fun refreshSelectedTabIfNeeded(event: AccessibilityEvent) {
-        if ((selectedInstagramTab != TAB_UNKNOWN && selectedInstagramTab != TAB_OTHER) ||
-            isInstagramConversationSurface || isTabCheckRunning) return
-        if (event.className?.toString()?.contains("RecyclerView") != true) return
-        if (!ShizukuManager.hasPermission()) return
-        val now = android.os.SystemClock.elapsedRealtime()
-        if (now - lastTabCheckAt < TAB_RECHECK_GAP_MS) return
-        lastTabCheckAt = now
-        isTabCheckRunning = true
-        Thread {
-            try {
-                val top = ShizukuManager.execShellCapture(
-                    "dumpsys activity activities | grep -m1 topResumedActivity"
-                )
-                isInstagramMainTab = top?.contains("com.instagram.android/.activity.MainTabActivity") == true
-                isInstagramConversationSurface = top?.contains("com.instagram.modal.") == true ||
-                    top?.contains("Direct") == true
-                Log.i(TAG, "tab check main=$isInstagramMainTab chat=$isInstagramConversationSurface top=$top")
-                if (!isInstagramMainTab || isInstagramConversationSurface) {
-                    selectedInstagramTab = TAB_OTHER
-                    return@Thread
-                }
-                val tab = ShizukuManager.execShellCapture(
-                    "uiautomator dump /data/local/tmp/nemotron-guard.xml >/dev/null; " +
-                        "if grep -q 'resource-id=\"com.instagram.android:id/feed_tab\"[^>]*selected=\"true\"' /data/local/tmp/nemotron-guard.xml; then echo home; " +
-                        "elif grep -q 'resource-id=\"com.instagram.android:id/search_tab\"[^>]*selected=\"true\"' /data/local/tmp/nemotron-guard.xml; then echo search; " +
-                        "else echo other; fi"
-                )
-                selectedInstagramTab = when (tab) {
-                    "home" -> TAB_HOME
-                    "search" -> TAB_SEARCH
-                    else -> TAB_OTHER
-                }
-                Log.i(TAG, "tab check result=$tab selected=$selectedInstagramTab")
-            } finally {
-                isTabCheckRunning = false
-            }
-        }.start()
+    /** El toque de la barra inferior identifica la pestaña sin consultar la UI. */
+    private fun updateInstagramTabFromClick(event: AccessibilityEvent) {
+        if (event.eventType != AccessibilityEvent.TYPE_VIEW_CLICKED) return
+        Log.i(TAG, "Instagram tab click=${event.contentDescription}")
+        when (event.contentDescription?.toString()) {
+            "Home" -> selectedInstagramTab = TAB_HOME
+            "Search and explore" -> selectedInstagramTab = TAB_SEARCH
+            "Reels", "Message", "Profile" -> selectedInstagramTab = TAB_OTHER
+        }
     }
 
     /** Se ejecuta solo cuando aparece un Reel, nunca en el scroll normal. */
@@ -260,7 +216,6 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         private const val SCROLL_SESSION_GAP_MS = 4_000L
         private const val EVENT_COALESCE_MS = 100L
         private const val ACTIVITY_CHECK_GAP_MS = 500L
-        private const val TAB_RECHECK_GAP_MS = 2_000L
         private const val ESTIMATED_POST_HEIGHT_PX = 700
         private const val NO_ITEM_INDEX = -1
         private const val TAB_UNKNOWN = 0
