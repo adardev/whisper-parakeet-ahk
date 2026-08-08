@@ -3,6 +3,7 @@ package com.nemotron.voiceime.guard
 import android.accessibilityservice.AccessibilityService
 import android.content.ComponentName
 import android.content.Context
+import android.os.Build
 import android.provider.Settings
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
@@ -50,10 +51,15 @@ object AddictionGuard {
         if (now - (lastBlocked[pkg] ?: 0L) < BLOCK_COOLDOWN_MS) return
         lastBlocked[pkg] = now
 
-        // Diagnóstico temporal: sale normalmente de Instagram sin apagar la
-        // pantalla ni hacer force-stop, para observar falsos positivos.
-        Log.w(TAG, "DEBUG guard: saliendo normalmente de $pkg")
-        service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME)
+        Log.i(TAG, "Anti-adicción: bloqueando pantalla y cerrando $pkg")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_LOCK_SCREEN)
+        } else {
+            service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME)
+        }
+        if (ShizukuManager.hasPermission()) {
+            Thread { ShizukuManager.stopApp(pkg) }.start()
+        }
     }
 
     // ── Activación del servicio de accesibilidad (WRITE_SECURE_SETTINGS) ──
