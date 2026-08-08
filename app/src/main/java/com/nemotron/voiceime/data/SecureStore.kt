@@ -23,9 +23,12 @@ object SecureStore {
     private const val KEY_DOZE_EXEMPT = "doze_exempt_apps"
     private const val KEY_STOP_ON_UNLOCK = "stop_on_unlock_apps"
     private const val KEY_GUARD_ENABLED = "addiction_guard_enabled"
+    private const val KEY_DNS_ENFORCER_ENABLED = "dns_enforcer_enabled"
+    private const val KEY_DNS_HOSTNAME = "dns_hostname"
 
     private const val DEFAULT_MODEL = "nvidia/nemotron-3-nano-30b-a3b"
     private const val DEFAULT_LOCALE = "es_ES"
+    const val DEFAULT_DNS_HOSTNAME = "dns.google"
     private val DEFAULT_SYSTEM_PROMPT = buildString {
         append("Eres un transcriptor de voz a texto. ")
         append("El usuario dicta en su idioma. ")
@@ -245,6 +248,21 @@ object SecureStore {
 
     fun setAddictionGuardEnabled(ctx: Context, enabled: Boolean) {
         plainPrefs(ctx).edit().putBoolean(KEY_GUARD_ENABLED, enabled).apply()
+    }
+
+    fun isDnsEnforcerEnabled(ctx: Context): Boolean =
+        plainPrefs(ctx).getBoolean(KEY_DNS_ENFORCER_ENABLED, false)
+
+    fun setDnsEnforcerEnabled(ctx: Context, enabled: Boolean) {
+        plainPrefs(ctx).edit().putBoolean(KEY_DNS_ENFORCER_ENABLED, enabled).apply()
+    }
+
+    fun getDnsHostname(ctx: Context): String =
+        plainPrefs(ctx).getString(KEY_DNS_HOSTNAME, DEFAULT_DNS_HOSTNAME)
+            ?.trim()?.lowercase().takeUnless { it.isNullOrBlank() } ?: DEFAULT_DNS_HOSTNAME
+
+    fun setDnsHostname(ctx: Context, hostname: String) {
+        plainPrefs(ctx).edit().putString(KEY_DNS_HOSTNAME, hostname.trim().lowercase()).apply()
     }
 
     fun syncFromPrefs(ctx: Context, publicPrefs: SharedPreferences) {

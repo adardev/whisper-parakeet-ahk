@@ -9,6 +9,7 @@ import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import com.nemotron.voiceime.data.SecureStore
 import com.nemotron.voiceime.dhizuku.ShizukuManager
+import com.nemotron.voiceime.dhizuku.DnsEnforcer
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -40,6 +41,9 @@ object AddictionGuard {
 
     fun isEnabled(ctx: Context): Boolean = SecureStore.isAddictionGuardEnabled(ctx)
 
+    fun isServiceNeeded(ctx: Context): Boolean =
+        isEnabled(ctx) || SecureStore.isDnsEnforcerEnabled(ctx)
+
     /** True si se está reproduciendo un Status (activity StatusPlayback en pantalla). */
     fun isWhatsAppStatus(event: AccessibilityEvent): Boolean =
         event.className?.toString()?.contains("StatusPlayback", ignoreCase = true) == true ||
@@ -65,8 +69,13 @@ object AddictionGuard {
     // ── Activación del servicio de accesibilidad (WRITE_SECURE_SETTINGS) ──
 
     fun applyEnabled(ctx: Context) {
-        setAccessibilityServiceEnabled(ctx, isEnabled(ctx))
-        if (isEnabled(ctx)) startSelfHeal(ctx)
+        setAccessibilityServiceEnabled(ctx, isServiceNeeded(ctx))
+        if (isServiceNeeded(ctx)) {
+            startSelfHeal(ctx)
+            DnsEnforcer.startMonitoring(ctx)
+        } else {
+            DnsEnforcer.stopMonitoring(ctx)
+        }
     }
 
     // ── Auto-reparación: One UI deja el servicio "activo pero no enlazado".

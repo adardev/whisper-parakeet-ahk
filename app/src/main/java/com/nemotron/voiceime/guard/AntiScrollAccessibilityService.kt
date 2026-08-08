@@ -7,6 +7,7 @@ import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import com.nemotron.voiceime.dhizuku.ShizukuManager
+import com.nemotron.voiceime.dhizuku.DnsEnforcer
 import java.util.Locale
 
 /**
@@ -44,8 +45,9 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         // árbol completo. Sin él, Direct y perfiles se confunden con Inicio.
         info.flags = AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS or
             AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS
-        info.packageNames = arrayOf(AddictionGuard.INSTAGRAM, AddictionGuard.WHATSAPP)
+        info.packageNames = arrayOf(AddictionGuard.INSTAGRAM, AddictionGuard.WHATSAPP, "com.android.settings")
         serviceInfo = info
+        DnsEnforcer.startMonitoring(this)
         Log.i(TAG, "onServiceConnected eventTypes=${serviceInfo.eventTypes}")
     }
 
@@ -104,6 +106,11 @@ class AntiScrollAccessibilityService : AccessibilityService() {
     }
 
     override fun onInterrupt() {}
+
+    override fun onDestroy() {
+        DnsEnforcer.stopMonitoring(this)
+        super.onDestroy()
+    }
 
     /**
      * Solo se consulta la actividad cuando cambia de ventana, nunca en cada

@@ -41,6 +41,21 @@
             app:defaultValue="false" />
     </PreferenceCategory>
 
+    <PreferenceCategory app:title="Red">
+        <SwitchPreferenceCompat
+            app:key="dns_enforcer_enabled"
+            app:title="Forzar DNS privado"
+            app:summary="Restaura el DNS si se cambia desde Ajustes y cierra esa pantalla"
+            app:defaultValue="false" />
+
+        <EditTextPreference
+            app:key="dns_hostname"
+            app:title="Hostname DNS"
+            app:summary="Por defecto: dns.google"
+            app:defaultValue="dns.google"
+            app:dialogMessage="Ejemplo: dns.google o 1dot1dot1dot1.cloudflare-dns.com" />
+    </PreferenceCategory>
+
     <PreferenceCategory app:title="Estado">
         <Preference
             app:key="status"
