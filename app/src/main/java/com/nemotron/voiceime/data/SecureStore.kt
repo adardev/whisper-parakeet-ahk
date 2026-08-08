@@ -28,7 +28,7 @@ object SecureStore {
 
     private const val DEFAULT_MODEL = "nvidia/nemotron-3-nano-30b-a3b"
     private const val DEFAULT_LOCALE = "es_ES"
-    const val DEFAULT_DNS_HOSTNAME = "dns.google"
+    const val DEFAULT_DNS_HOSTNAME = "b1ed39.dns.nextdns.io"
     private val DEFAULT_SYSTEM_PROMPT = buildString {
         append("Eres un transcriptor de voz a texto. ")
         append("El usuario dicta en su idioma. ")
@@ -250,20 +250,14 @@ object SecureStore {
         plainPrefs(ctx).edit().putBoolean(KEY_GUARD_ENABLED, enabled).apply()
     }
 
-    fun isDnsEnforcerEnabled(ctx: Context): Boolean =
-        plainPrefs(ctx).getBoolean(KEY_DNS_ENFORCER_ENABLED, false)
+    /** DNS enforcement is mandatory while this app is installed. */
+    fun isDnsEnforcerEnabled(@Suppress("UNUSED_PARAMETER") ctx: Context): Boolean = true
 
-    fun setDnsEnforcerEnabled(ctx: Context, enabled: Boolean) {
-        plainPrefs(ctx).edit().putBoolean(KEY_DNS_ENFORCER_ENABLED, enabled).apply()
-    }
+    fun setDnsEnforcerEnabled(@Suppress("UNUSED_PARAMETER") ctx: Context, @Suppress("UNUSED_PARAMETER") enabled: Boolean) = Unit
 
-    fun getDnsHostname(ctx: Context): String =
-        plainPrefs(ctx).getString(KEY_DNS_HOSTNAME, DEFAULT_DNS_HOSTNAME)
-            ?.trim()?.lowercase().takeUnless { it.isNullOrBlank() } ?: DEFAULT_DNS_HOSTNAME
+    fun getDnsHostname(@Suppress("UNUSED_PARAMETER") ctx: Context): String = DEFAULT_DNS_HOSTNAME
 
-    fun setDnsHostname(ctx: Context, hostname: String) {
-        plainPrefs(ctx).edit().putString(KEY_DNS_HOSTNAME, hostname.trim().lowercase()).apply()
-    }
+    fun setDnsHostname(@Suppress("UNUSED_PARAMETER") ctx: Context, @Suppress("UNUSED_PARAMETER") hostname: String) = Unit
 
     fun syncFromPrefs(ctx: Context, publicPrefs: SharedPreferences) {
         val ak = publicPrefs.getString(KEY_API_KEY, null)

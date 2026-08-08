@@ -13,7 +13,7 @@ class NemotronApp : Application() {
         ShizukuProvider.enableMultiProcessSupport(true)
         instance = this
 
-        if (SecureStore.isAddictionGuardEnabled(this)) {
+        if (com.nemotron.voiceime.guard.AddictionGuard.isServiceNeeded(this)) {
             com.nemotron.voiceime.guard.AddictionGuard.applyEnabled(this)
         }
         Shizuku.addBinderReceivedListener(binderListener)

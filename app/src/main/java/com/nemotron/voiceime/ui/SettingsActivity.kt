@@ -6,8 +6,6 @@ import androidx.preference.PreferenceFragmentCompat
 import com.nemotron.voiceime.R
 import com.nemotron.voiceime.data.SecureStore
 import com.nemotron.voiceime.guard.AddictionGuard
-import com.nemotron.voiceime.dhizuku.DnsEnforcer
-import com.nemotron.voiceime.dhizuku.ShizukuManager
 
 class SettingsActivity : AppCompatActivity() {
 
@@ -77,25 +75,6 @@ class SettingsActivity : AppCompatActivity() {
                             android.widget.Toast.LENGTH_LONG
                         ).show()
                     }
-                }
-                "dns_enforcer_enabled" -> {
-                    val enabled = prefs.getBoolean("dns_enforcer_enabled", false)
-                    SecureStore.setDnsEnforcerEnabled(ctx, enabled)
-                    if (enabled) ShizukuManager.requestPermission()
-                    AddictionGuard.applyEnabled(ctx)
-                    if (enabled) {
-                        Thread { DnsEnforcer.enforce(ctx) }.start()
-                        android.widget.Toast.makeText(
-                            ctx,
-                            "DNS protegido: ${SecureStore.getDnsHostname(ctx)}",
-                            android.widget.Toast.LENGTH_SHORT
-                        ).show()
-                    }
-                }
-                "dns_hostname" -> {
-                    val hostname = prefs.getString("dns_hostname", SecureStore.DEFAULT_DNS_HOSTNAME).orEmpty()
-                    SecureStore.setDnsHostname(ctx, hostname)
-                    if (SecureStore.isDnsEnforcerEnabled(ctx)) Thread { DnsEnforcer.enforce(ctx) }.start()
                 }
             }
         }
