@@ -23,18 +23,11 @@ class AntiScrollAccessibilityService : AccessibilityService() {
     private var homeScrollDistancePx = 0
     private var lastHomeScrollAt = 0L
     private var lastHomeFeedFirstItem = NO_ITEM_INDEX
-    private var searchScrollDistancePx = 0
-    private var lastSearchScrollAt = 0L
-    @Volatile private var isInstagramMainTab = false
-    @Volatile private var isInstagramConversationSurface = false
-    @Volatile private var isInstagramDirectSurface = false
-    @Volatile private var isInstagramExternalProfileSurface = false
     @Volatile private var lastInstagramActivityCheckAt = 0L
     @Volatile private var lastHomeActivityCheckAt = 0L
     @Volatile private var lastProfileSurfaceCheckAt = 0L
     @Volatile private var isInstagramSystemProfileSurface = false
     @Volatile private var isInstagramSystemDirectSurface = false
-    @Volatile private var selectedInstagramTab = TAB_UNKNOWN
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -73,23 +66,30 @@ class AntiScrollAccessibilityService : AccessibilityService() {
                 // El ViewPager de una página de perfil puede parecerse al del
                 // visor de Reels. La pantalla de perfil siempre tiene
                 // prioridad: allí no se bloquea por ningún desplazamiento.
-                val isExcludedInstagramScroll = event.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED &&
-                    (isProfileScrollEvent(event) || isExternalProfileSurface() ||
-                        isDirectSurfaceNow())
+                // Direct y perfiles también emiten WINDOW_CONTENT_CHANGED
+                // después de desplazar. La exclusión debe cubrir toda la
+                // superficie, no únicamente el evento VIEW_SCROLLED.
+                val isExcludedInstagramSurface = isExternalProfileSurface() ||
+                    isDirectSurfaceNow() ||
+                    (event.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED &&
+                        isProfileScrollEvent(event))
                 // Al entrar a Search Instagram emite cambios de contenido que
                 // se parecen a los del feed/Reels. Search jamás se bloquea por
                 // esos cambios: únicamente por TYPE_VIEW_SCROLLED abajo.
                 val isSearchSurface = isInstagramSearchSurfaceNow()
                 val isReels = isReelsViewer(event)
-                val blockReels = !isExcludedInstagramScroll && !isSearchSurface &&
-                    isReels && shouldBlockReels()
-                val blockHome = !isExcludedInstagramScroll && !isSearchSurface &&
+                val enteredMainReels = (event.eventType == AccessibilityEvent.TYPE_VIEW_CLICKED ||
+                    event.eventType == AccessibilityEvent.TYPE_VIEW_SELECTED) &&
+                    event.contentDescription?.toString() == "Reels"
+                val blockReels = !isExcludedInstagramSurface && !isSearchSurface &&
+                    (enteredMainReels || isReels) && shouldBlockReels()
+                val blockHome = !isExcludedInstagramSurface && !isSearchSurface &&
                     isHomeFeedScrollCandidate(event) &&
                     canCountHomeScroll() && isConsiderableHomeFeedScroll(event)
                 // No dependemos del evento de toque: Instagram a veces no lo
                 // entrega al servicio. El tab seleccionado en el árbol es la
                 // fuente de verdad, incluso si el servicio se reconectó.
-                val blockSearch = !isExcludedInstagramScroll && isSearchSurface &&
+                val blockSearch = !isExcludedInstagramSurface && isSearchSurface &&
                     isConsiderableSearchScroll(event)
                 if (blockReels || blockHome || blockSearch) {
                     AddictionGuard.block(this, AddictionGuard.INSTAGRAM)
@@ -177,13 +177,21 @@ class AntiScrollAccessibilityService : AccessibilityService() {
     }
 
     private fun updateDirectSurfaceFromTree(root: AccessibilityNodeInfo) {
-        if (treeContainsDirectSurface(root)) {
+        if (isTabSelected(root, INSTAGRAM_DIRECT_TAB_ID) || treeContainsDirectSurface(root)) {
             isInstagramDirectSurface = true
             resetHomeScrollCounter()
-        } else if (treeContainsHomeFeedSurface(root)) {
-            // Igual que el perfil: Direct conserva su estado durante el
-            // desplazamiento y solo se libera al confirmar que ya es Inicio.
+        } else if (isTabSelected(root, INSTAGRAM_HOME_TAB_ID)) {
+            // También cubre volver a Inicio con Atrás desde un chat/modal.
             isInstagramDirectSurface = false
+        }
+    }
+
+    private fun isTabSelected(root: AccessibilityNodeInfo, resourceId: String): Boolean {
+        val tabs = root.findAccessibilityNodeInfosByViewId(resourceId)
+        return try {
+            tabs.any { it.isSelected }
+        } finally {
+            tabs.forEach { it.recycle() }
         }
     }
 
@@ -202,10 +210,16 @@ class AntiScrollAccessibilityService : AccessibilityService() {
                 isInstagramExternalProfileSurface = false
                 isInstagramDirectSurface = false
             }
-            "Reels", "Message" -> {
+            "Reels" -> {
                 selectedInstagramTab = TAB_OTHER
                 isInstagramExternalProfileSurface = false
                 isInstagramDirectSurface = false
+            }
+            "Message" -> {
+                selectedInstagramTab = TAB_OTHER
+                isInstagramExternalProfileSurface = false
+                isInstagramDirectSurface = true
+                resetHomeScrollCounter()
             }
             "Profile" -> {
                 selectedInstagramTab = TAB_OTHER
@@ -367,21 +381,6 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         return false
     }
 
-    private fun treeContainsHomeFeedSurface(root: AccessibilityNodeInfo): Boolean {
-        val pending = ArrayDeque<AccessibilityNodeInfo>()
-        pending.add(root)
-        var inspected = 0
-        while (pending.isNotEmpty() && inspected++ < MAX_PROFILE_NODES) {
-            val node = pending.removeFirst()
-            if (node.viewIdResourceName.orEmpty().endsWith(HOME_FEED_RESOURCE_ID) ||
-                node.contentDescription?.toString() == "Instagram Home Feed") return true
-            for (index in 0 until node.childCount) {
-                node.getChild(index)?.let(pending::addLast)
-            }
-        }
-        return false
-    }
-
     private fun treeContainsDirectSurface(root: AccessibilityNodeInfo): Boolean {
         val pending = ArrayDeque<AccessibilityNodeInfo>()
         pending.add(root)
@@ -470,15 +469,15 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         } else {
             0
         }
-        // Al abrir Search Instagram emite un VIEW_SCROLLED sintético sin
-        // desplazamiento ni índices (-1/-1). No es un gesto del usuario.
-        return deltaY != 0 || event.fromIndex >= 0 || event.toIndex >= 0
+        // Al abrir Search y al poblar resultados Instagram emite scrolls
+        // sintéticos con deltaY=0. Solo un desplazamiento vertical real del
+        // usuario debe activar el bloqueo.
+        return deltaY != 0
     }
 
     companion object {
         private const val TAG = "AntiScroll"
         private const val HOME_SCROLL_LIMIT_PX = 5_000
-        private const val SEARCH_SCROLL_LIMIT_PX = 0
         private const val SCROLL_SESSION_GAP_MS = 4_000L
         private const val EVENT_COALESCE_MS = 200L
         private const val ACTIVITY_CHECK_GAP_MS = 500L
@@ -487,7 +486,8 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         private const val PROFILE_SURFACE_CHECK_GAP_MS = 750L
         private const val MAX_PROFILE_NODES = 120
         private const val MAX_PROFILE_SCROLL_ANCESTORS = 12
-        private const val HOME_FEED_RESOURCE_ID = "main_feed_action_bar"
+        private const val INSTAGRAM_DIRECT_TAB_ID = "com.instagram.android:id/direct_tab"
+        private const val INSTAGRAM_HOME_TAB_ID = "com.instagram.android:id/feed_tab"
         private const val INSTAGRAM_SEARCH_TAB_ID = "com.instagram.android:id/search_tab"
         private const val ESTIMATED_POST_HEIGHT_PX = 700
         private const val NO_ITEM_INDEX = -1
@@ -495,6 +495,14 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         private const val TAB_HOME = 1
         private const val TAB_SEARCH = 2
         private const val TAB_OTHER = 3
+        // El auto-reparador puede recrear AccessibilityService mientras el
+        // usuario sigue en la misma pantalla. Estas marcas pertenecen a la
+        // sesión del proceso y deben sobrevivir esa reconexión.
+        @Volatile private var isInstagramMainTab = false
+        @Volatile private var isInstagramConversationSurface = false
+        @Volatile private var isInstagramDirectSurface = false
+        @Volatile private var isInstagramExternalProfileSurface = false
+        @Volatile private var selectedInstagramTab = TAB_UNKNOWN
         private val REELS_PAGER_INDICES = 1..2
         private val HOME_FEED_VISIBLE_ITEMS = 3..7
         private val PROFILE_SURFACE_RESOURCE_IDS = setOf(
