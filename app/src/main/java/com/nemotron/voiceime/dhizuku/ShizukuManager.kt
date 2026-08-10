@@ -200,6 +200,12 @@ object ShizukuManager {
         return execShell("input keyevent 26")
     }
 
+    /** Desactiva el modo No Molestar (vuelve al filtro "todos"). */
+    fun disableDnd(): Boolean {
+        if (!hasPermission()) return false
+        return execShell("cmd notification set_dnd off")
+    }
+
     /** Verifica si el NFC está encendido. */
     fun isNfcEnabled(): Boolean {
         if (!hasPermission()) return false

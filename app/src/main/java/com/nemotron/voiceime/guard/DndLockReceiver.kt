@@ -18,8 +18,10 @@ import com.nemotron.voiceime.dhizuku.ShizukuManager
  *
  * Solo bloquea al pasar a un modo de no molestar activo (Prioritario,
  * Solo alarmas o Ninguno); al desactivar DND no hace nada. El bloqueo se
- * hace con Shizuku (apaga y bloquea la pantalla). Si Shizuku no está
- * disponible se intenta de nuevo en segundo plano, sin bloquear la UI.
+ * hace con Shizuku (apaga y bloquea la pantalla) y, una vez bloqueada,
+ * desactiva el toggle de No Molestar para que al desbloquear el teléfono
+ * no quede sin notificaciones. Si Shizuku no está disponible se intenta
+ * de nuevo en segundo plano, sin bloquear la UI.
  */
 class DndLockReceiver : BroadcastReceiver() {
 
@@ -57,6 +59,7 @@ class DndLockReceiver : BroadcastReceiver() {
             if (ShizukuManager.hasPermission()) {
                 if (ShizukuManager.lockScreen()) {
                     Log.i(TAG, "Pantalla bloqueada por No Molestar")
+                    disableDnd()
                     return
                 }
                 Log.w(TAG, "lockScreen devolvió false (intento $attempt)")
@@ -68,6 +71,16 @@ class DndLockReceiver : BroadcastReceiver() {
             } catch (_: InterruptedException) {
                 return
             }
+        }
+    }
+
+    private fun disableDnd() {
+        // Apaga el toggle de No Molestar tras bloquear: al desbloquear el
+        // teléfono el usuario no queda sin notificaciones.
+        if (ShizukuManager.disableDnd()) {
+            Log.i(TAG, "No Molestar desactivado tras bloquear")
+        } else {
+            Log.w(TAG, "No se pudo desactivar No Molestar")
         }
     }
 
