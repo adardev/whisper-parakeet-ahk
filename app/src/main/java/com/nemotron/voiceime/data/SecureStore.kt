@@ -25,6 +25,7 @@ object SecureStore {
     private const val KEY_GUARD_ENABLED = "addiction_guard_enabled"
     private const val KEY_DNS_ENFORCER_ENABLED = "dns_enforcer_enabled"
     private const val KEY_DNS_HOSTNAME = "dns_hostname"
+    private const val KEY_DND_LOCK_ENABLED = "dnd_lock_enabled"
 
     private const val DEFAULT_MODEL = "nvidia/nemotron-3-nano-30b-a3b"
     private const val DEFAULT_LOCALE = "es_ES"
@@ -258,6 +259,15 @@ object SecureStore {
     fun getDnsHostname(@Suppress("UNUSED_PARAMETER") ctx: Context): String = DEFAULT_DNS_HOSTNAME
 
     fun setDnsHostname(@Suppress("UNUSED_PARAMETER") ctx: Context, @Suppress("UNUSED_PARAMETER") hostname: String) = Unit
+
+    // ── Bloquear pantalla al activar No Molestar ─────────────────────────
+
+    fun isDndLockEnabled(ctx: Context): Boolean =
+        plainPrefs(ctx).getBoolean(KEY_DND_LOCK_ENABLED, false)
+
+    fun setDndLockEnabled(ctx: Context, enabled: Boolean) {
+        plainPrefs(ctx).edit().putBoolean(KEY_DND_LOCK_ENABLED, enabled).apply()
+    }
 
     fun syncFromPrefs(ctx: Context, publicPrefs: SharedPreferences) {
         val ak = publicPrefs.getString(KEY_API_KEY, null)

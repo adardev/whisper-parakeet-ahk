@@ -194,6 +194,12 @@ object ShizukuManager {
         return execShell("am force-stop $packageName")
     }
 
+    /** Apaga y bloquea la pantalla (equivale a pulsar el botón de encendido). */
+    fun lockScreen(): Boolean {
+        if (!hasPermission()) return false
+        return execShell("input keyevent 26")
+    }
+
     /** Verifica si el NFC está encendido. */
     fun isNfcEnabled(): Boolean {
         if (!hasPermission()) return false

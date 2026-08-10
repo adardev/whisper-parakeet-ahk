@@ -44,4 +44,6 @@
     <string name="guard_summary">Apaga la pantalla y cierra Instagram al abrir Reels o tras mucho scroll en Inicio, y WhatsApp si ves Status. Usa el servicio de accesibilidad: no gasta batería (sin polling)</string>
     <string name="guard_a11y_label">Nemotron Guard</string>
     <string name="guard_a11y_desc">Apaga la pantalla y cierra Instagram al abrir Reels o tras mucho scroll en Inicio, y WhatsApp al detectar Status. Solo funciona mientras ves esas apps, no consume batería.</string>
+    <string name="dnd_lock_title">Bloquear pantalla al activar No Molestar</string>
+    <string name="dnd_lock_summary">Al activar el modo No Molestar (DND), apaga y bloquea la pantalla automáticamente. Usa el broadcast del sistema: no gasta batería (sin polling)</string>
 </resources>

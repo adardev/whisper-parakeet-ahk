@@ -39,6 +39,11 @@
             app:title="@string/guard_title"
             app:summary="@string/guard_summary"
             app:defaultValue="false" />
+        <SwitchPreferenceCompat
+            app:key="dnd_lock_enabled"
+            app:title="@string/dnd_lock_title"
+            app:summary="@string/dnd_lock_summary"
+            app:defaultValue="false" />
     </PreferenceCategory>
 
     <PreferenceCategory app:title="Red">

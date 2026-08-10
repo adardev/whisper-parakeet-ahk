@@ -40,6 +40,12 @@ class SettingsActivity : AppCompatActivity() {
             preferenceScreen.findPreference<androidx.preference.SwitchPreferenceCompat>(
                 "addiction_guard_enabled"
             )?.isChecked = enabled
+            val dndLock = SecureStore.isDndLockEnabled(ctx)
+            preferenceScreen.sharedPreferences
+                ?.edit()?.putBoolean("dnd_lock_enabled", dndLock)?.apply()
+            preferenceScreen.findPreference<androidx.preference.SwitchPreferenceCompat>(
+                "dnd_lock_enabled"
+            )?.isChecked = dndLock
         }
 
         override fun onResume() {
@@ -75,6 +81,19 @@ class SettingsActivity : AppCompatActivity() {
                             android.widget.Toast.LENGTH_LONG
                         ).show()
                     }
+                }
+                "dnd_lock_enabled" -> {
+                    val enabled = prefs.getBoolean("dnd_lock_enabled", false)
+                    SecureStore.setDndLockEnabled(ctx, enabled)
+                    android.widget.Toast.makeText(
+                        ctx,
+                        if (enabled) {
+                            "Se bloqueará la pantalla al activar No Molestar"
+                        } else {
+                            "No Molestar ya no bloqueará la pantalla"
+                        },
+                        android.widget.Toast.LENGTH_SHORT
+                    ).show()
                 }
             }
         }
