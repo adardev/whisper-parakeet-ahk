@@ -199,6 +199,30 @@
             </intent-filter>
         </service>
 
+        <!-- Galaxy Wearable: congelar/descongelar la app de Samsung -->
+        <service
+            android:name=".dhizuku.WatchManagerTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_watch_tile"
+            android:label="Galaxy Wearable"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <!-- Galaxy Fit3 Plugin: congelar/descongelar el plugin de la pulsera -->
+        <service
+            android:name=".dhizuku.Fit3TileService"
+            android:exported="true"
+            android:icon="@drawable/ic_fit3_tile"
+            android:label="Fit3 Plugin"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
     </application>
 
 </manifest>

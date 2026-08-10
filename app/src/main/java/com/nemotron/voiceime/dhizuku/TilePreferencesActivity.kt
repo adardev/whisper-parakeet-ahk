@@ -26,27 +26,38 @@ class TilePreferencesActivity : Activity() {
         )
         Log.d(TAG, "Tile component: ${tileComponent?.className}")
 
-        val targetPackage = when (tileComponent?.className) {
+        val (targetPackage, targetActivity) = when (tileComponent?.className) {
             "com.nemotron.voiceime.dhizuku.AndroidAutoTileService" ->
-                "com.google.android.projection.gearhead"
+                "com.google.android.projection.gearhead" to null
             "com.nemotron.voiceime.dhizuku.TelegramTileService" ->
-                "org.telegram.messenger"
+                "org.telegram.messenger" to null
             "com.nemotron.voiceime.dhizuku.GmsTileService" ->
-                "com.google.android.gms"
+                "com.google.android.gms" to null
             "com.nemotron.voiceime.dhizuku.SyncthingTileService" ->
-                "com.github.catfriend1.syncthingfork"
+                "com.github.catfriend1.syncthingfork" to null
             "com.nemotron.voiceime.dhizuku.WalletTileService" ->
-                "com.google.android.apps.walletnfcrel"
-            else -> null
+                "com.google.android.apps.walletnfcrel" to null
+            "com.nemotron.voiceime.dhizuku.WatchManagerTileService" ->
+                "com.samsung.android.app.watchmanager" to
+                    "com.samsung.android.app.watchmanager.setupwizard.SetupWizardWelcomeActivity"
+            "com.nemotron.voiceime.dhizuku.Fit3TileService" ->
+                "com.samsung.wearable.fit3plugin" to null
+            else -> null to null
         }
 
         Log.d(TAG, "Target package: $targetPackage")
 
         if (targetPackage != null) {
-            val launchIntent = packageManager.getLaunchIntentForPackage(targetPackage)
-            if (launchIntent != null) {
-                launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                startActivity(launchIntent)
+            if (targetActivity != null && ShizukuManager.hasPermission()) {
+                Thread {
+                    ShizukuManager.launchApp(targetPackage, targetActivity)
+                }.start()
+            } else {
+                val launchIntent = packageManager.getLaunchIntentForPackage(targetPackage)
+                if (launchIntent != null) {
+                    launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    startActivity(launchIntent)
+                }
             }
         }
 

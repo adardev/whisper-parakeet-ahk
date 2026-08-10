@@ -47,13 +47,21 @@ abstract class AppFreezeTileService : TileService() {
         Thread {
             if (currentlyFrozen) {
                 ShizukuManager.unhideApp(targetPackage)
+                onAfterUnfreeze()
             } else {
                 ShizukuManager.hideApp(targetPackage)
                 ShizukuManager.stopApp(targetPackage)
+                onAfterFreeze()
             }
             handler.post { try { updateTileState() } catch (_: Throwable) {} }
         }.start()
     }
+
+    /** Acciones extra tras congelar (override opcional). */
+    open fun onAfterFreeze() {}
+
+    /** Acciones extra tras descongelar (override opcional). */
+    open fun onAfterUnfreeze() {}
 
     @SuppressLint("MissingPermission")
     private fun updateTileState() {
