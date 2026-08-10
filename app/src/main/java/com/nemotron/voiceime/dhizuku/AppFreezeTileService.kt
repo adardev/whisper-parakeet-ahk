@@ -63,11 +63,14 @@ abstract class AppFreezeTileService : TileService() {
     /** Acciones extra tras descongelar (override opcional). */
     open fun onAfterUnfreeze() {}
 
+    /** Genera el icono del tile. Override para iconos custom. */
+    open fun createTileIcon(): Icon = Icon.createWithResource(this, tileIconRes)
+
     @SuppressLint("MissingPermission")
     private fun updateTileState() {
         val tile = qsTile ?: return
         tile.label = tileLabel
-        tile.icon = Icon.createWithResource(this, tileIconRes)
+        tile.icon = createTileIcon()
         tile.state = if (ShizukuManager.isAppHidden(targetPackage)) {
             Tile.STATE_INACTIVE
         } else {
