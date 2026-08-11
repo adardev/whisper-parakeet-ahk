@@ -10,7 +10,7 @@ import com.nemotron.voiceime.R
  */
 class Fit3TileService : AppFreezeTileService() {
     override val targetPackage: String = "com.samsung.wearable.fit3plugin"
-    override val tileLabel: String = "Fit3 Plugin"
+    override val tileLabel: String = "Fit3"
     override val tileIconRes: Int = R.drawable.ic_fit3_tile
 
     override fun onAfterFreeze() {

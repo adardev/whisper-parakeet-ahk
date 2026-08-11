@@ -7,6 +7,7 @@ import android.content.Intent
 import android.os.PowerManager
 import android.util.Log
 import com.nemotron.voiceime.data.SecureStore
+import com.nemotron.voiceime.dhizuku.CarDetector
 import com.nemotron.voiceime.dhizuku.ShizukuManager
 
 /**
@@ -47,7 +48,16 @@ class DndLockReceiver : BroadcastReceiver() {
         val pendingResult = goAsync()
         Thread {
             try {
-                lockScreenWithRetry()
+                // Al conectar al coche, el modo de conducción de Samsung activa
+                // No Molestar solo. Bloquear la pantalla aquí hace que One UI mate
+                // a Shizuku y que el auto-freeze congele GMS (rompiendo Android
+                // Auto y el propio reconocimiento de voz de Nemotron). En el coche
+                // no se bloquea.
+                if (CarDetector.isCarConnected()) {
+                    Log.i(TAG, "Coche conectado (Android Auto activo): no se bloquea la pantalla")
+                } else {
+                    lockScreenWithRetry()
+                }
             } finally {
                 pendingResult.finish()
             }

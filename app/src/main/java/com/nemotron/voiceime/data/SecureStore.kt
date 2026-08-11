@@ -26,6 +26,9 @@ object SecureStore {
     private const val KEY_DNS_ENFORCER_ENABLED = "dns_enforcer_enabled"
     private const val KEY_DNS_HOSTNAME = "dns_hostname"
     private const val KEY_DND_LOCK_ENABLED = "dnd_lock_enabled"
+    private const val KEY_AUTO_AA_ENABLED = "auto_android_auto_enabled"
+    private const val KEY_AUTO_AA_WAS_UNFROZE = "auto_android_auto_was_unfroze"
+    private const val KEY_AA_TILE_ON = "android_auto_tile_on"
 
     private const val DEFAULT_MODEL = "nvidia/nemotron-3-nano-30b-a3b"
     private const val DEFAULT_LOCALE = "es_ES"
@@ -267,6 +270,34 @@ object SecureStore {
 
     fun setDndLockEnabled(ctx: Context, enabled: Boolean) {
         plainPrefs(ctx).edit().putBoolean(KEY_DND_LOCK_ENABLED, enabled).apply()
+    }
+
+    // ── Auto Android Auto (descongelar al conectar al coche, recongelar al quitar) ──
+
+    /** Si Android Auto está congelado y se conecta el coche, descongelarlo solo. */
+    fun isAutoAndroidAutoEnabled(ctx: Context): Boolean =
+        plainPrefs(ctx).getBoolean(KEY_AUTO_AA_ENABLED, true)
+
+    fun setAutoAndroidAutoEnabled(ctx: Context, enabled: Boolean) {
+        plainPrefs(ctx).edit().putBoolean(KEY_AUTO_AA_ENABLED, enabled).apply()
+    }
+
+    /** True si la app descongeló Android Auto por conexión al coche (para volver a congelarlo al desconectar). */
+    fun wasAutoAndroidAutoUnfroze(ctx: Context): Boolean =
+        plainPrefs(ctx).getBoolean(KEY_AUTO_AA_WAS_UNFROZE, false)
+
+    fun setAutoAndroidAutoWasUnfroze(ctx: Context, was: Boolean) {
+        plainPrefs(ctx).edit().putBoolean(KEY_AUTO_AA_WAS_UNFROZE, was).apply()
+    }
+
+    // ── Watchdog de Shizuku ligado al tile de Android Auto ───────────────
+
+    /** True mientras el tile de Android Auto esté encendido (AA activo). */
+    fun isAndroidAutoTileOn(ctx: Context): Boolean =
+        plainPrefs(ctx).getBoolean(KEY_AA_TILE_ON, false)
+
+    fun setAndroidAutoTileOn(ctx: Context, on: Boolean) {
+        plainPrefs(ctx).edit().putBoolean(KEY_AA_TILE_ON, on).apply()
     }
 
     fun syncFromPrefs(ctx: Context, publicPrefs: SharedPreferences) {

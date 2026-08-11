@@ -68,7 +68,17 @@ object ShizukuManager {
     }
 
     private fun ensureShell() {
+        // Un shell persistente cuya vida depende del binder de Shizuku: los
+        // procesos creados con newProcess mueren con Shizuku (p.ej. One UI 8 lo
+        // mata al bloquear la pantalla, o al conectar el teléfono al coche).
+        //
+        // NOTA: NO se usa Process.isAlive() aquí. ShizukuRemoteProcess.isAlive()
+        // llama a exitValue() que lanza IllegalArgumentException("process
+        // hasn't exited") para un proceso VIVO, así que isAlive() nunca funciona
+        // y rompería todos los comandos. La detección de un proceso muerto se
+        // hace con input.checkError() tras escribir (EPIPE) y con onBinderDead().
         if (shellProc != null && shellIn != null) return
+        closeShell()
         val method = getNewProcessMethod() ?: return
         try {
             val proc = method.invoke(null, arrayOf("sh"), arrayOf("PATH=/system/bin:/system/xbin:/vendor/bin"), null) as Process
@@ -91,6 +101,11 @@ object ShizukuManager {
             try {
                 input.println(cmd)
                 input.flush()
+                if (input.checkError()) {
+                    Log.w(TAG, "shell pipe broken: $cmd")
+                    closeShell()
+                    return false
+                }
                 drainOutput()
                 return true
             } catch (t: Throwable) {
@@ -110,6 +125,11 @@ object ShizukuManager {
                 val marker = "__NEMO_${System.nanoTime()}__"
                 input.println("$cmd; echo $marker")
                 input.flush()
+                if (input.checkError()) {
+                    Log.w(TAG, "capture pipe broken: $cmd")
+                    closeShell()
+                    return null
+                }
                 val sb = StringBuilder()
                 val deadline = System.currentTimeMillis() + 5000L
                 while (System.currentTimeMillis() < deadline) {
@@ -127,6 +147,14 @@ object ShizukuManager {
                 closeShell()
                 return null
             }
+        }
+    }
+
+    /** El binder de Shizuku ha muerto: descarta el shell persistente para
+     *  no reutilizar un proceso sin vida y que se vuelva a crear limpio. */
+    fun onBinderDead() {
+        synchronized(shellLock) {
+            closeShell()
         }
     }
 
@@ -223,6 +251,21 @@ object ShizukuManager {
     fun isProcessRunning(packageName: String): Boolean {
         if (!hasPermission()) return false
         val out = execShellCapture("pidof $packageName") ?: return false
+        return out.isNotBlank()
+    }
+
+    private const val ANDROID_AUTO_PKG = "com.google.android.projection.gearhead"
+
+    /** True si Android Auto está activo (proyección al coche). Los procesos de
+     *  Android Auto llevan sufijo (:car, :shared, ...) y el proceso base no
+     *  siempre existe, por eso se listan las variantes más comunes. */
+    fun isAndroidAutoActive(): Boolean {
+        if (!hasPermission()) return false
+        val out = execShellCapture(
+            "pidof $ANDROID_AUTO_PKG " +
+                "$ANDROID_AUTO_PKG:car $ANDROID_AUTO_PKG:shared " +
+                "$ANDROID_AUTO_PKG:watchdog $ANDROID_AUTO_PKG:provider"
+        ) ?: return false
         return out.isNotBlank()
     }
 

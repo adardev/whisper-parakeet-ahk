@@ -132,6 +132,16 @@
         </receiver>
 
         <receiver
+            android:name=".dhizuku.CarConnectionReceiver"
+            android:exported="true"
+            android:enabled="true">
+            <intent-filter>
+                <action android:name="android.hardware.usb.action.USB_ACCESSORY_ATTACHED" />
+                <action android:name="android.hardware.usb.action.USB_ACCESSORY_DETACHED" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
             android:name=".dhizuku.AutoFreezeBootReceiver"
             android:exported="false"
             android:directBootAware="false">
@@ -148,7 +158,7 @@
             android:name=".dhizuku.AndroidAutoTileService"
             android:exported="true"
             android:icon="@drawable/ic_auto_tile"
-            android:label="Android Auto"
+            android:label="Auto"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
@@ -217,7 +227,7 @@
             android:name=".dhizuku.Fit3TileService"
             android:exported="true"
             android:icon="@drawable/ic_fit3_tile"
-            android:label="Fit3 Plugin"
+            android:label="Fit3"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE" />

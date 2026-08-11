@@ -144,6 +144,12 @@ class AutoFreezeScreenReceiver : BroadcastReceiver() {
                 Log.w(TAG, "Freeze skipped: Shizuku unavailable")
                 return@Thread
             }
+            // Con Android Auto conectado no se congelan apps: congelar GMS
+            // rompería Android Auto y el SpeechRecognizer de Nemotron.
+            if (CarDetector.isCarConnected()) {
+                Log.d(TAG, "Coche conectado: se omite el auto-freeze")
+                return@Thread
+            }
             for (pkg in apps) ShizukuManager.hideApp(pkg)
             val stopApps = SecureStore.getStopOnUnlockApps(ctx).toList()
             for (pkg in stopApps) ShizukuManager.stopApp(pkg)
@@ -166,6 +172,12 @@ class AutoFreezeScreenReceiver : BroadcastReceiver() {
         if (!SecureStore.isAutoFreezeDozeEnabled(ctx)) return
         Thread {
             if (!ShizukuManager.hasPermission()) return@Thread
+            // El doze profundo en el coche mataría procesos (incluido Shizuku y
+            // la proyección de Android Auto); se omite con el coche conectado.
+            if (CarDetector.isCarConnected()) {
+                Log.d(TAG, "Coche conectado: se omite force-idle")
+                return@Thread
+            }
             ShizukuManager.forceIdle()
         }.start()
     }
