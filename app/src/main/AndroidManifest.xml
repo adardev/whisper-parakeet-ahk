@@ -55,7 +55,7 @@
         <!--  SetupActivity: wizard de configuracion.                       -->
         <!-- ============================================================== -->
         <activity-alias
-            android:name=".SetupActivityAlias"
+            android:name=".SetupAliasV2"
             android:enabled="true"
             android:exported="true"
             android:icon="@mipmap/ic_launcher"
