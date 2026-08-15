@@ -26,28 +26,30 @@ class TilePreferencesActivity : Activity() {
         )
         Log.d(TAG, "Tile component: ${tileComponent?.className}")
 
-        val launchTarget: Pair<String?, String?> =
+        val launchTargets: List<Pair<String, String?>> =
             when (tileComponent?.className) {
                 "com.nemotron.voiceime.dhizuku.AndroidAutoTileService" ->
-                    "com.google.android.projection.gearhead" to null
+                    listOf("com.google.android.projection.gearhead" to null)
                 "com.nemotron.voiceime.dhizuku.TelegramTileService" ->
-                    "org.telegram.messenger" to null
+                    listOf("org.telegram.messenger" to null)
                 "com.nemotron.voiceime.dhizuku.GmsTileService" ->
-                    "com.google.android.gms" to null
+                    listOf("com.google.android.gms" to null)
                 "com.nemotron.voiceime.dhizuku.SyncthingTileService" ->
-                    "com.github.catfriend1.syncthingfork" to null
+                    listOf(
+                        "com.github.catfriend1.syncthingfork" to null,
+                        "com.github.catfriend1.syncthingforl" to
+                            "com.nutomic.syncthingandroid.onboarding.OnboardingActivity"
+                    )
                 "com.nemotron.voiceime.dhizuku.WalletTileService" ->
-                    "com.google.android.apps.walletnfcrel" to null
+                    listOf("com.google.android.apps.walletnfcrel" to null)
                 "com.nemotron.voiceime.dhizuku.Fit3TileService" ->
-                    "com.samsung.wearable.fit3plugin" to null
-                else -> null to null
+                    listOf("com.samsung.wearable.fit3plugin" to null)
+                else -> emptyList()
             }
-        val targetPackage = launchTarget.first
-        val targetActivity = launchTarget.second
 
-        Log.d(TAG, "Target package: $targetPackage")
+        Log.d(TAG, "Target packages: $launchTargets")
 
-        if (targetPackage != null) {
+        launchTargets.forEach { (targetPackage, targetActivity) ->
             if (targetActivity != null && ShizukuManager.hasPermission()) {
                 Thread {
                     ShizukuManager.launchApp(targetPackage, targetActivity)

@@ -13,14 +13,17 @@ import android.util.Log
 import com.nemotron.voiceime.R
 
 /**
- * Tile para Syncthing:
- * - Tap: habilitar/deshabilitar (sin abrir)
- * - Long press: abrir la app
+ * Tile para Syncthing (Fork y normal):
+ * - Tap: habilitar/deshabilitar ambas apps (sin abrir)
+ * - Long press: abrir las apps
  */
 class SyncthingTileService : TileService() {
 
     private val handler = Handler(Looper.getMainLooper())
-    private val targetPackage = "com.github.catfriend1.syncthingfork"
+    private val targetPackages = listOf(
+        "com.github.catfriend1.syncthingfork",
+        "com.github.catfriend1.syncthingforl"
+    )
 
     override fun onStartListening() {
         super.onStartListening()
@@ -41,15 +44,17 @@ class SyncthingTileService : TileService() {
             return
         }
 
-        val frozen = ShizukuManager.isAppHidden(targetPackage)
+        val frozen = targetPackages.any { ShizukuManager.isAppHidden(it) }
         Log.d(TAG, "Currently frozen: $frozen")
 
         Thread {
-            if (frozen) {
-                ShizukuManager.unhideApp(targetPackage)
-            } else {
-                ShizukuManager.hideApp(targetPackage)
-                ShizukuManager.stopApp(targetPackage)
+            targetPackages.forEach { pkg ->
+                if (frozen) {
+                    ShizukuManager.unhideApp(pkg)
+                } else {
+                    ShizukuManager.hideApp(pkg)
+                    ShizukuManager.stopApp(pkg)
+                }
             }
             handler.post { try { updateTileState() } catch (_: Throwable) {} }
         }.start()
@@ -60,7 +65,7 @@ class SyncthingTileService : TileService() {
         val tile = qsTile ?: return
         tile.label = "Syncthing"
         tile.icon = Icon.createWithResource(this, R.drawable.ic_syncthing_tile)
-        tile.state = if (ShizukuManager.isAppHidden(targetPackage)) {
+        tile.state = if (targetPackages.any { ShizukuManager.isAppHidden(it) }) {
             Tile.STATE_INACTIVE
         } else {
             Tile.STATE_ACTIVE
