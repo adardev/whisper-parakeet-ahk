@@ -26,24 +26,24 @@ class TilePreferencesActivity : Activity() {
         )
         Log.d(TAG, "Tile component: ${tileComponent?.className}")
 
-        val (targetPackage, targetActivity) = when (tileComponent?.className) {
-            "com.nemotron.voiceime.dhizuku.AndroidAutoTileService" ->
-                "com.google.android.projection.gearhead" to null
-            "com.nemotron.voiceime.dhizuku.TelegramTileService" ->
-                "org.telegram.messenger" to null
-            "com.nemotron.voiceime.dhizuku.GmsTileService" ->
-                "com.google.android.gms" to null
-            "com.nemotron.voiceime.dhizuku.SyncthingTileService" ->
-                "com.github.catfriend1.syncthingfork" to null
-            "com.nemotron.voiceime.dhizuku.WalletTileService" ->
-                "com.google.android.apps.walletnfcrel" to null
-            "com.nemotron.voiceime.dhizuku.WatchManagerTileService" ->
-                "com.samsung.android.app.watchmanager" to
-                    "com.samsung.android.app.watchmanager.setupwizard.SetupWizardWelcomeActivity"
-            "com.nemotron.voiceime.dhizuku.Fit3TileService" ->
-                "com.samsung.wearable.fit3plugin" to null
-            else -> null to null
-        }
+        val launchTarget: Pair<String?, String?> =
+            when (tileComponent?.className) {
+                "com.nemotron.voiceime.dhizuku.AndroidAutoTileService" ->
+                    "com.google.android.projection.gearhead" to null
+                "com.nemotron.voiceime.dhizuku.TelegramTileService" ->
+                    "org.telegram.messenger" to null
+                "com.nemotron.voiceime.dhizuku.GmsTileService" ->
+                    "com.google.android.gms" to null
+                "com.nemotron.voiceime.dhizuku.SyncthingTileService" ->
+                    "com.github.catfriend1.syncthingfork" to null
+                "com.nemotron.voiceime.dhizuku.WalletTileService" ->
+                    "com.google.android.apps.walletnfcrel" to null
+                "com.nemotron.voiceime.dhizuku.Fit3TileService" ->
+                    "com.samsung.wearable.fit3plugin" to null
+                else -> null to null
+            }
+        val targetPackage = launchTarget.first
+        val targetActivity = launchTarget.second
 
         Log.d(TAG, "Target package: $targetPackage")
 
