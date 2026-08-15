@@ -62,10 +62,24 @@ class ShortcutPickerActivity : AppCompatActivity() {
             return
         }
 
-        // Renderiza el icono nativo a bitmap (soporta adaptive icons sin depender de
-        // recursos de otro paquete, evitando que el launcher crashee).
-        val bitmap = renderToBitmap(drawable)
-        val icon = androidx.core.graphics.drawable.IconCompat.createWithBitmap(bitmap)
+        val bitmap: android.graphics.Bitmap
+        val icon: androidx.core.graphics.drawable.IconCompat
+
+        if (drawable is android.graphics.drawable.AdaptiveIconDrawable) {
+            // Para adaptive icons: renderiza solo el foreground (logo) en 108dp transparente
+            // y usa createWithAdaptiveBitmap para que Samsung aplique su máscara nativa
+            // sin doble fondo (evita el efecto "encimado").
+            val size = 108
+            bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bitmap)
+            drawable.foreground?.setBounds(0, 0, size, size)
+            drawable.foreground?.draw(canvas)
+            icon = androidx.core.graphics.drawable.IconCompat.createWithAdaptiveBitmap(bitmap)
+        } else {
+            // Iconos legacy: renderiza tal cual a bitmap sin fondo
+            bitmap = renderToBitmap(drawable)
+            icon = androidx.core.graphics.drawable.IconCompat.createWithBitmap(bitmap)
+        }
 
         val intent = Intent(this, ShortcutActivity::class.java).apply {
             action = Intent.ACTION_MAIN
@@ -87,10 +101,6 @@ class ShortcutPickerActivity : AppCompatActivity() {
         val size = 108
         val bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
-
-        // Fondo oscuro para que el icono del overlay de Samsung no se vea transparente
-        canvas.drawColor(0xFF2A2A2A.toInt())
-
         drawable.setBounds(0, 0, size, size)
         drawable.draw(canvas)
         return bitmap
