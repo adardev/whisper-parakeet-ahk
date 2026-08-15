@@ -6,6 +6,8 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.widget.Toast
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
@@ -106,6 +108,10 @@ class SetupActivity : AppCompatActivity() {
         b.btnTest.setOnClickListener { testVoice() }
 
         b.btnEscolomos.setOnClickListener { launchAppShortcut() }
+
+        b.btnAddShortcuts.setOnClickListener {
+            startActivity(Intent(this, ShortcutPickerActivity::class.java))
+        }
 
         b.btnSideKey.setOnClickListener {
             val intents = buildList {
@@ -317,6 +323,66 @@ class SetupActivity : AppCompatActivity() {
                 }
             }
         )
+    }
+
+    private fun requestAppShortcuts() {
+        val apps = listOf(
+            Triple("Escolomos", "com.ceti.escolomos", "com.ceti.escolomos.MainActivity"),
+            Triple("Ingeniería Virtual", "com.ceti.ingenieriavirtual", "com.ceti.ingenieriavirtual.MainActivity"),
+            Triple("Obsidian", "md.obsidiao", "md.obsidiao.MainActivity"),
+            Triple("Classroom", "com.google.android.apps.classroom", "com.google.android.apps.classroom.classroomflutter.MainActivity"),
+            Triple("WhatsApp Business", "com.whatsapp.w4b", "com.whatsapp.Main"),
+            Triple("WhatsApp", "com.whatsapp", "com.whatsapp.Main"),
+            Triple("Instagram", "com.instagram.android", "com.instagram.android.activity.MainTabActivity"),
+            Triple("Proton Pass", "proton.android.past", "proton.android.past.ui.MainActivity"),
+        )
+
+        if (!androidx.core.content.pm.ShortcutManagerCompat.isRequestPinShortcutSupported(this)) {
+            Toast.makeText(this, "Este launcher no soporta fijar atajos", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        var added = 0
+        var delay = 300L
+        for ((label, pkg, activity) in apps) {
+            val appInfo = try { packageManager.getApplicationInfo(pkg, 0) } catch (_: Throwable) { null }
+            if (appInfo == null) continue
+
+            // Renderiza el icono nativo a bitmap (soporta adaptive icons sin depender de
+            // recursos de otro paquete, evitando que el launcher crashee).
+            val drawable = packageManager.getApplicationIcon(pkg)
+            val size = 108
+            val bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+            val canvas = android.graphics.Canvas(bitmap)
+            drawable.setBounds(0, 0, size, size)
+            drawable.draw(canvas)
+            val icon = androidx.core.graphics.drawable.IconCompat.createWithBitmap(bitmap)
+
+            val intent = Intent(this, ShortcutActivity::class.java).apply {
+                action = Intent.ACTION_MAIN
+                putExtra(ShortcutActivity.EXTRA_PACKAGE, pkg)
+                putExtra(ShortcutActivity.EXTRA_ACTIVITY, activity)
+            }
+
+            val shortcut = androidx.core.content.pm.ShortcutInfoCompat.Builder(this, "shortcut_$pkg")
+                .setShortLabel(label)
+                .setLongLabel(label)
+                .setIcon(icon)
+                .setIntent(intent)
+                .build()
+
+            android.os.Handler(Looper.getMainLooper()).postDelayed({
+                androidx.core.content.pm.ShortcutManagerCompat.requestPinShortcut(this, shortcut, null)
+            }, delay)
+            delay += 900
+            added++
+        }
+
+        Toast.makeText(
+            this,
+            "Confirmando $added atajos… Acepta cada diálogo en pantalla.",
+            Toast.LENGTH_SHORT
+        ).show()
     }
 
     private fun launchAppShortcut() {

@@ -329,6 +329,12 @@
             android:layout_height="wrap_content"
             android:text="Abrir Escolomos"
             android:layout_marginTop="8dp" />
+        <Button
+            android:id="@+id/btnAddShortcuts"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Añadir atajos de apps al inicio"
+            android:layout_marginTop="8dp" />
 
         <View
             android:layout_width="match_parent"

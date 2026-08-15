@@ -12,4 +12,5 @@
     <color name="status_ok">#2E7D32</color>
     <color name="status_bad">#C62828</color>
     <color name="status_pending">#F57C00</color>
+    
 </resources>
