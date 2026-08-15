@@ -66,17 +66,16 @@ class ShortcutPickerActivity : AppCompatActivity() {
         val icon: androidx.core.graphics.drawable.IconCompat
 
         if (drawable is android.graphics.drawable.AdaptiveIconDrawable) {
-            // Para adaptive icons: renderiza solo el foreground (logo) en 108dp transparente
-            // y usa createWithAdaptiveBitmap para que Samsung aplique su máscara nativa
-            // sin doble fondo (evita el efecto "encimado").
-            val size = 108
+            // Para adaptive icons: renderiza el foreground (logo) en alta resolución
+            // (108dp × density) y usa createWithAdaptiveBitmap para la máscara nativa.
+            val size = (108 * resources.displayMetrics.density).toInt()
             bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
             val canvas = Canvas(bitmap)
             drawable.foreground?.setBounds(0, 0, size, size)
             drawable.foreground?.draw(canvas)
             icon = androidx.core.graphics.drawable.IconCompat.createWithAdaptiveBitmap(bitmap)
         } else {
-            // Iconos legacy: renderiza tal cual a bitmap sin fondo
+            // Iconos legacy: renderiza en alta resolución sin fondo
             bitmap = renderToBitmap(drawable)
             icon = androidx.core.graphics.drawable.IconCompat.createWithBitmap(bitmap)
         }
@@ -98,7 +97,7 @@ class ShortcutPickerActivity : AppCompatActivity() {
     }
 
     private fun renderToBitmap(drawable: Drawable): android.graphics.Bitmap {
-        val size = 108
+        val size = (108 * resources.displayMetrics.density).toInt()
         val bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
         drawable.setBounds(0, 0, size, size)
