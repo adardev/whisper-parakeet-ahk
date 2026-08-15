@@ -18,7 +18,6 @@ class WorkTileService : TileService() {
 
     private val handler = Handler(Looper.getMainLooper())
     private val targetPackages = listOf(
-        "com.discore",
         "com.ceti.escolomos",
         "com.ceti.ingenieriavirtual",
         "md.obsidiao",

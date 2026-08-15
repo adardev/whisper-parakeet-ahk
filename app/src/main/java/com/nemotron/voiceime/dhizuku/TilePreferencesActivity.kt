@@ -46,7 +46,6 @@ class TilePreferencesActivity : Activity() {
                     listOf("com.samsung.wearable.fit3plugin" to null)
                 "com.nemotron.voiceime.dhizuku.WorkTileService" ->
                     listOf(
-                        "com.discore" to "com.discore.main.MainDefault",
                         "com.ceti.escolomos" to "com.ceti.escolomos.MainActivity",
                         "com.ceti.ingenieriavirtual" to "com.ceti.ingenieriavirtual.MainActivity",
                         "md.obsidiao" to "md.obsidiao.MainActivity",
