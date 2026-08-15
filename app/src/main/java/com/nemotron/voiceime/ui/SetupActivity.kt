@@ -105,6 +105,8 @@ class SetupActivity : AppCompatActivity() {
 
         b.btnTest.setOnClickListener { testVoice() }
 
+        b.btnEscolomos.setOnClickListener { launchAppShortcut() }
+
         b.btnSideKey.setOnClickListener {
             val intents = buildList {
                 add(android.content.Intent("android.intent.action.MAIN").apply {
@@ -315,6 +317,25 @@ class SetupActivity : AppCompatActivity() {
                 }
             }
         )
+    }
+
+    private fun launchAppShortcut() {
+        val targetPackage = "com.ceti.escolomos"
+        val targetActivity = "com.ceti.escolomos.MainActivity"
+        // Shizuku: am start funciona aunque la app esté oculta/congelada.
+        if (ShizukuManager.hasPermission()) {
+            Thread {
+                ShizukuManager.launchApp(targetPackage, targetActivity)
+            }.start()
+        } else {
+            runOnUiThread {
+                Toast.makeText(
+                    this,
+                    "Concede permiso Shizuku para abrir apps congeladas",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
     }
 
     private fun hasMic(): Boolean =

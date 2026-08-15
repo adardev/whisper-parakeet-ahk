@@ -307,6 +307,35 @@
             android:background="#22000000"
             android:layout_marginTop="20dp" />
 
+        <!-- Atajos de apps -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Atajos de apps"
+            android:layout_marginTop="16dp"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Abre las apps aunque esten congeladas."
+            android:layout_marginTop="4dp"
+            android:textSize="13sp"
+            android:lineSpacingExtra="4dp"
+            android:textColor="@color/text_dim" />
+        <Button
+            android:id="@+id/btnEscolomos"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Abrir Escolomos"
+            android:layout_marginTop="8dp" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="#22000000"
+            android:layout_marginTop="20dp" />
+
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Nemotron</string>
+    <string name="widget_escolomos_label">Escolomos</string>
     <string name="voice_service_label">Nemotron</string>
     <string name="settings_title">Ajustes</string>
     <string name="subtype_es">Voz (Español)</string>
