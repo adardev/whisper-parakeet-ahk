@@ -21,7 +21,6 @@ class WorkTileService : TileService() {
         "com.discore",
         "com.ceti.escolomos",
         "com.ceti.ingenieriavirtual",
-        "md.obsidian",
         "md.obsidiao",
         "com.google.android.apps.classroom",
         "com.whatsapp.w4b",

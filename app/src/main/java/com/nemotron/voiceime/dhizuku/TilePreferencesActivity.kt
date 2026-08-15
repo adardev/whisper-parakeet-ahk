@@ -49,7 +49,6 @@ class TilePreferencesActivity : Activity() {
                         "com.discore" to "com.discore.main.MainDefault",
                         "com.ceti.escolomos" to "com.ceti.escolomos.MainActivity",
                         "com.ceti.ingenieriavirtual" to "com.ceti.ingenieriavirtual.MainActivity",
-                        "md.obsidian" to "md.obsidian.MainActivity",
                         "md.obsidiao" to "md.obsidiao.MainActivity",
                         "com.google.android.apps.classroom" to
                             "com.google.android.apps.classroom.classroomflutter.MainActivity",
