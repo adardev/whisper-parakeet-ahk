@@ -44,6 +44,18 @@ class TilePreferencesActivity : Activity() {
                     listOf("com.google.android.apps.walletnfcrel" to null)
                 "com.nemotron.voiceime.dhizuku.Fit3TileService" ->
                     listOf("com.samsung.wearable.fit3plugin" to null)
+                "com.nemotron.voiceime.dhizuku.WorkTileService" ->
+                    listOf(
+                        "com.discore" to "com.discore.main.MainDefault",
+                        "com.ceti.escolomos" to "com.ceti.escolomos.MainActivity",
+                        "com.ceti.ingenieriavirtual" to "com.ceti.ingenieriavirtual.MainActivity",
+                        "md.obsidian" to "md.obsidian.MainActivity",
+                        "md.obsidiao" to "md.obsidiao.MainActivity",
+                        "com.google.android.apps.classroom" to
+                            "com.google.android.apps.classroom.classroomflutter.MainActivity",
+                        "com.whatsapp.w4b" to "com.whatsapp.Main",
+                        "proton.android.past" to "proton.android.past.ui.MainActivity"
+                    )
                 else -> emptyList()
             }
 
