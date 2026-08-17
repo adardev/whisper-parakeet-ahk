@@ -42,6 +42,11 @@ class TilePreferencesActivity : Activity() {
                     )
                 "com.nemotron.voiceime.dhizuku.WalletTileService" ->
                     listOf("com.google.android.apps.walletnfcrel" to null)
+                "com.nemotron.voiceime.dhizuku.WatchManagerTileService" ->
+                    listOf(
+                        "com.samsung.android.app.watchmanager" to
+                            "com.samsung.android.app.watchmanager.setupwizard.SetupWizardWelcomeActivity"
+                    )
                 "com.nemotron.voiceime.dhizuku.Fit3TileService" ->
                     listOf("com.samsung.wearable.fit3plugin" to null)
                 "com.nemotron.voiceime.dhizuku.WorkTileService" ->
