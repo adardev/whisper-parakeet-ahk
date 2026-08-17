@@ -33,6 +33,11 @@ object AddictionGuard {
 
     private val lastBlocked = ConcurrentHashMap<String, Long>()
 
+    /** Timestamp (System.currentTimeMillis) hasta el cual se ignora la detección
+     *  tras un bloqueo. Evita el bucle infinito cuando Instagram restaura Reels
+     *  al reabrir tras force-stop. */
+    private val gracePeriodUntil = ConcurrentHashMap<String, Long>()
+
     /** Último evento (elapsedRealtime) recibido por el servicio de accesibilidad. */
     @Volatile
     var lastEventAt: Long = 0L
@@ -49,11 +54,20 @@ object AddictionGuard {
         event.className?.toString()?.contains("StatusPlayback", ignoreCase = true) == true ||
             event.source?.className?.toString()?.contains("StatusPlayback", ignoreCase = true) == true
 
+    /** True si estamos en el período de gracia tras un bloqueo previo. */
+    fun isInGracePeriod(pkg: String): Boolean {
+        val until = gracePeriodUntil[pkg] ?: return false
+        if (System.currentTimeMillis() < until) return true
+        gracePeriodUntil.remove(pkg)
+        return false
+    }
+
     /** Bloquea la pantalla y, con Shizuku, también hace force-stop de la app. */
     fun block(service: AccessibilityService, pkg: String) {
         val now = System.currentTimeMillis()
         if (now - (lastBlocked[pkg] ?: 0L) < BLOCK_COOLDOWN_MS) return
         lastBlocked[pkg] = now
+        gracePeriodUntil[pkg] = now + BLOCK_GRACE_PERIOD_MS
 
         Log.i(TAG, "Anti-adicción: bloqueando pantalla y cerrando $pkg")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -167,6 +181,7 @@ object AddictionGuard {
     }
 
     private const val BLOCK_COOLDOWN_MS = 1_500L
+    private const val BLOCK_GRACE_PERIOD_MS = 30_000L
     private const val HEAL_INTERVAL_MS = 20_000L
     private const val EVENT_TIMEOUT_MS = 10_000L
 }
