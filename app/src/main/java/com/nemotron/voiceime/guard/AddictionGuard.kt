@@ -55,13 +55,15 @@ object AddictionGuard {
         if (now - (lastBlocked[pkg] ?: 0L) < BLOCK_COOLDOWN_MS) return
         lastBlocked[pkg] = now
 
-        Log.i(TAG, "Anti-adicción: cerrando $pkg y bloqueando pantalla")
-        Thread {
-            if (ShizukuManager.hasPermission()) {
-                ShizukuManager.stopApp(pkg)
-            }
+        Log.i(TAG, "Anti-adicción: bloqueando pantalla y cerrando $pkg")
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_LOCK_SCREEN)
-        }.start()
+        } else {
+            service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME)
+        }
+        if (ShizukuManager.hasPermission()) {
+            Thread { ShizukuManager.stopApp(pkg) }.start()
+        }
     }
 
     // ── Activación del servicio de accesibilidad (WRITE_SECURE_SETTINGS) ──

@@ -219,22 +219,7 @@ object ShizukuManager {
 
     fun stopApp(packageName: String): Boolean {
         if (!hasPermission()) return false
-        val method = getNewProcessMethod() ?: return execShell("am force-stop $packageName")
-        return try {
-            val proc = method.invoke(null,
-                arrayOf("sh"), arrayOf("PATH=/system/bin:/system/xbin:/vendor/bin"), null
-            ) as Process
-            val pw = PrintWriter(proc.outputStream, true)
-            pw.println("am force-stop $packageName; sleep 0.5; kill -9 \$(pidof $packageName) 2>/dev/null; echo done")
-            pw.flush()
-            pw.close()
-            proc.waitFor()
-            Log.d(TAG, "stopApp $packageName completed, exit=${proc.exitValue()}")
-            true
-        } catch (t: Throwable) {
-            Log.w(TAG, "stopApp fresh process failed for $packageName", t)
-            execShell("am force-stop $packageName")
-        }
+        return execShell("am force-stop $packageName")
     }
 
     /** Apaga y bloquea la pantalla (equivale a pulsar el botón de encendido). */
