@@ -93,14 +93,12 @@ class AntiScrollAccessibilityService : AccessibilityService() {
                 // fuente de verdad, incluso si el servicio se reconectó.
                 val blockSearch = !isExcludedInstagramSurface && isSearchSurface &&
                     isConsiderableSearchScroll(event)
-                if ((blockReels || blockHome || blockSearch) &&
-                    !AddictionGuard.isInGracePeriod(AddictionGuard.INSTAGRAM)) {
+                if (blockReels || blockHome || blockSearch) {
                     AddictionGuard.block(this, AddictionGuard.INSTAGRAM)
                 }
             }
             AddictionGuard.WHATSAPP -> {
-                if (AddictionGuard.isWhatsAppStatus(event) &&
-                    !AddictionGuard.isInGracePeriod(AddictionGuard.WHATSAPP)) {
+                if (AddictionGuard.isWhatsAppStatus(event)) {
                     AddictionGuard.block(this, AddictionGuard.WHATSAPP)
                 }
             }
