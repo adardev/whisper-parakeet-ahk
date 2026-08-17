@@ -57,8 +57,7 @@ class TilePreferencesActivity : Activity() {
                         "com.google.android.apps.classroom" to
                             "com.google.android.apps.classroom.classroomflutter.MainActivity",
                         "com.whatsapp.w4b" to "com.whatsapp.Main",
-                        "proton.android.past" to "proton.android.past.ui.MainActivity",
-                        "com.readdle.sparl" to "com.readdle.sparl.app.MainActivity"
+                        "proton.android.past" to "proton.android.past.ui.MainActivity"
                     )
                 else -> emptyList()
             }

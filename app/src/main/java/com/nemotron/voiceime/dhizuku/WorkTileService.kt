@@ -23,8 +23,7 @@ class WorkTileService : TileService() {
         "md.obsidiao",
         "com.google.android.apps.classroom",
         "com.whatsapp.w4b",
-        "proton.android.past",
-        "com.readdle.sparl"
+        "proton.android.past"
     )
 
     override fun onStartListening() {
