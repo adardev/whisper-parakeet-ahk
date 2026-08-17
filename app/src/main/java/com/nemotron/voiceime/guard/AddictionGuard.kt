@@ -56,14 +56,12 @@ object AddictionGuard {
         lastBlocked[pkg] = now
 
         Log.i(TAG, "Anti-adicción: cerrando $pkg y bloqueando pantalla")
-        if (ShizukuManager.hasPermission()) {
-            ShizukuManager.stopApp(pkg)
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        Thread {
+            if (ShizukuManager.hasPermission()) {
+                ShizukuManager.stopApp(pkg)
+            }
             service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_LOCK_SCREEN)
-        } else {
-            service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME)
-        }
+        }.start()
     }
 
     // ── Activación del servicio de accesibilidad (WRITE_SECURE_SETTINGS) ──

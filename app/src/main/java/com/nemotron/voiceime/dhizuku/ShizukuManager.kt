@@ -219,7 +219,23 @@ object ShizukuManager {
 
     fun stopApp(packageName: String): Boolean {
         if (!hasPermission()) return false
-        return execShell("am force-stop $packageName")
+        // Ejecutar en un proceso fresco: el shell persistente puede estar
+        // muerto (EPIPE) cuando One UI lo mata al bloquear la pantalla.
+        val method = getNewProcessMethod() ?: return execShell("am force-stop $packageName")
+        return try {
+            val proc = method.invoke(null,
+                arrayOf("sh"), arrayOf("PATH=/system/bin:/system/xbin:/vendor/bin"), null
+            ) as Process
+            val pw = PrintWriter(proc.outputStream, true)
+            pw.println("am force-stop $packageName")
+            pw.flush()
+            pw.close()
+            proc.waitFor()
+            true
+        } catch (t: Throwable) {
+            Log.w(TAG, "stopApp fresh process failed for $packageName", t)
+            execShell("am force-stop $packageName")
+        }
     }
 
     /** Apaga y bloquea la pantalla (equivale a pulsar el botón de encendido). */
