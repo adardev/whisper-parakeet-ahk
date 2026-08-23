@@ -21,8 +21,7 @@ class SyncthingTileService : TileService() {
 
     private val handler = Handler(Looper.getMainLooper())
     private val targetPackages = listOf(
-        "com.github.catfriend1.syncthingfork",
-        "com.github.catfriend1.syncthingforl"
+        "com.github.catfriend1.syncthingfork"
     )
 
     override fun onStartListening() {

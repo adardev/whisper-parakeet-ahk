@@ -198,6 +198,17 @@
             </intent-filter>
         </service>
 
+        <service
+            android:name=".dhizuku.SyncthingAdareduTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_syncthing_tile"
+            android:label="Sync Adaredu"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
         <!-- Wallet: tap abre Wallet + NFC on/off sin service en background -->
         <service
             android:name=".dhizuku.WalletTileService"
