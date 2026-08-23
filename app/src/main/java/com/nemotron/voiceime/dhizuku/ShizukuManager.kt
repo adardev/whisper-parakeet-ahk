@@ -208,8 +208,8 @@ object ShizukuManager {
     /** Returns which of [packages] are still in disabled state (freeze persists). */
     fun stillDisabled(packages: Collection<String>): Set<String> {
         if (packages.isEmpty()) return emptySet()
-        if (!hasPermission()) return packages.toSet()
-        val out = execShellCapture("pm list packages -d") ?: return packages.toSet()
+        if (!hasPermission()) return emptySet()
+        val out = execShellCapture("pm list packages -d") ?: return emptySet()
         val disabled = out.lineSequence()
             .map { it.trim() }
             .filter { it.startsWith("package:") }
@@ -304,6 +304,27 @@ object ShizukuManager {
         val out = execShellCapture("cmd deviceidle unforce") ?: return false
         Log.d(TAG, "unforce-idle → $out")
         return true
+    }
+
+    fun isAccessibilityServiceEnabled(serviceComponent: String): Boolean {
+        if (!hasPermission()) return false
+        val current = execShellCapture("settings get secure enabled_accessibility_services") ?: return false
+        return current.split(':').map { it.trim() }.contains(serviceComponent)
+    }
+
+    fun setAccessibilityServiceEnabled(serviceComponent: String, enabled: Boolean): Boolean {
+        if (!hasPermission()) return false
+        val current = execShellCapture("settings get secure enabled_accessibility_services") ?: return false
+        val services = current.split(':')
+            .map { it.trim() }
+            .filter { it.isNotEmpty() && it != "null" }
+            .toMutableSet()
+        val changed = if (enabled) services.add(serviceComponent) else services.remove(serviceComponent)
+        if (!changed) return true
+        val joined = services.joinToString(":")
+        val ok = execShell("settings put secure enabled_accessibility_services '$joined'")
+        Log.d(TAG, "a11y $serviceComponent → $enabled [$joined]")
+        return ok
     }
 
 }

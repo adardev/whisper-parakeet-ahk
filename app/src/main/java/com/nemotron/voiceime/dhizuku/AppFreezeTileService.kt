@@ -12,12 +12,17 @@ import android.util.Log
  * Tile de Quick Settings: freeze/unfreeze toggle.
  * - Tap: congelar/descongelar
  * - Long press: abrir la app
+ *
+ * updateTileState NO ejecuta shell commands para evitar que Samsung
+ * se confunda al escanear tiles en el QS edit (Add a control).
  */
 abstract class AppFreezeTileService : TileService() {
 
     abstract val targetPackage: String
     abstract val tileLabel: String
     abstract val tileIconRes: Int
+
+    open val targetPackages: List<String> get() = listOf(targetPackage)
 
     private val handler = Handler(Looper.getMainLooper())
 
@@ -33,64 +38,50 @@ abstract class AppFreezeTileService : TileService() {
 
     override fun onClick() {
         super.onClick()
-        Log.d(TAG, "onClick: $tileLabel ($targetPackage)")
+        Log.d(TAG, "onClick: $tileLabel")
 
         if (!ShizukuManager.hasPermission()) {
             Log.w(TAG, "Shizuku permission not granted")
             return
         }
 
-        // isAppHidden usa shell persistente y puede tardar (o bloquearse hasta
-        // el timeout) si Shizuku se está muriendo; nunca en el main thread.
         Thread {
-            val currentlyFrozen = ShizukuManager.isAppHidden(targetPackage)
-            Log.d(TAG, "Currently frozen: $currentlyFrozen")
-            if (currentlyFrozen) {
-                ShizukuManager.unhideApp(targetPackage)
+            val disabled = try {
+                ShizukuManager.stillDisabled(targetPackages)
+            } catch (_: Throwable) { emptySet<String>() }
+            Log.d(TAG, "Currently frozen: $disabled")
+            val anyFrozen = disabled.isNotEmpty()
+            if (anyFrozen) {
+                for (pkg in targetPackages) ShizukuManager.unhideApp(pkg)
                 onAfterUnfreeze()
             } else {
-                ShizukuManager.hideApp(targetPackage)
-                ShizukuManager.stopApp(targetPackage)
+                for (pkg in targetPackages) {
+                    ShizukuManager.hideApp(pkg)
+                    ShizukuManager.stopApp(pkg)
+                }
                 onAfterFreeze()
             }
             handler.post { try { updateTileState() } catch (_: Throwable) {} }
         }.start()
     }
 
-    /** Acciones extra tras congelar (override opcional). */
     open fun onAfterFreeze() {}
-
-    /** Acciones extra tras descongelar (override opcional). */
     open fun onAfterUnfreeze() {}
-
-    /** Genera el icono del tile. Override para iconos custom. */
     open fun createTileIcon(): Icon = Icon.createWithResource(this, tileIconRes)
-
-    /** Hook con el estado calculado del tile (antes de actualizarlo). */
     open fun onTileState(granted: Boolean, hidden: Boolean) {}
 
+    /** NO ejecuta shell — solo muestra estado por defecto para no romper QS edit. */
     @SuppressLint("MissingPermission")
     private fun updateTileState() {
         val tile = qsTile ?: return
-        // isAppHidden puede tardar hasta el timeout si el shell persistente está
-        // roto (Shizuku muerto al conectar al coche/bloquear pantalla). Hacerlo
-        // en background evita que el main thread se congele y ANR.
-        Thread {
-            val hidden = try { ShizukuManager.isAppHidden(targetPackage) } catch (_: Throwable) { false }
-            val granted = ShizukuManager.hasPermission()
-            try { onTileState(granted, hidden) } catch (_: Throwable) {}
-            handler.post {
-                val t = qsTile ?: return@post
-                t.label = tileLabel
-                t.icon = createTileIcon()
-                t.state = when {
-                    !granted -> Tile.STATE_UNAVAILABLE
-                    hidden -> Tile.STATE_INACTIVE
-                    else -> Tile.STATE_ACTIVE
-                }
-                t.updateTile()
-            }
-        }.start()
+        val granted = ShizukuManager.hasPermission()
+        handler.post {
+            val t = qsTile ?: return@post
+            t.label = tileLabel
+            t.icon = createTileIcon()
+            t.state = if (granted) Tile.STATE_ACTIVE else Tile.STATE_UNAVAILABLE
+            t.updateTile()
+        }
     }
 
     companion object {
