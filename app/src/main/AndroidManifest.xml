@@ -21,9 +21,9 @@
     <application
         android:name=".NemotronApp"
         android:allowBackup="true"
-        android:icon="@android:color/transparent"
+        android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
-        android:roundIcon="@android:color/transparent"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.NemotronVoiceIME">
 
@@ -58,7 +58,7 @@
             android:name=".SetupAliasV2"
             android:enabled="true"
             android:exported="true"
-            android:icon="@android:color/transparent"
+            android:icon="@mipmap/ic_launcher"
             android:label="Nemotron Setup"
             android:targetActivity=".ui.SetupActivity">
             <intent-filter>
@@ -88,6 +88,16 @@
             android:label="Freeze Apps"
             android:theme="@style/Theme.NemotronVoiceIME"
             android:windowSoftInputMode="adjustResize">
+        </activity>
+
+        <!-- Long-press en tiles abre la app correspondiente -->
+        <activity
+            android:name=".dhizuku.TilePreferencesActivity"
+            android:exported="true"
+            android:theme="@style/Theme.NemotronVoiceIME.Transparent">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE_PREFERENCES" />
+            </intent-filter>
         </activity>
 
         <!-- Foreground service de grabación de voz -->

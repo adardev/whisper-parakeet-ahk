@@ -12,9 +12,6 @@ import android.util.Log
  * Tile de Quick Settings: freeze/unfreeze toggle.
  * - Tap: congelar/descongelar
  * - Long press: abrir la app
- *
- * updateTileState NO ejecuta shell commands para evitar que Samsung
- * se confunda al escanear tiles en el QS edit (Add a control).
  */
 abstract class AppFreezeTileService : TileService() {
 
@@ -38,7 +35,7 @@ abstract class AppFreezeTileService : TileService() {
 
     override fun onClick() {
         super.onClick()
-        Log.d(TAG, "onClick: $tileLabel")
+        Log.d(TAG, "onClick: $tileLabel ($targetPackage)")
 
         if (!ShizukuManager.hasPermission()) {
             Log.w(TAG, "Shizuku permission not granted")
@@ -65,23 +62,40 @@ abstract class AppFreezeTileService : TileService() {
         }.start()
     }
 
+    /** Acciones extra tras congelar (override opcional). */
     open fun onAfterFreeze() {}
+
+    /** Acciones extra tras descongelar (override opcional). */
     open fun onAfterUnfreeze() {}
+
+    /** Genera el icono del tile. Override para iconos custom. */
     open fun createTileIcon(): Icon = Icon.createWithResource(this, tileIconRes)
+
+    /** Hook con el estado calculado del tile (antes de actualizarlo). */
     open fun onTileState(granted: Boolean, hidden: Boolean) {}
 
-    /** NO ejecuta shell — solo muestra estado por defecto para no romper QS edit. */
     @SuppressLint("MissingPermission")
     private fun updateTileState() {
         val tile = qsTile ?: return
-        val granted = ShizukuManager.hasPermission()
-        handler.post {
-            val t = qsTile ?: return@post
-            t.label = tileLabel
-            t.icon = createTileIcon()
-            t.state = if (granted) Tile.STATE_ACTIVE else Tile.STATE_UNAVAILABLE
-            t.updateTile()
-        }
+        // isAppHidden puede tardar hasta el timeout si el shell persistente está
+        // roto (Shizuku muerto al conectar al coche/bloquear pantalla). Hacerlo
+        // en background evita que el main thread se congele y ANR.
+        Thread {
+            val hidden = try { ShizukuManager.isAppHidden(targetPackage) } catch (_: Throwable) { false }
+            val granted = ShizukuManager.hasPermission()
+            try { onTileState(granted, hidden) } catch (_: Throwable) {}
+            handler.post {
+                val t = qsTile ?: return@post
+                t.label = tileLabel
+                t.icon = createTileIcon()
+                t.state = when {
+                    !granted -> Tile.STATE_UNAVAILABLE
+                    hidden -> Tile.STATE_INACTIVE
+                    else -> Tile.STATE_ACTIVE
+                }
+                t.updateTile()
+            }
+        }.start()
     }
 
     companion object {
