@@ -202,7 +202,7 @@
             android:name=".dhizuku.SyncthingAdareduTileService"
             android:exported="true"
             android:icon="@drawable/ic_syncthing_tile"
-            android:label="Sync Adaredu"
+            android:label="Syncthing"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
