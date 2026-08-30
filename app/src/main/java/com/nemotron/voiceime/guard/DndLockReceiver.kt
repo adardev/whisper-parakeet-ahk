@@ -13,16 +13,9 @@ import com.nemotron.voiceime.dhizuku.ShizukuManager
 /**
  * Bloquea la pantalla cuando se activa el modo No Molestar.
  *
- * Escucha [NotificationManager.ACTION_INTERRUPTION_FILTER_CHANGED], un
- * broadcast de sistema que solo se emite al cambiar el filtro de
- * interrupciones (DND). Es event-driven: sin polling, sin gasto de batería.
- *
- * Solo bloquea al pasar a un modo de no molestar activo (Prioritario,
- * Solo alarmas o Ninguno); al desactivar DND no hace nada. El bloqueo se
- * hace con Shizuku (apaga y bloquea la pantalla) y, una vez bloqueada,
- * desactiva el toggle de No Molestar para que al desbloquear el teléfono
- * no quede sin notificaciones. Si Shizuku no está disponible se intenta
- * de nuevo en segundo plano, sin bloquear la UI.
+ * Usa un "double-check": espera 2s tras el broadcast y re-verifica que DND
+ * sigue activo. Esto evita que Samsung bloquee la pantalla al abrir QS edit
+ * (Samsung manda NOTIFICATION_POLICY_CHANGED temporalmente).
  */
 class DndLockReceiver : BroadcastReceiver() {
 
@@ -30,34 +23,43 @@ class DndLockReceiver : BroadcastReceiver() {
         if (intent.action != NotificationManager.ACTION_INTERRUPTION_FILTER_CHANGED) return
         if (!SecureStore.isDndLockEnabled(ctx)) return
 
+        val now = System.currentTimeMillis()
+        if (now - lastLockAt < LOCK_COOLDOWN_MS) return
+
         val filter = try {
             val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             nm.currentInterruptionFilter
         } catch (t: Throwable) {
             intent.getIntExtra(EXTRA_INTERRUPTION_FILTER, INTERRUPTION_FILTER_UNKNOWN)
         }
-        // DND desactivado (all) o filtro desconocido → no hacer nada.
         if (filter == NotificationManager.INTERRUPTION_FILTER_ALL ||
             filter == INTERRUPTION_FILTER_UNKNOWN) return
 
-        // La pantalla ya apagada no necesita bloquearse otra vez.
         val pm = ctx.getSystemService(Context.POWER_SERVICE) as? PowerManager
         if (pm?.isInteractive == false) return
 
-        Log.i(TAG, "No Molestar activado (filter=$filter) → bloqueando pantalla")
+        Log.i(TAG, "No Molestar activado (filter=$filter) → double-check en 2s...")
         val pendingResult = goAsync()
         Thread {
             try {
-                // Al conectar al coche, el modo de conducción de Samsung activa
-                // No Molestar solo. Bloquear la pantalla aquí hace que One UI mate
-                // a Shizuku y que el auto-freeze congele GMS (rompiendo Android
-                // Auto y el propio reconocimiento de voz de Nemotron). En el coche
-                // no se bloquea.
                 if (CarDetector.isCarConnected()) {
-                    Log.i(TAG, "Coche conectado (Android Auto activo): no se bloquea la pantalla")
-                } else {
-                    lockScreenWithRetry()
+                    Log.i(TAG, "Coche conectado: no se bloquea la pantalla")
+                    return@Thread
                 }
+                // Double-check: esperar 2s y re-verificar que DND sigue activo.
+                // Samsung manda el broadcast temporalmente al abrir QS edit.
+                Thread.sleep(DOUBLE_CHECK_DELAY_MS)
+                val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                val stillActive = nm.currentInterruptionFilter !=
+                    NotificationManager.INTERRUPTION_FILTER_ALL
+                if (!stillActive) {
+                    Log.i(TAG, "DND ya no está activo tras double-check → no bloquear")
+                    return@Thread
+                }
+                lastLockAt = System.currentTimeMillis()
+                lockScreenWithRetry()
+            } catch (t: Throwable) {
+                Log.w(TAG, "Error en double-check", t)
             } finally {
                 pendingResult.finish()
             }
@@ -85,8 +87,6 @@ class DndLockReceiver : BroadcastReceiver() {
     }
 
     private fun disableDnd() {
-        // Apaga el toggle de No Molestar tras bloquear: al desbloquear el
-        // teléfono el usuario no queda sin notificaciones.
         if (ShizukuManager.disableDnd()) {
             Log.i(TAG, "No Molestar desactivado tras bloquear")
         } else {
@@ -98,8 +98,10 @@ class DndLockReceiver : BroadcastReceiver() {
         private const val TAG = "DndLock"
         private const val RETRIES = 6
         private const val RETRY_DELAY_MS = 1_500L
-        // Constantes de NotificationManager no expuestas en el SDK.
+        private const val LOCK_COOLDOWN_MS = 30_000L
+        private const val DOUBLE_CHECK_DELAY_MS = 2_000L
         private const val EXTRA_INTERRUPTION_FILTER = "android.app.extra.INTERRUPTION_FILTER"
         private const val INTERRUPTION_FILTER_UNKNOWN = 0
+        @Volatile private var lastLockAt = 0L
     }
 }

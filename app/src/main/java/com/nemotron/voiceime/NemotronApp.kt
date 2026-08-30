@@ -40,7 +40,7 @@ class NemotronApp : Application() {
         }
         Shizuku.addBinderReceivedListener(binderListener)
         Shizuku.addBinderDeadListener(binderDeadListener)
-        // registerDndReceiver()  // deshabilitado: Samsung QS edit bloquea la pantalla
+        registerDndReceiver()
         registerCarReceiver()
         CarDetector.refresh(this)
         // Si Shizuku ya estaba corriendo al arrancar la app, el binderListener
@@ -107,7 +107,7 @@ class NemotronApp : Application() {
 
     private val binderListener = Shizuku.OnBinderReceivedListener {
         Log.d("NemotronApp", "Shizuku binder received")
-        // registerDndReceiver()  // deshabilitado: Samsung QS edit bloquea la pantalla
+        registerDndReceiver()
         shizukuDeadNotified = false
         if (Shizuku.checkSelfPermission() == android.content.pm.PackageManager.PERMISSION_GRANTED) {
             if (SecureStore.isAutoFreezeEnabled(this)) {
