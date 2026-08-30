@@ -38,7 +38,9 @@ class DndLockReceiver : BroadcastReceiver() {
         val pm = ctx.getSystemService(Context.POWER_SERVICE) as? PowerManager
         if (pm?.isInteractive == false) return
 
-        Log.i(TAG, "No Molestar activado (filter=$filter) → double-check en 2s...")
+        Log.i(TAG, "No Molestar activado (filter=$filter) → double-check en 1s...")
+        val now2 = System.currentTimeMillis()
+        Log.d(TAG, "lastLockAt=$lastLockAt, now=$now2, diff=${now2 - lastLockAt}ms")
         val pendingResult = goAsync()
         Thread {
             try {
@@ -98,8 +100,8 @@ class DndLockReceiver : BroadcastReceiver() {
         private const val TAG = "DndLock"
         private const val RETRIES = 6
         private const val RETRY_DELAY_MS = 1_500L
-        private const val LOCK_COOLDOWN_MS = 30_000L
-        private const val DOUBLE_CHECK_DELAY_MS = 2_000L
+        private const val LOCK_COOLDOWN_MS = 5_000L
+        private const val DOUBLE_CHECK_DELAY_MS = 1_000L
         private const val EXTRA_INTERRUPTION_FILTER = "android.app.extra.INTERRUPTION_FILTER"
         private const val INTERRUPTION_FILTER_UNKNOWN = 0
         @Volatile private var lastLockAt = 0L
