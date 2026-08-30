@@ -71,11 +71,13 @@ class DndKeepAliveService : Service() {
         }
 
         /** Inicia o detiene el servicio según los switches de Nemotron.
-         *  Solo se mantiene vivo mientras DND lock o el guard estén activos. */
+         *  Solo se necesita si DND lock está activo y el guard NO está on
+         *  (el guard mantiene vivo el proceso con su servicio de accesibilidad,
+         *  así que el keep-alive es redundante cuando el guard corre). */
         fun update(ctx: Context) {
-            if (SecureStore.isDndLockEnabled(ctx) ||
-                SecureStore.isAddictionGuardEnabled(ctx)
-            ) {
+            val dndLock = SecureStore.isDndLockEnabled(ctx)
+            val guardOn = SecureStore.isAddictionGuardEnabled(ctx)
+            if (dndLock && !guardOn) {
                 start(ctx)
             } else {
                 stop(ctx)
