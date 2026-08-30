@@ -31,12 +31,7 @@ class AndroidAutoTileService : AppFreezeTileService() {
     private fun grantNotificationListener() {
         if (!ShizukuManager.hasPermission()) return
         val component = "$targetPackage/com.google.android.gearhead.notifications.SharedNotificationListenerManager\$ListenerService"
-        val current = ShizukuManager.execShellCapture(
-            "settings get secure enabled_notification_listeners"
-        ).orEmpty()
-        if (current.contains(targetPackage)) return
-        val updated = if (current.isBlank()) component else "$current:$component"
-        ShizukuManager.execShell("settings put secure enabled_notification_listeners '$updated'")
+        ShizukuManager.execShell("cmd notification allow_listener $component")
     }
 
     companion object {
