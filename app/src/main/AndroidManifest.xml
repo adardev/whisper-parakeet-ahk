@@ -44,12 +44,7 @@
             android:excludeFromRecents="true"
             android:noHistory="true"
             android:theme="@style/Theme.NemotronVoiceIME.Transparent"
-            android:taskAffinity="">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
+            android:taskAffinity="" />
 
         <!-- ============================================================== -->
         <!--  SetupActivity: wizard de configuracion.                       -->
