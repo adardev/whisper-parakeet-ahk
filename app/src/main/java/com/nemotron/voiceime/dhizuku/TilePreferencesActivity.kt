@@ -31,7 +31,7 @@ class TilePreferencesActivity : Activity() {
                 "com.nemotron.voiceime.dhizuku.AndroidAutoTileService" ->
                     listOf("com.google.android.projection.gearhead" to null)
                 "com.nemotron.voiceime.dhizuku.TelegramTileService" ->
-                    listOf("org.telegram.messenger" to null)
+                    listOf("com.stably.orca.mobile" to "com.stably.orca.mobile.MainActivity")
                 "com.nemotron.voiceime.dhizuku.GmsTileService" ->
                     listOf("com.google.android.gms" to null)
                 "com.nemotron.voiceime.dhizuku.SyncthingTileService" ->
