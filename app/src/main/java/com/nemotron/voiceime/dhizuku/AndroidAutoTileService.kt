@@ -9,6 +9,12 @@ class AndroidAutoTileService : AppFreezeTileService() {
     override val tileLabel: String = "Auto"
     override val tileIconRes: Int = R.drawable.ic_auto_tile
 
+    override fun onAfterUnfreeze() {
+        Thread {
+            grantNotificationListener()
+        }.start()
+    }
+
     /**
      * Registra si el tile está "encendido" (Android Auto activo, no congelado).
      * El watchdog de Shizuku usa este estado: solo avisa/revive mientras el tile
@@ -16,5 +22,24 @@ class AndroidAutoTileService : AppFreezeTileService() {
      */
     override fun onTileState(granted: Boolean, hidden: Boolean) {
         SecureStore.setAndroidAutoTileOn(this, granted && !hidden)
+    }
+
+    /**
+     * Re-otorga el permiso de NotificationListener a Android Auto.
+     * Al descongelar con pm enable, el sistema revoca este permiso.
+     */
+    private fun grantNotificationListener() {
+        if (!ShizukuManager.hasPermission()) return
+        val component = "$targetPackage/com.google.android.gearhead.notifications.SharedNotificationListenerManager\$ListenerService"
+        val current = ShizukuManager.execShellCapture(
+            "settings get secure enabled_notification_listeners"
+        ).orEmpty()
+        if (current.contains(targetPackage)) return
+        val updated = if (current.isBlank()) component else "$current:$component"
+        ShizukuManager.execShell("settings put secure enabled_notification_listeners '$updated'")
+    }
+
+    companion object {
+        private const val TAG = "AndroidAutoTile"
     }
 }

@@ -29,6 +29,7 @@ object SecureStore {
     private const val KEY_AUTO_AA_ENABLED = "auto_android_auto_enabled"
     private const val KEY_AUTO_AA_WAS_UNFROZE = "auto_android_auto_was_unfroze"
     private const val KEY_AA_TILE_ON = "android_auto_tile_on"
+    private const val KEY_AIRPLANE_MODE_ENABLED = "airplane_mode_screen_off"
 
     private const val DEFAULT_MODEL = "nvidia/nemotron-3-nano-30b-a3b"
     private const val DEFAULT_LOCALE = "es_ES"
@@ -298,6 +299,15 @@ object SecureStore {
 
     fun setAndroidAutoTileOn(ctx: Context, on: Boolean) {
         plainPrefs(ctx).edit().putBoolean(KEY_AA_TILE_ON, on).apply()
+    }
+
+    // ── Airplane Mode on screen off ──────────────────────────────
+
+    fun isAirplaneModeEnabled(ctx: Context): Boolean =
+        plainPrefs(ctx).getBoolean(KEY_AIRPLANE_MODE_ENABLED, false)
+
+    fun setAirplaneModeEnabled(ctx: Context, enabled: Boolean) {
+        plainPrefs(ctx).edit().putBoolean(KEY_AIRPLANE_MODE_ENABLED, enabled).apply()
     }
 
     fun syncFromPrefs(ctx: Context, publicPrefs: SharedPreferences) {
