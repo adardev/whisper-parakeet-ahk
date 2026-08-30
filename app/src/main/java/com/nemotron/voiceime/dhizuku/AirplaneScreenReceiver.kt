@@ -13,7 +13,9 @@ import com.nemotron.voiceime.data.SecureStore
 class AirplaneScreenReceiver : BroadcastReceiver() {
 
     override fun onReceive(ctx: Context, intent: Intent) {
-        if (!SecureStore.isAirplaneModeEnabled(ctx)) return
+        val enabled = SecureStore.isAirplaneModeEnabled(ctx)
+        Log.d(TAG, "onReceive: ${intent.action} airplaneFlag=$enabled")
+        if (!enabled) return
 
         when (intent.action) {
             Intent.ACTION_SCREEN_OFF -> {
@@ -33,10 +35,11 @@ class AirplaneScreenReceiver : BroadcastReceiver() {
             return
         }
         val value = if (enabled) "1" else "0"
-        ShizukuManager.execShell("settings put global airplane_mode_on $value")
-        ShizukuManager.execShell(
-            "am broadcast -a android.intent.action.AIRPLANE_MODE --ez state $enabled"
-        )
+        ShizukuManager.execShellFresh(arrayOf("settings", "put", "global", "airplane_mode_on", value))
+        ShizukuManager.execShellFresh(arrayOf(
+            "am", "broadcast", "-a", "android.intent.action.AIRPLANE_MODE",
+            "--ez", "state", enabled.toString()
+        ))
         Log.d(TAG, "Airplane Mode → $enabled")
     }
 

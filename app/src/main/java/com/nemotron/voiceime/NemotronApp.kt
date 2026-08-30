@@ -44,6 +44,7 @@ class NemotronApp : Application() {
         registerCarReceiver()
         CarDetector.refresh(this)
         com.nemotron.voiceime.guard.DndKeepAliveService.update(this)
+        registerAirplaneReceiver()
         // Si Shizuku ya estaba corriendo al arrancar la app, el binderListener
         // no se dispara. Comprobar pasado un momento para no perder la
         // inicialización (auto-freeze, guard, detección de coche).
@@ -103,6 +104,30 @@ class NemotronApp : Application() {
             Log.d("NemotronApp", "CarConnectionReceiver registrado")
         } catch (t: Throwable) {
             Log.w("NemotronApp", "No se pudo registrar CarConnectionReceiver", t)
+        }
+    }
+
+    private var airplaneReceiver: BroadcastReceiver? = null
+
+    /** Registra dinámicamente el receiver de modo avión (SCREEN_OFF/ON).
+     *  El manifest receiver no se entrega de forma fiable; este sí. */
+    private fun registerAirplaneReceiver() {
+        if (airplaneReceiver != null) return
+        try {
+            val filter = IntentFilter().apply {
+                addAction(Intent.ACTION_SCREEN_OFF)
+                addAction(Intent.ACTION_SCREEN_ON)
+            }
+            val r = com.nemotron.voiceime.dhizuku.AirplaneScreenReceiver()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(r, filter, Context.RECEIVER_EXPORTED)
+            } else {
+                registerReceiver(r, filter)
+            }
+            airplaneReceiver = r
+            Log.d("NemotronApp", "AirplaneScreenReceiver registrado")
+        } catch (t: Throwable) {
+            Log.w("NemotronApp", "No se pudo registrar AirplaneScreenReceiver", t)
         }
     }
 
