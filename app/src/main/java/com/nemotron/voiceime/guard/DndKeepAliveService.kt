@@ -10,6 +10,7 @@ import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.nemotron.voiceime.R
+import com.nemotron.voiceime.data.SecureStore
 
 /**
  * Servicio foreground mínimo que mantiene vivo el proceso de la app
@@ -67,6 +68,18 @@ class DndKeepAliveService : Service() {
 
         fun stop(ctx: Context) {
             ctx.stopService(Intent(ctx, DndKeepAliveService::class.java))
+        }
+
+        /** Inicia o detiene el servicio según los switches de Nemotron.
+         *  Solo se mantiene vivo mientras DND lock o el guard estén activos. */
+        fun update(ctx: Context) {
+            if (SecureStore.isDndLockEnabled(ctx) ||
+                SecureStore.isAddictionGuardEnabled(ctx)
+            ) {
+                start(ctx)
+            } else {
+                stop(ctx)
+            }
         }
     }
 }

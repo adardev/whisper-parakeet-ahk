@@ -70,6 +70,7 @@ class SettingsActivity : AppCompatActivity() {
                     val enabled = prefs.getBoolean("addiction_guard_enabled", false)
                     SecureStore.setAddictionGuardEnabled(ctx, enabled)
                     AddictionGuard.applyEnabled(ctx)
+                    com.nemotron.voiceime.guard.DndKeepAliveService.update(ctx)
                     if (enabled) {
                         android.widget.Toast.makeText(
                             ctx,
@@ -85,6 +86,7 @@ class SettingsActivity : AppCompatActivity() {
                 "dnd_lock_enabled" -> {
                     val enabled = prefs.getBoolean("dnd_lock_enabled", false)
                     SecureStore.setDndLockEnabled(ctx, enabled)
+                    com.nemotron.voiceime.guard.DndKeepAliveService.update(ctx)
                     android.widget.Toast.makeText(
                         ctx,
                         if (enabled) {

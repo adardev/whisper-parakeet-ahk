@@ -43,9 +43,7 @@ class NemotronApp : Application() {
         registerDndReceiver()
         registerCarReceiver()
         CarDetector.refresh(this)
-        if (SecureStore.isDndLockEnabled(this)) {
-            com.nemotron.voiceime.guard.DndKeepAliveService.start(this)
-        }
+        com.nemotron.voiceime.guard.DndKeepAliveService.update(this)
         // Si Shizuku ya estaba corriendo al arrancar la app, el binderListener
         // no se dispara. Comprobar pasado un momento para no perder la
         // inicialización (auto-freeze, guard, detección de coche).
