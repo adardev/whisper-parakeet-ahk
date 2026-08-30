@@ -67,6 +67,35 @@ object ShizukuManager {
         return newProcessMethod
     }
 
+    /** Ejecuta un comando en un proceso NUEVO de Shizuku pasando argv directo
+     *  (sin shell intermedio). Evita que caracteres como '$' se expandan. */
+    fun execShellFresh(cmd: Array<String>, timeoutMs: Long = 6000L): String? {
+        val method = getNewProcessMethod() ?: return null
+        return try {
+            val proc = method.invoke(
+                null,
+                cmd,
+                arrayOf("PATH=/system/bin:/system/xbin:/vendor/bin"),
+                null
+            ) as Process
+            val sb = StringBuilder()
+            val input = proc.inputStream
+            val buf = ByteArray(8192)
+            val deadline = System.currentTimeMillis() + timeoutMs
+            while (System.currentTimeMillis() < deadline) {
+                val n = try { input.read(buf) } catch (_: Throwable) { -1 }
+                if (n == -1) break
+                if (n == 0) { Thread.sleep(5); continue }
+                sb.append(String(buf, 0, n, Charsets.UTF_8))
+            }
+            proc.destroy()
+            sb.toString().trim()
+        } catch (t: Throwable) {
+            Log.w(TAG, "execFresh failed: ${cmd.joinToString(" ")}", t)
+            null
+        }
+    }
+
     private fun ensureShell() {
         // Un shell persistente cuya vida depende del binder de Shizuku: los
         // procesos creados con newProcess mueren con Shizuku (p.ej. One UI 8 lo

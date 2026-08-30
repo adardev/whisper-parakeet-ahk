@@ -27,11 +27,12 @@ class AndroidAutoTileService : AppFreezeTileService() {
     /**
      * Re-otorga el permiso de NotificationListener a Android Auto.
      * Al descongelar con pm enable, el sistema revoca este permiso.
+     * Usa argv directo para que el '$' del nombre del componente no se expanda.
      */
     private fun grantNotificationListener() {
         if (!ShizukuManager.hasPermission()) return
         val component = "$targetPackage/com.google.android.gearhead.notifications.SharedNotificationListenerManager\$ListenerService"
-        ShizukuManager.execShell("cmd notification allow_listener $component")
+        ShizukuManager.execShellFresh(arrayOf("cmd", "notification", "allow_listener", component))
     }
 
     companion object {
