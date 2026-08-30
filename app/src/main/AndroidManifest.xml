@@ -55,7 +55,12 @@
             android:exported="true"
             android:icon="@mipmap/ic_launcher"
             android:label="Nemotron Setup"
-            android:targetActivity=".ui.SetupActivity" />
+            android:targetActivity=".ui.SetupActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
 
         <activity
             android:name=".ui.SetupActivity"
