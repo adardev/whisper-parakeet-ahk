@@ -3,9 +3,8 @@ package com.nemotron.voiceime.dhizuku
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.net.wifi.WifiManager
-import android.os.Handler
-import android.os.Looper
 import android.provider.Settings
 import android.util.Log
 
@@ -16,20 +15,17 @@ import android.util.Log
  * - Enciendes datos → apaga WiFi
  * - Apagas datos → enciende WiFi
  *
- * Usa un receiver + un chequeo periódico (polling ligero) para no depender
- * solo de los broadcasts del sistema.
+ * Solo usa broadcasts del sistema (sin polling ni gasto de batería).
+ * Requiere que el proceso esté vivo, lo mantiene el guard de accesibilidad.
  */
 object ConnectionExclusionManager {
 
     private const val TAG = "ConnExclusion"
-    private const val POLL_INTERVAL_MS = 5_000L
 
     @Volatile private var lastWifiOn = false
     @Volatile private var lastMobileOn = false
     @Volatile private var started = false
 
-    private val handler = Handler(Looper.getMainLooper())
-    private var pollRunnable: Runnable? = null
     private var receiver: BroadcastReceiver? = null
 
     fun start(ctx: Context) {
@@ -37,13 +33,12 @@ object ConnectionExclusionManager {
         started = true
         val appCtx = ctx.applicationContext
 
-        // Receiver para respuesta rápida
         receiver = object : BroadcastReceiver() {
             override fun onReceive(c: Context, i: Intent) {
                 check(c)
             }
         }.also { r ->
-            val filter = android.content.IntentFilter().apply {
+            val filter = IntentFilter().apply {
                 addAction(android.net.ConnectivityManager.CONNECTIVITY_ACTION)
                 addAction(android.net.wifi.WifiManager.WIFI_STATE_CHANGED_ACTION)
             }
@@ -54,24 +49,13 @@ object ConnectionExclusionManager {
             }
         }
 
-        // Polling como respaldo
-        pollRunnable = object : Runnable {
-            override fun run() {
-                check(appCtx)
-                handler.postDelayed(this, POLL_INTERVAL_MS)
-            }
-        }.also { handler.postDelayed(it, POLL_INTERVAL_MS) }
-
-        // Estado inicial
         check(appCtx)
-        Log.d(TAG, "ConnectionExclusion iniciado")
+        Log.d(TAG, "ConnectionExclusion iniciado (solo broadcasts)")
     }
 
     fun stop(ctx: Context) {
         if (!started) return
         started = false
-        pollRunnable?.let { handler.removeCallbacks(it) }
-        pollRunnable = null
         receiver?.let { r ->
             try { ctx.applicationContext.unregisterReceiver(r) } catch (_: Throwable) {}
         }
