@@ -44,7 +44,7 @@ class NemotronApp : Application() {
         registerCarReceiver()
         CarDetector.refresh(this)
         com.nemotron.voiceime.guard.DndKeepAliveService.update(this)
-        registerConnectionExclusion()
+        com.nemotron.voiceime.dhizuku.ConnectionExclusionManager.start(this)
         // Si Shizuku ya estaba corriendo al arrancar la app, el binderListener
         // no se dispara. Comprobar pasado un momento para no perder la
         // inicialización (auto-freeze, guard, detección de coche).
@@ -104,29 +104,6 @@ class NemotronApp : Application() {
             Log.d("NemotronApp", "CarConnectionReceiver registrado")
         } catch (t: Throwable) {
             Log.w("NemotronApp", "No se pudo registrar CarConnectionReceiver", t)
-        }
-    }
-
-    private var connExclusionReceiver: BroadcastReceiver? = null
-
-    /** Registra el receiver de exclusión WiFi/Datos móviles (una sola conexión). */
-    private fun registerConnectionExclusion() {
-        if (connExclusionReceiver != null) return
-        try {
-            val filter = IntentFilter().apply {
-                addAction(android.net.ConnectivityManager.CONNECTIVITY_ACTION)
-                addAction(android.net.wifi.WifiManager.WIFI_STATE_CHANGED_ACTION)
-            }
-            val r = com.nemotron.voiceime.dhizuku.ConnectionExclusionReceiver()
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                registerReceiver(r, filter, Context.RECEIVER_EXPORTED)
-            } else {
-                registerReceiver(r, filter)
-            }
-            connExclusionReceiver = r
-            Log.d("NemotronApp", "ConnectionExclusionReceiver registrado")
-        } catch (t: Throwable) {
-            Log.w("NemotronApp", "No se pudo registrar ConnectionExclusionReceiver", t)
         }
     }
 
