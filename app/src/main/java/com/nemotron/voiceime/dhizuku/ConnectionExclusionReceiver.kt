@@ -22,7 +22,7 @@ import android.util.Log
 object ConnectionExclusionManager {
 
     private const val TAG = "ConnExclusion"
-    private const val POLL_INTERVAL_MS = 3_000L
+    private const val POLL_INTERVAL_MS = 5_000L
 
     @Volatile private var lastWifiOn = false
     @Volatile private var lastMobileOn = false
