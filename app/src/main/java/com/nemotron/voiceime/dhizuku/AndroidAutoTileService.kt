@@ -13,12 +13,14 @@ class AndroidAutoTileService : AppFreezeTileService() {
         Thread {
             grantNotificationListener()
             setLocation(true)
+            setBluetooth(true)
         }.start()
     }
 
     override fun onAfterFreeze() {
         Thread {
             setLocation(false)
+            setBluetooth(false)
         }.start()
     }
 
@@ -48,6 +50,13 @@ class AndroidAutoTileService : AppFreezeTileService() {
         if (!ShizukuManager.hasPermission()) return
         val mode = if (enabled) "3" else "0"
         ShizukuManager.execShellFresh(arrayOf("settings", "put", "secure", "location_mode", mode))
+    }
+
+    /** Enciende/apaga Bluetooth según el estado de Android Auto. */
+    private fun setBluetooth(enabled: Boolean) {
+        if (!ShizukuManager.hasPermission()) return
+        val cmd = if (enabled) "enable" else "disable"
+        ShizukuManager.execShellFresh(arrayOf("cmd", "bluetooth_manager", cmd))
     }
 
     companion object {

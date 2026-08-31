@@ -5,8 +5,8 @@ import com.nemotron.voiceime.R
 class GmsTileService : AppFreezeTileService() {
     override val targetPackage: String = BANK_APPS.first()
     override val targetPackages: List<String> = BANK_APPS
-    override val tileLabel: String = "GMS"
-    override val tileIconRes: Int = R.drawable.ic_gms_tile
+    override val tileLabel: String = "Dolby Atmos"
+    override val tileIconRes: Int = R.drawable.ic_dolby_tile
 
     override fun onAfterFreeze() {
         ShizukuManager.setAccessibilityServiceEnabled(GUARD_SERVICE, enabled = true)
