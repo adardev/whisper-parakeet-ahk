@@ -14,6 +14,7 @@ class AndroidAutoTileService : AppFreezeTileService() {
             grantNotificationListener()
             setLocation(true)
             setBluetooth(true)
+            setMobileData(true)
         }.start()
     }
 
@@ -21,6 +22,7 @@ class AndroidAutoTileService : AppFreezeTileService() {
         Thread {
             setLocation(false)
             setBluetooth(false)
+            setMobileData(false)
         }.start()
     }
 
@@ -57,6 +59,13 @@ class AndroidAutoTileService : AppFreezeTileService() {
         if (!ShizukuManager.hasPermission()) return
         val cmd = if (enabled) "enable" else "disable"
         ShizukuManager.execShellFresh(arrayOf("cmd", "bluetooth_manager", cmd))
+    }
+
+    /** Enciende/apaga datos móviles según el estado de Android Auto. */
+    private fun setMobileData(enabled: Boolean) {
+        if (!ShizukuManager.hasPermission()) return
+        val cmd = if (enabled) "enable" else "disable"
+        ShizukuManager.execShellFresh(arrayOf("svc", "data", cmd))
     }
 
     companion object {
