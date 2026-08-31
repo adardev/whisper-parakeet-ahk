@@ -4,7 +4,10 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.database.ContentObserver
 import android.net.wifi.WifiManager
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.util.Log
 
@@ -15,8 +18,10 @@ import android.util.Log
  * - Enciendes datos → apaga WiFi
  * - Apagas datos → enciende WiFi
  *
- * Solo usa broadcasts del sistema (sin polling ni gasto de batería).
- * Requiere que el proceso esté vivo, lo mantiene el guard de accesibilidad.
+ * Event-driven sin polling:
+ * - WiFi: broadcast WIFI_STATE_CHANGED
+ * - Datos móviles: ContentObserver sobre el setting mobile_data (detecta
+ *   el toggle directamente, aunque la red no llegue a conectar).
  */
 object ConnectionExclusionManager {
 
@@ -26,21 +31,23 @@ object ConnectionExclusionManager {
     @Volatile private var lastMobileOn = false
     @Volatile private var started = false
 
-    private var receiver: BroadcastReceiver? = null
+    private var wifiReceiver: BroadcastReceiver? = null
+    private var mobileObserver: ContentObserver? = null
 
     fun start(ctx: Context) {
         if (started) return
         started = true
         val appCtx = ctx.applicationContext
 
-        receiver = object : BroadcastReceiver() {
+        // WiFi: broadcast (llega de forma fiable)
+        wifiReceiver = object : BroadcastReceiver() {
             override fun onReceive(c: Context, i: Intent) {
                 check(c)
             }
         }.also { r ->
             val filter = IntentFilter().apply {
-                addAction(android.net.ConnectivityManager.CONNECTIVITY_ACTION)
                 addAction(android.net.wifi.WifiManager.WIFI_STATE_CHANGED_ACTION)
+                addAction(android.net.ConnectivityManager.CONNECTIVITY_ACTION)
             }
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
                 appCtx.registerReceiver(r, filter, android.content.Context.RECEIVER_EXPORTED)
@@ -49,17 +56,32 @@ object ConnectionExclusionManager {
             }
         }
 
+        // Datos móviles: ContentObserver sobre mobile_data (detecta el toggle)
+        mobileObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) {
+                check(appCtx)
+            }
+        }.also { obs ->
+            appCtx.contentResolver.registerContentObserver(
+                Settings.Global.getUriFor("mobile_data"), false, obs
+            )
+        }
+
         check(appCtx)
-        Log.d(TAG, "ConnectionExclusion iniciado (solo broadcasts)")
+        Log.d(TAG, "ConnectionExclusion iniciado (broadcast + ContentObserver)")
     }
 
     fun stop(ctx: Context) {
         if (!started) return
         started = false
-        receiver?.let { r ->
+        wifiReceiver?.let { r ->
             try { ctx.applicationContext.unregisterReceiver(r) } catch (_: Throwable) {}
         }
-        receiver = null
+        wifiReceiver = null
+        mobileObserver?.let { obs ->
+            try { ctx.contentResolver.unregisterContentObserver(obs) } catch (_: Throwable) {}
+        }
+        mobileObserver = null
         Log.d(TAG, "ConnectionExclusion detenido")
     }
 
