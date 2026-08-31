@@ -12,7 +12,13 @@ class AndroidAutoTileService : AppFreezeTileService() {
     override fun onAfterUnfreeze() {
         Thread {
             grantNotificationListener()
-            enableLocation()
+            setLocation(true)
+        }.start()
+    }
+
+    override fun onAfterFreeze() {
+        Thread {
+            setLocation(false)
         }.start()
     }
 
@@ -36,10 +42,12 @@ class AndroidAutoTileService : AppFreezeTileService() {
         ShizukuManager.execShellFresh(arrayOf("cmd", "notification", "allow_listener", component))
     }
 
-    /** Activa la ubicación (alta precisión) para que Android Auto funcione. */
-    private fun enableLocation() {
+    /** Activa/desactiva la ubicación según el estado de Android Auto.
+     *  3 = alta precisión (on), 0 = off. */
+    private fun setLocation(enabled: Boolean) {
         if (!ShizukuManager.hasPermission()) return
-        ShizukuManager.execShellFresh(arrayOf("settings", "put", "secure", "location_mode", "3"))
+        val mode = if (enabled) "3" else "0"
+        ShizukuManager.execShellFresh(arrayOf("settings", "put", "secure", "location_mode", mode))
     }
 
     companion object {
