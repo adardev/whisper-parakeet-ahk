@@ -258,6 +258,18 @@
             </intent-filter>
         </service>
 
+        <!-- Uber Driver: congelar/descongelar Uber Driver -->
+        <service
+            android:name=".dhizuku.UberDriverTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_uber_tile"
+            android:label="Uber"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
         <!-- ============================================================== -->
         <!--  ShortcutActivity: transparente, abre apps desde atajos.       -->
         <!-- ============================================================== -->
