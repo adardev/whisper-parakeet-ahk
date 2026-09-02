@@ -86,8 +86,14 @@ object ConnectionExclusionManager {
     }
 
     fun check(ctx: Context) {
-        // Si el modo avión está activo, no tocar WiFi ni datos
-        if (isAirplaneModeOn(ctx)) return
+        // Si el modo avión está activo, forzar WiFi y datos OFF
+        if (isAirplaneModeOn(ctx)) {
+            if (isWifiOn(ctx)) exec("svc", "wifi", "disable")
+            if (isMobileDataOn(ctx)) exec("svc", "data", "disable")
+            lastWifiOn = false
+            lastMobileOn = false
+            return
+        }
 
         val wifiOn = isWifiOn(ctx)
         val mobileOn = isMobileDataOn(ctx)
