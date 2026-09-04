@@ -29,15 +29,9 @@ class ShortcutPickerActivity : AppCompatActivity() {
     private lateinit var adapter: ShortcutAdapter
 
     private val apps = listOf(
-        AppInfo("Escolomos", "com.ceti.escolomos", "com.ceti.escolomos.MainActivity"),
-        AppInfo("Ingeniería Virtual", "com.ceti.ingenieriavirtual", "com.ceti.ingenieriavirtual.MainActivity"),
-        AppInfo("Obsidian", "md.obsidiao", "md.obsidiao.MainActivity"),
-        AppInfo("Classroom", "com.google.android.apps.classroom", "com.google.android.apps.classroom.classroomflutter.MainActivity"),
-        AppInfo("WhatsApp Business", "com.whatsapp.w4b", "com.whatsapp.Main"),
+        AppInfo("Samsung Health", "com.sec.android.app.shealth", "com.samsung.android.app.shealth.home.HomeMainActivity"),
         AppInfo("WhatsApp", "com.whatsapp", "com.whatsapp.Main"),
         AppInfo("Instagram", "com.instagram.android", "com.instagram.android.activity.MainTabActivity"),
-        AppInfo("Proton Pass", "proton.android.past", "proton.android.past.ui.MainActivity"),
-        AppInfo("Samsung Health", "com.sec.android.app.shealth", "com.samsung.android.app.shealth.home.HomeMainActivity"),
     )
 
     override fun onCreate(savedInstanceState: Bundle?) {
