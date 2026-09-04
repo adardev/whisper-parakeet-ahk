@@ -53,7 +53,7 @@ class HealthTransferService : Service() {
         private var webhookUrl: String = "http://192.168.0.2:9090/webhook"
 
         // Cuantos dias hacia atras leer en cada envio (datos recientes)
-        private const val BACKFILL_DAYS = 2L
+        private const val BACKFILL_DAYS = 30L
 
         fun start(context: Context) {
             val intent = Intent(context, HealthTransferService::class.java).setAction(ACTION_START)

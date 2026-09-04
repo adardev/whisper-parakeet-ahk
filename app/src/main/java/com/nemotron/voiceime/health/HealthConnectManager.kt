@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.records.*
+import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import kotlinx.coroutines.Dispatchers
@@ -108,13 +109,30 @@ class HealthConnectManager(private val context: Context) {
     }
 
     private suspend fun readSteps(filter: TimeRangeFilter): JSONArray = JSONArray().also { arr ->
-        for (r in healthConnectClient.readRecords(
-            ReadRecordsRequest(StepsRecord::class, timeRangeFilter = filter)).records) {
-            arr.put(JSONObject().apply {
-                put("count", r.count)
-                put("start", r.startTime.toString())
-                put("end", r.endTime.toString())
-            })
+        try {
+            // Usar agregacion: suma el total de pasos del rango (mas confiable que records)
+            val agg = healthConnectClient.aggregate(
+                AggregateRequest(
+                    metrics = setOf(StepsRecord.COUNT_TOTAL),
+                    timeRangeFilter = filter
+                )
+            )
+            val total = agg[StepsRecord.COUNT_TOTAL]
+            if (total != null) {
+                arr.put(JSONObject().apply {
+                    put("count_total", total)
+                })
+            }
+        } catch (_: Exception) {
+            // fallback: records individuales
+            for (r in healthConnectClient.readRecords(
+                ReadRecordsRequest(StepsRecord::class, timeRangeFilter = filter)).records) {
+                arr.put(JSONObject().apply {
+                    put("count", r.count)
+                    put("start", r.startTime.toString())
+                    put("end", r.endTime.toString())
+                })
+            }
         }
     }
 
