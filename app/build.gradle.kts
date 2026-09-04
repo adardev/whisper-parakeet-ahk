@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "com.nemotron.voiceime"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.nemotron.voiceime2"
@@ -45,4 +45,6 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp-sse:4.12.0")
     implementation("dev.rikka.shizuku:api:13.1.5")
     implementation("dev.rikka.shizuku:provider:13.1.5")
+    // Health Connect: leer todos los tipos de datos de salud
+    implementation("androidx.health.connect:connect-client:1.1.0")
 }

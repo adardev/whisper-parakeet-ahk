@@ -60,4 +60,20 @@
             app:summary="API key no configurada" />
     </PreferenceCategory>
 
+    <PreferenceCategory app:title="Health Connect (NAS)">
+        <Preference
+            app:key="health_setup"
+            app:title="Activar transferencia de salud"
+            app:summary="Otorga permisos y envia pasos, sueño, ritmo cardiaco y más al NAS (192.168.0.2:9090)" />
+        <EditTextPreference
+            app:key="health_webhook_url"
+            app:title="Webhook URL"
+            app:defaultValue="http://192.168.0.2:9090/webhook"
+            app:summary="URL del webhook del NAS donde se envian los datos" />
+        <Preference
+            app:key="health_send_now"
+            app:title="Enviar datos ahora"
+            app:summary="Lee y envia los datos de Health Connect inmediatamente" />
+    </PreferenceCategory>
+
 </PreferenceScreen>
