@@ -145,6 +145,16 @@ class HealthTransferService : Service() {
     }
 
     private suspend fun transferData() {
+        // Solo transferir si el tile Fit3 esta ACTIVO (pulsera descongelada),
+        // para ahorrar bateria y no disparar consumo de Health Connect.
+        val fit3Hidden = runCatching {
+            com.nemotron.voiceime.dhizuku.ShizukuManager.isAppHidden("com.samsung.wearable.fit3plugin")
+        }.getOrDefault(true)
+        if (fit3Hidden) {
+            Log.d(TAG, "Tile Fit3 congelado, sincronizacion de salud desactivada")
+            return
+        }
+
         val manager = HealthConnectManager(this)
         if (!manager.hasPermissions()) {
             Log.w(TAG, "Sin permisos de Health Connect, no se transfiere")
