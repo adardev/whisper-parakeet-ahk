@@ -304,18 +304,6 @@
             </intent-filter>
         </service>
 
-        <!-- Samsung Health: congelar/descongelar la app de salud -->
-        <service
-            android:name=".dhizuku.SHealthTileService"
-            android:exported="true"
-            android:icon="@drawable/ic_fit3_tile"
-            android:label="Salud"
-            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
-            <intent-filter>
-                <action android:name="android.service.quicksettings.action.QS_TILE" />
-            </intent-filter>
-        </service>
-
         <!-- Work: congelar/descongelar apps de trabajo juntas -->
         <service
             android:name=".dhizuku.WorkTileService"

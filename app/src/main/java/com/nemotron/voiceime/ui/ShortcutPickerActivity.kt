@@ -37,6 +37,7 @@ class ShortcutPickerActivity : AppCompatActivity() {
         AppInfo("WhatsApp", "com.whatsapp", "com.whatsapp.Main"),
         AppInfo("Instagram", "com.instagram.android", "com.instagram.android.activity.MainTabActivity"),
         AppInfo("Proton Pass", "proton.android.past", "proton.android.past.ui.MainActivity"),
+        AppInfo("Samsung Health", "com.sec.android.app.shealth", "com.samsung.android.app.shealth.home.HomeMainActivity"),
     )
 
     override fun onCreate(savedInstanceState: Bundle?) {
