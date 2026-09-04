@@ -46,9 +46,6 @@ class HealthTransferService : Service() {
         private const val ACTION_START = "com.nemotron.voiceime.health.START"
         private const val ACTION_STOP = "com.nemotron.voiceime.health.STOP"
 
-        // Intervalo de envio en minutos
-        private const val INTERVAL_MINUTES = 15L
-
         // Webhook URL por defecto (NAS)
         private var webhookUrl: String = "http://192.168.0.2:9090/webhook"
 
@@ -83,15 +80,28 @@ class HealthTransferService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> {
+                stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
                 return START_NOT_STICKY
             }
             else -> {
                 startForegroundCompat()
-                startTransferLoop()
+                // Transferir UNA vez y auto-detener el servicio.
+                // Asi NO queda corriendo en background (ahorro de bateria):
+                // solo existe durante la transferencia.
+                transferJob?.cancel()
+                transferJob = serviceScope.launch {
+                    try {
+                        transferData()
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error en transferencia: ${e.message}")
+                    }
+                    stopSelf()
+                }
             }
         }
-        return START_STICKY
+        // No sticky: si Android lo mata, no se relanza (el Fit3 tile lo reinicia)
+        return START_NOT_STICKY
     }
 
     private fun startForegroundCompat() {
@@ -122,39 +132,14 @@ class HealthTransferService : Service() {
         )
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Health Connect")
-            .setContentText("Transfiriendo datos de salud al NAS...")
+            .setContentText("Enviando datos de salud al NAS...")
             .setSmallIcon(R.drawable.ic_fit3_tile)
-            .setOngoing(true)
+            .setOngoing(false)
             .setContentIntent(launchIntent)
             .build()
     }
 
-    private fun startTransferLoop() {
-        if (transferJob?.isActive == true) return
-        transferJob = serviceScope.launch {
-            Log.d(TAG, "Health transfer loop iniciado")
-            while (isActive) {
-                try {
-                    transferData()
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error en transferencia: ${e.message}")
-                }
-                delay(INTERVAL_MINUTES * 60 * 1000)
-            }
-        }
-    }
-
     private suspend fun transferData() {
-        // Solo transferir si el tile Fit3 esta ACTIVO (pulsera descongelada),
-        // para ahorrar bateria y no disparar consumo de Health Connect.
-        val fit3Hidden = runCatching {
-            com.nemotron.voiceime.dhizuku.ShizukuManager.isAppHidden("com.samsung.wearable.fit3plugin")
-        }.getOrDefault(true)
-        if (fit3Hidden) {
-            Log.d(TAG, "Tile Fit3 congelado, sincronizacion de salud desactivada")
-            return
-        }
-
         val manager = HealthConnectManager(this)
         if (!manager.hasPermissions()) {
             Log.w(TAG, "Sin permisos de Health Connect, no se transfiere")

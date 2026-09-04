@@ -21,11 +21,28 @@ class Fit3TileService : AppFreezeTileService() {
 
     override fun onAfterFreeze() {
         ShizukuManager.stopApp("com.samsung.accessory")
+        // Detener el servicio de salud: con el Fit3 congelado no se sincroniza
+        // (ahorro de bateria, no queda corriendo en background).
+        try {
+            com.nemotron.voiceime.health.HealthTransferService.stop(applicationContext)
+        } catch (_: Throwable) {}
+        // DND keep-alive solo corre con Fit3 activo: actualizar al congelar
+        try {
+            com.nemotron.voiceime.guard.DndKeepAliveService.update(applicationContext)
+        } catch (_: Throwable) {}
     }
 
-    /** Al descongelar: enciende Bluetooth si esta apagado, para reconectar el Fit3. */
+    /** Al descongelar: enciende Bluetooth si esta apagado y arranca sync de salud. */
     override fun onAfterUnfreeze() {
         ensureBluetoothOn()
+        // Arranca el servicio de salud: transfiere una vez y se auto-detiene.
+        try {
+            com.nemotron.voiceime.health.HealthTransferService.start(applicationContext)
+        } catch (_: Throwable) {}
+        // Re-evaluar DND keep-alive ahora que Fit3 esta activo
+        try {
+            com.nemotron.voiceime.guard.DndKeepAliveService.update(applicationContext)
+        } catch (_: Throwable) {}
     }
 
     private fun ensureBluetoothOn() {

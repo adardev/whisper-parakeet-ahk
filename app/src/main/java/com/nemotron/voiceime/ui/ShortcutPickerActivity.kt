@@ -31,7 +31,6 @@ class ShortcutPickerActivity : AppCompatActivity() {
     private val apps = listOf(
         AppInfo("Samsung Health", "com.sec.android.app.shealth", "com.samsung.android.app.shealth.home.HomeMainActivity"),
         AppInfo("WhatsApp", "com.whatsapp", "com.whatsapp.Main"),
-        AppInfo("Instagram", "com.instagram.android", "com.instagram.android.activity.MainTabActivity"),
     )
 
     override fun onCreate(savedInstanceState: Bundle?) {
