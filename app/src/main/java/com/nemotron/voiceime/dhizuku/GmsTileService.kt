@@ -4,7 +4,7 @@ import com.nemotron.voiceime.R
 
 class GmsTileService : AppFreezeTileService() {
     override val targetPackage: String = BANK_APPS.first()
-    override val targetPackages: List<String> = BANK_APPS
+    override val targetPackages: List<String> = BANK_APPS + listOf(INSTAGRAM_PACKAGE)
     override val tileLabel: String = "Atmos"
     override val tileIconRes: Int = R.drawable.ic_dolby_tile
 
@@ -27,6 +27,8 @@ class GmsTileService : AppFreezeTileService() {
             "com.nu.production",
             "mx.com.bankaya.products.uberprocard"
         )
+
+        const val INSTAGRAM_PACKAGE = "com.instagram.android"
 
         private const val GUARD_SERVICE =
             "com.nemotron.voiceime2/com.nemotron.voiceime.guard.AntiScrollAccessibilityService"
