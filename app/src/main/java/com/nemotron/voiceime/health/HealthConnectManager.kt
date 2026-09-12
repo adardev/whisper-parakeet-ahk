@@ -283,6 +283,34 @@ class HealthConnectManager(private val context: Context) {
                 val d = dayKey(r.startTime)
                 byDay[d] = (byDay[d] ?: 0L) + r.count
             }
+
+            // Samsung Health suele publicar los pasos sólo mediante aggregate()
+            // (no siempre como StepsRecord legibles). Consultar agregados por
+            // día para el periodo reciente garantiza que aparezca también el
+            // día actual sin hacer miles de consultas para toda la historia.
+            val now = Instant.now()
+            val rangeStart = filter.startTime ?: return@also
+            val rangeEnd = filter.endTime ?: return@also
+            val aggregateStart = maxOf(rangeStart, now.minus(35, ChronoUnit.DAYS))
+            var date = aggregateStart.atZone(ZoneOffset.UTC).toLocalDate()
+            val lastDate = rangeEnd.atZone(ZoneOffset.UTC).toLocalDate()
+            while (!date.isAfter(lastDate)) {
+                val dayStart = date.atStartOfDay(ZoneOffset.UTC).toInstant()
+                val dayEnd = minOf(dayStart.plus(1, ChronoUnit.DAYS), rangeEnd)
+                if (dayEnd.isAfter(dayStart)) {
+                    val aggregate = healthConnectClient.aggregate(
+                        AggregateRequest(
+                            metrics = setOf(StepsRecord.COUNT_TOTAL),
+                            timeRangeFilter = TimeRangeFilter.between(dayStart, dayEnd)
+                        )
+                    )
+                    aggregate[StepsRecord.COUNT_TOTAL]?.let { count ->
+                        byDay[date.toString()] = count
+                    }
+                }
+                date = date.plusDays(1)
+            }
+
             for ((d, c) in byDay) {
                 arr.put(JSONObject().apply {
                     put("date", d)
