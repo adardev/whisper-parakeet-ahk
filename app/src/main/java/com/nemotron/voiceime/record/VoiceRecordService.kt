@@ -30,6 +30,8 @@ class VoiceRecordService : Service() {
 
     private var sr: SpeechRecognizer? = null
     private val main = Handler(Looper.getMainLooper())
+    private val sessionText = StringBuilder()
+    private var readyVibrated = false
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -62,6 +64,8 @@ class VoiceRecordService : Service() {
         delivered = false
         isProcessing = false
         isStopping = false
+        readyVibrated = false
+        sessionText.setLength(0)
 
         stopSR()
 
@@ -74,6 +78,13 @@ class VoiceRecordService : Service() {
         sr = SpeechRecognizer.createSpeechRecognizer(this).also {
             it.setRecognitionListener(listener)
         }
+        muteStreams()
+        startListening()
+    }
+
+    private fun startListening() {
+        if (!isRunning || isStopping) return
+        val rec = sr ?: return
         val i = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             val loc = SecureStore.getLocale(this@VoiceRecordService)
@@ -84,21 +95,48 @@ class VoiceRecordService : Service() {
             } catch (_: Throwable) {}
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
         }
-        muteStreams()
-        vibrate()
-        sr?.startListening(i)
+        try {
+            rec.startListening(i)
+            Log.d(TAG, "startListening ok")
+        } catch (t: Throwable) {
+            Log.w(TAG, "startListening threw", t)
+            main.postDelayed({ if (isRunning && !isStopping) startListening() }, 200)
+        }
     }
 
     private fun stopAndFinalize() {
         Log.d(TAG, "stopAndFinalize")
         isStopping = true
         vibrate()
-        sr?.stopListening()
-        main.postDelayed({ if (isRunning) cleanup() }, 2000)
+        try { sr?.stopListening() } catch (_: Throwable) {}
+        main.postDelayed({ if (isRunning && !delivered) deliverAccumulated(withToast = false) }, 2500)
+    }
+
+    private fun continueListening() {
+        if (!isRunning || isStopping) {
+            if (isStopping) deliverAccumulated(withToast = false)
+            return
+        }
+        main.postDelayed({ startListening() }, 60)
+    }
+
+    private fun deliverAccumulated(withToast: Boolean) {
+        val text = sessionText.toString().trim()
+        if (text.isBlank()) {
+            if (withToast) toast("No te escuche")
+            cleanup()
+            return
+        }
+        deliverText(text)
     }
 
     private val listener = object : RecognitionListener {
-        override fun onReadyForSpeech(p: Bundle?) {}
+        override fun onReadyForSpeech(p: Bundle?) {
+                if (!readyVibrated) {
+                    readyVibrated = true
+                    vibrate()
+                }
+            }
         override fun onBeginningOfSpeech() {}
         override fun onRmsChanged(v: Float) {}
         override fun onBufferReceived(b: ByteArray?) {}
@@ -106,16 +144,25 @@ class VoiceRecordService : Service() {
 
         override fun onError(errorCode: Int) {
             Log.w(TAG, "SpeechRecognizer error=$errorCode")
-            if (isStopping) return
-            if (errorCode == SpeechRecognizer.ERROR_NO_MATCH ||
-                errorCode == SpeechRecognizer.ERROR_SPEECH_TIMEOUT) {
-                if (!isRunning) return
-                restartListening()
+            if (isStopping) {
+                deliverAccumulated(withToast = false)
                 return
             }
-            stopSR()
-            toast("Error de reconocimiento: $errorCode")
-            cleanup()
+            if (!isRunning) return
+            when (errorCode) {
+                SpeechRecognizer.ERROR_NO_MATCH,
+                SpeechRecognizer.ERROR_SPEECH_TIMEOUT ->
+                    continueListening()
+                SpeechRecognizer.ERROR_RECOGNIZER_BUSY,
+                SpeechRecognizer.ERROR_CLIENT,
+                SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS ->
+                    continueListening()
+                else -> {
+                    stopSR()
+                    toast("Error de reconocimiento: $errorCode")
+                    cleanup()
+                }
+            }
         }
 
         override fun onPartialResults(p: Bundle?) {}
@@ -123,13 +170,20 @@ class VoiceRecordService : Service() {
         override fun onResults(results: Bundle?) {
             val raw = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 ?.firstOrNull().orEmpty()
-            stopSR()
-            if (raw.isBlank()) {
-                toast("No te escuche")
-                cleanup()
-                return
+            if (raw.isNotBlank()) {
+                if (sessionText.isNotEmpty() && sessionText.last() != ' ' &&
+                    !sessionText.endsWith("\n") && !raw.startsWith(" ") && !raw.startsWith("\n")
+                ) {
+                    sessionText.append(' ')
+                }
+                sessionText.append(raw.trim())
+                Log.d(TAG, "onResults acumulado=${sessionText.length}")
             }
-            main.post { deliverText(raw) }
+            if (isStopping || !isRunning) {
+                deliverAccumulated(withToast = sessionText.isEmpty())
+            } else {
+                continueListening()
+            }
         }
 
         override fun onEvent(p0: Int, p1: Bundle?) {}
@@ -169,27 +223,6 @@ class VoiceRecordService : Service() {
     private fun stopSR() {
         try { sr?.destroy() } catch (_: Throwable) {}
         sr = null
-    }
-
-    private fun restartListening() {
-        try { sr?.destroy() } catch (_: Throwable) {}
-        sr = null
-        if (!isRunning) return
-        sr = SpeechRecognizer.createSpeechRecognizer(this).also {
-            it.setRecognitionListener(listener)
-        }
-        val i = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            val loc = SecureStore.getLocale(this@VoiceRecordService)
-            try {
-                val parts = loc.split("_")
-                val l = java.util.Locale(parts.getOrNull(0) ?: "es", parts.getOrNull(1) ?: "")
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, l.toLanguageTag())
-            } catch (_: Throwable) {}
-            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-        }
-        sr?.startListening(i)
-        Log.d(TAG, "restarted listening")
     }
 
     private fun ensureChannel() {
