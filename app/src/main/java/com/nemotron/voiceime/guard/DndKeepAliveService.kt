@@ -77,7 +77,12 @@ class DndKeepAliveService : Service() {
         fun update(ctx: Context) {
             val dndLock = SecureStore.isDndLockEnabled(ctx)
             val guardOn = SecureStore.isAddictionGuardEnabled(ctx)
-            if (dndLock && !guardOn) {
+            // Solo mantener vivo el DND si ademas el tile Fit3 esta ACTIVO
+            // (pulsera descongelada), para ahorrar bateria.
+            val fit3Active = runCatching {
+                !com.nemotron.voiceime.dhizuku.ShizukuManager.isAppHidden("com.samsung.wearable.fit3plugin")
+            }.getOrDefault(false)
+            if (dndLock && !guardOn && fit3Active) {
                 start(ctx)
             } else {
                 stop(ctx)

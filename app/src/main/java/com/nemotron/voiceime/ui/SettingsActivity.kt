@@ -30,6 +30,26 @@ class SettingsActivity : AppCompatActivity() {
             setPreferencesFromResource(R.xml.preferences, rootKey)
             syncGuardSwitch()
             updateStatusSummary()
+            setupHealthPrefs()
+        }
+
+        private fun setupHealthPrefs() {
+            val ctx = context ?: return
+            preferenceScreen.findPreference<androidx.preference.Preference>("health_setup")
+                ?.setOnPreferenceClickListener {
+                    startActivity(android.content.Intent(ctx, com.nemotron.voiceime.health.HealthSetupActivity::class.java))
+                    true
+                }
+            preferenceScreen.findPreference<androidx.preference.Preference>("health_send_now")
+                ?.setOnPreferenceClickListener {
+                    val url = preferenceScreen.sharedPreferences
+                        ?.getString("health_webhook_url", "http://192.168.0.2:9090/webhook")
+                        ?: "http://192.168.0.2:9090/webhook"
+                    com.nemotron.voiceime.health.HealthTransferService.setWebhookUrl(url)
+                    com.nemotron.voiceime.health.HealthTransferService.start(ctx)
+                    android.widget.Toast.makeText(ctx, "Enviando datos de salud al NAS...", android.widget.Toast.LENGTH_LONG).show()
+                    true
+                }
         }
 
         private fun syncGuardSwitch() {
@@ -96,6 +116,10 @@ class SettingsActivity : AppCompatActivity() {
                         },
                         android.widget.Toast.LENGTH_SHORT
                     ).show()
+                }
+                "health_webhook_url" -> {
+                    val url = prefs.getString("health_webhook_url", "http://192.168.0.2:9090/webhook")
+                    com.nemotron.voiceime.health.HealthTransferService.setWebhookUrl(url ?: "http://192.168.0.2:9090/webhook")
                 }
             }
         }

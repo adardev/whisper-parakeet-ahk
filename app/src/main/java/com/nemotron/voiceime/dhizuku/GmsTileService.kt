@@ -10,10 +10,13 @@ class GmsTileService : AppFreezeTileService() {
 
     override fun onAfterFreeze() {
         ShizukuManager.setAccessibilityServiceEnabled(GUARD_SERVICE, enabled = true)
+        ShizukuManager.unhideApp(INSTAGRAM_PACKAGE)
     }
 
     override fun onAfterUnfreeze() {
         ShizukuManager.setAccessibilityServiceEnabled(GUARD_SERVICE, enabled = false)
+        ShizukuManager.hideApp(INSTAGRAM_PACKAGE)
+        ShizukuManager.stopApp(INSTAGRAM_PACKAGE)
     }
 
     companion object {
@@ -27,6 +30,8 @@ class GmsTileService : AppFreezeTileService() {
             "com.nu.production",
             "mx.com.bankaya.products.uberprocard"
         )
+
+        const val INSTAGRAM_PACKAGE = "com.instagram.android"
 
         private const val GUARD_SERVICE =
             "com.nemotron.voiceime2/com.nemotron.voiceime.guard.AntiScrollAccessibilityService"

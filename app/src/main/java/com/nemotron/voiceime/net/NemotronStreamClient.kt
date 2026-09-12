@@ -18,9 +18,10 @@ import java.util.concurrent.atomic.AtomicReference
  * Cliente NVIDIA NIM (OpenAI-compatible) con streaming SSE para Nemotron 3.5.
  *
  * Endpoint: https://integrate.api.nvidia.com/v1/chat/completions  (stream=true)
- * Modelo:   nvidia/llama-3.3-nemotron-super-49b-v1 (Llama 3.3 Nemotron Super 49B v1)
+ * Modelo:   nvidia/nemotron-3-nano-omni-30b-a3b-reasoning (con enable_thinking=false)
  *
- * La cuenta gratuita de build.nvidia.com da 1000 credits (~ varios miles requests).
+ * Sucesor del nano original (nvidia/nemotron-3-nano-30b-a3b, retirado con HTTP 410).
+ * Misma arquitectura 30B-A3B: directo y rápido para transcripción voz->texto.
  *
  * Formato SSE: cada linea data: {JSON delta con choices[0].delta.content}
  * Fin:  data: [DONE]
@@ -146,7 +147,7 @@ class NemotronStreamClient(
         // Nemotron 3 usa enable_thinking=false para modo no-razonamiento (rápido y directo):
         //   - ideal para transcripción de voz a texto
         //   - menos tokens, menos latencia
-        // Referencia: build.nvidia.com/nvidia/nemotron-3-nano-30b-a3b
+        // Referencia: build.nvidia.com/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning
         val chatTemplateKwargs = JSONObject().apply {
             put("enable_thinking", false)
         }

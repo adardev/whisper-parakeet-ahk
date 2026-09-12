@@ -30,7 +30,7 @@ object SecureStore {
     private const val KEY_AUTO_AA_WAS_UNFROZE = "auto_android_auto_was_unfroze"
     private const val KEY_AA_TILE_ON = "android_auto_tile_on"
 
-    private const val DEFAULT_MODEL = "nvidia/nemotron-3-nano-30b-a3b"
+    private const val DEFAULT_MODEL = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
     private const val DEFAULT_LOCALE = "es_ES"
     const val DEFAULT_DNS_HOSTNAME = "b1ed39.dns.nextdns.io"
     private val DEFAULT_SYSTEM_PROMPT = buildString {
