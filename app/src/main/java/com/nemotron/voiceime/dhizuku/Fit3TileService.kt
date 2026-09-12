@@ -21,10 +21,10 @@ class Fit3TileService : AppFreezeTileService() {
 
     override fun onAfterFreeze() {
         ShizukuManager.stopApp("com.samsung.accessory")
-        // Detener el servicio de salud: con el Fit3 congelado no se sincroniza
-        // (ahorro de bateria, no queda corriendo en background).
+        // Al apagar el toggle mandar un ultimo registro de salud: el servicio
+        // transfiere una vez y se auto-detiene.
         try {
-            com.nemotron.voiceime.health.HealthTransferService.stop(applicationContext)
+            com.nemotron.voiceime.health.HealthTransferService.start(applicationContext)
         } catch (_: Throwable) {}
         // DND keep-alive solo corre con Fit3 activo: actualizar al congelar
         try {

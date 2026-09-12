@@ -270,41 +270,27 @@ class VoiceRecordService : Service() {
         return caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
 
-    private var prevNotifVol = -1
-    private var prevSystemVol = -1
     private var prevMusicVol = -1
-    private var prevAlarmVol = -1
-    private var prevDtmfVol = -1
-    private var prevAccessVol = -1
+
+    private var mutedByUs = false
 
     private fun muteStreams() {
+        if (mutedByUs) return
         try {
             val am = getSystemService(AUDIO_SERVICE) as AudioManager
-            prevNotifVol = am.getStreamVolume(AudioManager.STREAM_NOTIFICATION)
-            prevSystemVol = am.getStreamVolume(AudioManager.STREAM_SYSTEM)
             prevMusicVol = am.getStreamVolume(AudioManager.STREAM_MUSIC)
-            prevAlarmVol = am.getStreamVolume(AudioManager.STREAM_ALARM)
-            prevDtmfVol = am.getStreamVolume(AudioManager.STREAM_DTMF)
-            prevAccessVol = am.getStreamVolume(AudioManager.STREAM_ACCESSIBILITY)
-            am.setStreamVolume(AudioManager.STREAM_NOTIFICATION, 0, 0)
-            am.setStreamVolume(AudioManager.STREAM_SYSTEM, 0, 0)
             am.setStreamVolume(AudioManager.STREAM_MUSIC, 0, 0)
-            am.setStreamVolume(AudioManager.STREAM_ALARM, 0, 0)
-            am.setStreamVolume(AudioManager.STREAM_DTMF, 0, 0)
-            am.setStreamVolume(AudioManager.STREAM_ACCESSIBILITY, 0, 0)
+            mutedByUs = true
         } catch (_: Throwable) {}
     }
 
     private fun restoreStreams() {
+        if (!mutedByUs) return
+        mutedByUs = false
         try {
             val am = getSystemService(AUDIO_SERVICE) as AudioManager
-            if (prevNotifVol >= 0) am.setStreamVolume(AudioManager.STREAM_NOTIFICATION, prevNotifVol, 0)
-            if (prevSystemVol >= 0) am.setStreamVolume(AudioManager.STREAM_SYSTEM, prevSystemVol, 0)
             if (prevMusicVol >= 0) am.setStreamVolume(AudioManager.STREAM_MUSIC, prevMusicVol, 0)
-            if (prevAlarmVol >= 0) am.setStreamVolume(AudioManager.STREAM_ALARM, prevAlarmVol, 0)
-            if (prevDtmfVol >= 0) am.setStreamVolume(AudioManager.STREAM_DTMF, prevDtmfVol, 0)
-            if (prevAccessVol >= 0) am.setStreamVolume(AudioManager.STREAM_ACCESSIBILITY, prevAccessVol, 0)
-            prevNotifVol = -1; prevSystemVol = -1; prevMusicVol = -1; prevAlarmVol = -1; prevDtmfVol = -1; prevAccessVol = -1
+            prevMusicVol = -1
         } catch (_: Throwable) {}
     }
 
