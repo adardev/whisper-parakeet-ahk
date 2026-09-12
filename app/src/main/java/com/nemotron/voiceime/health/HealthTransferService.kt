@@ -153,7 +153,10 @@ class HealthTransferService : Service() {
             return
         }
         val end = Instant.now()
-        val start = Instant.parse("2000-01-01T00:00:00Z")
+        // El tile transfiere datos recientes. Leer toda la historia aquí hace
+        // que la consulta tarde demasiado y el servicio pueda ser cancelado
+        // antes de escribir el snapshot.
+        val start = end.minusSeconds(BACKFILL_DAYS * 24L * 60L * 60L)
         val payload = manager.readAllData(start, end)
 
         // Envolver en el formato que espera el webhook del NAS
