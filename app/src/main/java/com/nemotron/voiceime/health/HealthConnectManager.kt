@@ -215,6 +215,9 @@ class HealthConnectManager(private val context: Context) {
                 java.time.Duration.between(Instant.parse(s.getString("start")), Instant.parse(s.getString("end"))).toMinutes()
             }.getOrDefault(0L)
             addLong(o, "exercise_minutes", min)
+            s.optDouble("workout_calories_kcal", Double.NaN).takeUnless { it.isNaN() }?.let {
+                addDouble(o, "workout_calories_kcal", it)
+            }
             addLong(o, "exercise_sessions", 1L)
             val t = s.optString("exerciseName", "Desconocido")
             val key = "ex_${t.replace(' ', '_')}"
@@ -411,6 +414,14 @@ class HealthConnectManager(private val context: Context) {
                     )
                 )[ExerciseSessionRecord.EXERCISE_DURATION_TOTAL]?.toMillis()
             }.getOrNull()
+            val workoutCaloriesKcal = runCatching {
+                healthConnectClient.aggregate(
+                    AggregateRequest(
+                        metrics = setOf(ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL),
+                        timeRangeFilter = TimeRangeFilter.between(r.startTime, r.endTime)
+                    )
+                )[ActiveCaloriesBurnedRecord.ACTIVE_CALORIES_TOTAL]?.inKilocalories
+            }.getOrNull()
             arr.put(JSONObject().apply {
                 put("start", r.startTime.toString())
                 put("end", r.endTime.toString())
@@ -418,6 +429,7 @@ class HealthConnectManager(private val context: Context) {
                     put("workout_duration_ms", it)
                     put("workout_duration_minutes", it / 60_000L)
                 }
+                workoutCaloriesKcal?.let { put("workout_calories_kcal", it) }
                 put("title", r.title)
                 put("exerciseType", r.exerciseType)
                 put("exerciseName", exerciseName(r.exerciseType))
