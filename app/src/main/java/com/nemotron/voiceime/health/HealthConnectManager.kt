@@ -208,7 +208,10 @@ class HealthConnectManager(private val context: Context) {
         for (i in 0 until exercise.length()) {
             val s = exercise.getJSONObject(i)
             val o = day(s.getString("start"))
-            val min = runCatching {
+            // workout_duration_minutes es el tiempo activo agregado por
+            // Health Connect; no confundirlo con end-start, que incluye pausas.
+            val workoutMinutes = s.optLong("workout_duration_minutes", -1L)
+            val min = if (workoutMinutes >= 0L) workoutMinutes else runCatching {
                 java.time.Duration.between(Instant.parse(s.getString("start")), Instant.parse(s.getString("end"))).toMinutes()
             }.getOrDefault(0L)
             addLong(o, "exercise_minutes", min)
@@ -400,9 +403,21 @@ class HealthConnectManager(private val context: Context) {
     private suspend fun readExercise(filter: TimeRangeFilter): JSONArray = JSONArray().also { arr ->
         for (r in healthConnectClient.readRecords(
             ReadRecordsRequest(ExerciseSessionRecord::class, timeRangeFilter = filter)).records) {
+            val workoutDurationMs = runCatching {
+                healthConnectClient.aggregate(
+                    AggregateRequest(
+                        metrics = setOf(ExerciseSessionRecord.EXERCISE_DURATION_TOTAL),
+                        timeRangeFilter = TimeRangeFilter.between(r.startTime, r.endTime)
+                    )
+                )[ExerciseSessionRecord.EXERCISE_DURATION_TOTAL]?.toMillis()
+            }.getOrNull()
             arr.put(JSONObject().apply {
                 put("start", r.startTime.toString())
                 put("end", r.endTime.toString())
+                workoutDurationMs?.let {
+                    put("workout_duration_ms", it)
+                    put("workout_duration_minutes", it / 60_000L)
+                }
                 put("title", r.title)
                 put("exerciseType", r.exerciseType)
                 put("exerciseName", exerciseName(r.exerciseType))
