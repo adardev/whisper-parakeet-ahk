@@ -4,25 +4,7 @@
 
     <PreferenceCategory
         app:icon="@mipmap/ic_launcher"
-        app:title="NVIDIA NIM">
-
-        <EditTextPreference
-            app:key="api_key"
-            app:title="@string/settings_api_key"
-            app:summary="@string/settings_api_key_summary"
-            app:useSimpleSummaryProvider="false"
-            app:dialogMessage="@string/api_key_help" />
-
-        <EditTextPreference
-            app:key="model"
-            app:title="@string/settings_model"
-            app:defaultValue="@string/settings_model_default" />
-
-        <EditTextPreference
-            app:key="system_prompt"
-            app:title="@string/settings_system_prompt"
-            app:defaultValue="@string/settings_system_prompt_default"
-            app:dialogMessage="Indica al modelo cómo transcribir" />
+        app:title="Dictado">
 
         <ListPreference
             app:key="dict_locale"

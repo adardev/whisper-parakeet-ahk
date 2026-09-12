@@ -79,29 +79,6 @@
             android:text="@string/btn_permissions"
             android:layout_marginTop="4dp" />
 
-        <!-- PASO 2: API key -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginTop="16dp"
-            android:gravity="center_vertical">
-        <TextView
-            android:id="@+id/tvStep2Icon"
-                android:layout_width="28dp"
-                android:layout_height="28dp"
-                android:gravity="center"
-                android:text="?"
-                android:textSize="18sp"
-                android:background="#33000000" />
-            <TextView
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="8dp"
-                android:text="2. API key de NVIDIA NIM"
-                android:textSize="16sp" />
-        </LinearLayout>
         <Button
             android:id="@+id/btnSettings"
             android:layout_width="match_parent"

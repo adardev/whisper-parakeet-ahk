@@ -25,13 +25,10 @@ import androidx.core.app.NotificationCompat
 import com.nemotron.voiceime.R
 import com.nemotron.voiceime.data.SecureStore
 import com.nemotron.voiceime.dhizuku.ShizukuManager
-import com.nemotron.voiceime.net.NemotronStreamClient
 
 class VoiceRecordService : Service() {
 
     private var sr: SpeechRecognizer? = null
-    private var client: NemotronStreamClient? = null
-    private var accumulated = StringBuilder()
     private val main = Handler(Looper.getMainLooper())
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -65,18 +62,11 @@ class VoiceRecordService : Service() {
         delivered = false
         isProcessing = false
         isStopping = false
-        accumulated = StringBuilder()
 
         stopSR()
 
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
             toast("SpeechRecognizer no disponible")
-            cleanup()
-            return
-        }
-        val k = SecureStore.getApiKey(this)
-        if (k.isBlank()) {
-            toast("Configura tu API key en la app")
             cleanup()
             return
         }
@@ -139,41 +129,10 @@ class VoiceRecordService : Service() {
                 cleanup()
                 return
             }
-            sendToNemotron(raw)
+            main.post { deliverText(raw) }
         }
 
         override fun onEvent(p0: Int, p1: Bundle?) {}
-    }
-
-    private fun sendToNemotron(text: String) {
-        if (!hasNetwork()) {
-            toast("Sin conexión a internet")
-            cleanup()
-            return
-        }
-        isProcessing = true
-        isRunning = false
-        updateNotif("Procesando…")
-
-        val k = SecureStore.getApiKey(this)
-        val c = client ?: NemotronStreamClient(k).also { client = it }
-        accumulated = StringBuilder()
-
-        c.stream(
-            userText = text,
-            model = SecureStore.getModel(this),
-            system = SecureStore.getSystemPrompt(this),
-            onToken = { tok -> accumulated.append(tok) },
-            onComplete = { final ->
-                main.post { deliverText(final.ifBlank { accumulated.toString() }) }
-            },
-            onError = { t ->
-                main.post {
-                    toast("Error: ${t.message}")
-                    cleanup()
-                }
-            }
-        )
     }
 
     private var delivered = false
@@ -202,7 +161,6 @@ class VoiceRecordService : Service() {
         isRunning = false
         isProcessing = false
         stopSR()
-        client?.cancel()
         restoreStreams()
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
@@ -253,11 +211,6 @@ class VoiceRecordService : Service() {
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
-    }
-
-    private fun updateNotif(text: String) {
-        val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        nm.notify(NOTIF_ID, buildNotification(text))
     }
 
     private fun toast(s: String) {
@@ -325,7 +278,6 @@ class VoiceRecordService : Service() {
     override fun onDestroy() {
         restoreStreams()
         stopSR()
-        client?.cancel()
         super.onDestroy()
     }
 

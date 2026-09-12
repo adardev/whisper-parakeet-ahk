@@ -11,7 +11,7 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         overridePendingTransition(0, 0)
 
-        if (!hasMic() || apiKeyMissing()) {
+        if (!hasMic()) {
             val i = Intent(this, SetupActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
             }
@@ -38,7 +38,4 @@ class MainActivity : Activity() {
     private fun hasMic(): Boolean =
         checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) ==
             android.content.pm.PackageManager.PERMISSION_GRANTED
-
-    private fun apiKeyMissing(): Boolean =
-        com.nemotron.voiceime.data.SecureStore.getApiKey(this).isBlank()
 }

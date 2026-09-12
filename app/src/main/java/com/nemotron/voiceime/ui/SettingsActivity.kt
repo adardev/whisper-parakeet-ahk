@@ -103,11 +103,7 @@ class SettingsActivity : AppCompatActivity() {
         private fun updateStatusSummary() {
             val ctx = context ?: return
             val status = preferenceScreen.findPreference<androidx.preference.Preference>("status")
-            status?.summary = if (SecureStore.getApiKey(ctx).isNotBlank()) {
-                "✓ API key configurada (${SecureStore.getModel(ctx).substringAfterLast('/')})"
-            } else {
-                "✗ API key no configurada — consíguela en build.nvidia.com"
-            }
+            status?.summary = "Transcripción directa de Google (sin IA). Lista para dictar."
         }
     }
 }

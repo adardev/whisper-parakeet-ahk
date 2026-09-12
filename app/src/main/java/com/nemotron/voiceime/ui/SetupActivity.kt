@@ -20,7 +20,6 @@ import com.nemotron.voiceime.R
 import com.nemotron.voiceime.data.SecureStore
 import com.nemotron.voiceime.dhizuku.AppPickerActivity
 import com.nemotron.voiceime.dhizuku.ShizukuManager
-import com.nemotron.voiceime.net.NemotronStreamClient
 import rikka.shizuku.Shizuku
 import com.nemotron.voiceime.databinding.ActivityMainBinding
 
@@ -37,9 +36,6 @@ class SetupActivity : AppCompatActivity() {
     ) {
         refreshAutoFreezeStatus()
     }
-
-    private val client by lazy { NemotronStreamClient(SecureStore.getApiKey(this)) }
-    private var accumulated = StringBuilder()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -209,19 +205,17 @@ class SetupActivity : AppCompatActivity() {
 
     private fun refreshStatus() {
         val ok = hasMic()
-        val key = SecureStore.getApiKey(this).isNotBlank()
 
         setStepIcon(b.tvStep1Icon, ok, "Permiso")
-        setStepIcon(b.tvStep2Icon, key, "API key")
 
         val global = StringBuilder()
         when {
-            ok && key -> global.append("✓ TODO LISTO. Pulsa el boton lateral de Samsung para grabar.")
-            else -> global.append("✗ Faltan pasos: permiso micro + API key son obligatorios.")
+            ok -> global.append("✓ TODO LISTO. Pulsa el boton lateral de Samsung para grabar.")
+            else -> global.append("✗ Faltan pasos: permiso de microfono obligatorio.")
         }
         b.tvGlobalStatus.text = global.toString()
         b.tvGlobalStatus.setTextColor(
-            if (ok && key) Color.parseColor("#2E7D32")
+            if (ok) Color.parseColor("#2E7D32")
             else Color.parseColor("#C62828")
         )
     }
@@ -239,11 +233,6 @@ class SetupActivity : AppCompatActivity() {
             b.tvResult.text = "Concede permiso de microfono primero (paso 1)."
             return
         }
-        val key = SecureStore.getApiKey(this)
-        if (key.isBlank()) {
-            b.tvResult.text = "Configura tu API key (paso 2)."
-            return
-        }
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
             b.tvResult.text = "SpeechRecognizer base no disponible."
             return
@@ -251,7 +240,6 @@ class SetupActivity : AppCompatActivity() {
 
         b.tvResult.text = "Escuchando… (habla ahora)"
         b.btnTest.isEnabled = false
-        accumulated = StringBuilder()
 
         val sr = SpeechRecognizer.createSpeechRecognizer(this)
         sr.setRecognitionListener(object : RecognitionListener {
@@ -277,8 +265,8 @@ class SetupActivity : AppCompatActivity() {
                     b.btnTest.isEnabled = true
                     return
                 }
-                b.tvResult.text = "Raw: $raw\n\n→ Procesando…"
-                callNemotron(raw)
+                b.tvResult.text = "Resultado:\n\n$raw"
+                b.btnTest.isEnabled = true
             }
 
             override fun onEvent(p0: Int, p1: Bundle?) {}
@@ -295,34 +283,6 @@ class SetupActivity : AppCompatActivity() {
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
         }
         sr.startListening(intent)
-    }
-
-    private fun callNemotron(raw: String) {
-        accumulated = StringBuilder()
-        client.stream(
-            userText = raw,
-            model = SecureStore.getModel(this),
-            system = SecureStore.getSystemPrompt(this),
-            onToken = { tok ->
-                accumulated.append(tok)
-                runOnUiThread {
-                    b.tvResult.text = "Streaming:\n\n$accumulated"
-                }
-            },
-            onComplete = { final ->
-                runOnUiThread {
-                    b.tvResult.text = "Resultado:\n\n$final"
-                    b.btnTest.isEnabled = true
-                    refreshStatus()
-                }
-            },
-            onError = { t ->
-                runOnUiThread {
-                    b.tvResult.text = "Error: ${t.message}"
-                    b.btnTest.isEnabled = true
-                }
-            }
-        )
     }
 
     private fun requestAppShortcuts() {
