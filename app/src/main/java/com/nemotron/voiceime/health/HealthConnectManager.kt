@@ -23,6 +23,25 @@ class HealthConnectManager(private val context: Context) {
     companion object {
         private const val TAG = "HealthConnectManager"
 
+        private val SEGMENT_TYPE_NAMES: Map<Int, String> = run {
+            val m = HashMap<Int, String>()
+            try {
+                for (f in ExerciseSegment::class.java.declaredFields) {
+                    if (f.name.startsWith("EXERCISE_SEGMENT_TYPE_")) {
+                        f.isAccessible = true
+                        val name = f.name.removePrefix("EXERCISE_SEGMENT_TYPE_")
+                            .replace("_", " ")
+                            .lowercase()
+                        val human = name.split(" ").joinToString(" ") { w ->
+                            w.replaceFirstChar { it.uppercase() }
+                        }
+                        m[f.getInt(null)] = human
+                    }
+                }
+            } catch (_: Throwable) {}
+            m
+        }
+
         // Provider de Health Connect: Samsung usa com.google.android.healthconnect.controller
         // (en Pixel es com.google.android.apps.healthdata). Usar el paquete real del dispositivo.
         val PROVIDER_PACKAGE = "com.google.android.healthconnect.controller"
@@ -190,9 +209,11 @@ class HealthConnectManager(private val context: Context) {
                 put("end", r.endTime.toString())
                 put("title", r.title)
                 put("exerciseType", r.exerciseType)
+                put("exerciseName", exerciseName(r.exerciseType))
                 put("segments", JSONArray().also { segs ->
                     r.segments.forEach { s -> segs.put(JSONObject().apply {
                         put("segmentType", s.segmentType)
+                        put("segmentName", segmentName(s.segmentType))
                         put("start", s.startTime.toString())
                         put("end", s.endTime.toString())
                     }) }
@@ -201,11 +222,28 @@ class HealthConnectManager(private val context: Context) {
                     r.laps.forEach { l -> laps.put(JSONObject().apply {
                         put("start", l.startTime.toString())
                         put("end", l.endTime.toString())
+                        runCatching { l.length?.let { put("length_m", it.inMeters) } }
                     }) }
                 })
             })
         }
     }
+
+    /** Devuelve el nombre legible del tipo de ejercicio (SDK trae el mapa ya invertido). */
+    private fun exerciseName(type: Int): String =
+        ExerciseSessionRecord.EXERCISE_TYPE_INT_TO_STRING_MAP[type]
+            ?.replace("_", " ")
+            ?.let { humanize(it) }
+            ?: "Desconocido ($type)"
+
+    /** Devuelve el nombre legible del tipo de segmento (mapa construido por reflexion). */
+    private fun segmentName(type: Int): String =
+        SEGMENT_TYPE_NAMES[type] ?: "Desconocido ($type)"
+
+    private fun humanize(s: String): String =
+        s.split(" ").joinToString(" ") { w ->
+            w.replaceFirstChar { it.uppercase() }
+        }
 
     private suspend fun readWeight(filter: TimeRangeFilter): JSONArray = JSONArray().also { arr ->
         for (r in healthConnectClient.readRecords(

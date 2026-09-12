@@ -74,6 +74,7 @@ class HealthTransferService : Service() {
         .readTimeout(Duration.ofSeconds(30))
         .writeTimeout(Duration.ofSeconds(30))
         .build()
+    private val transferLock = java.util.concurrent.atomic.AtomicBoolean(false)
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -89,14 +90,20 @@ class HealthTransferService : Service() {
                 // Transferir UNA vez y auto-detener el servicio.
                 // Asi NO queda corriendo en background (ahorro de bateria):
                 // solo existe durante la transferencia.
+                if (!transferLock.compareAndSet(false, true)) {
+                    stopSelf()
+                    return START_NOT_STICKY
+                }
                 transferJob?.cancel()
                 transferJob = serviceScope.launch {
                     try {
                         transferData()
                     } catch (e: Exception) {
                         Log.e(TAG, "Error en transferencia: ${e.message}")
+                    } finally {
+                        transferLock.set(false)
+                        stopSelf()
                     }
-                    stopSelf()
                 }
             }
         }
@@ -157,6 +164,17 @@ class HealthTransferService : Service() {
         wrapper.put("data", payload)
 
         sendToWebhook(wrapper.toString())
+
+        // Guardar tambien en el folder del drive (Syncthing lo sincroniza y
+        // el agente lo lee) y en un archivo "latest" para lectura facil.
+        val dir = "/storage/emulated/0/drive/health"
+        val stamp = java.time.LocalDateTime.now().format(
+            java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd_HHmmss")
+        )
+        val pretty = wrapper.toString(2)
+        com.nemotron.voiceime.dhizuku.ShizukuManager.writeTextFile("$dir/health_$stamp.json", pretty)
+        com.nemotron.voiceime.dhizuku.ShizukuManager.writeTextFile("$dir/latest.json", pretty)
+        Log.d(TAG, "Guardado en drive: $dir (health_$stamp.json + latest.json)")
     }
 
     private suspend fun sendToWebhook(json: String) {

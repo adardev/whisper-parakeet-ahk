@@ -214,6 +214,58 @@ object ShizukuManager {
         }
     }
 
+    /** Escribe texto a un archivo vía Shizuku. Resetea el shell persistente
+     *  (descarta colas viejas atascadas), encola la escritura del base64 en
+     *  chunks, y confirma por polling con procesos FRESCOS independientes. */
+    fun writeTextFile(path: String, content: String): Boolean {
+        if (!hasPermission()) return false
+        val expected = content.toByteArray(Charsets.UTF_8).size.toLong()
+        synchronized(shellLock) {
+            // Resetear: mata cualquier cola pendiente de shells anteriores.
+            closeShell()
+            ensureShell()
+            val input = shellIn ?: return false
+            val tmp = "$path.nemo.b64"
+            val out = "$path.nemo.tmp"
+            try {
+                val b64 = android.util.Base64.encodeToString(
+                    content.toByteArray(Charsets.UTF_8),
+                    android.util.Base64.NO_WRAP
+                )
+                input.println("mkdir -p '${path.substringBeforeLast("/", "")}'")
+                input.println("rm -f '$tmp' '$out' '$path'")
+                input.flush()
+                b64.chunked(65536).forEach { chunk ->
+                    input.println("printf '%s' '$chunk' >> '$tmp'")
+                }
+                input.println("base64 -d '$tmp' > '$out'")
+                input.println("mv -f '$out' '$path'")
+                input.println("rm -f '$tmp' '$out'")
+                input.flush()
+                if (input.checkError()) {
+                    Log.w(TAG, "writeTextFile pipe broken: $path")
+                    closeShell()
+                    return false
+                }
+            } catch (t: Throwable) {
+                Log.w(TAG, "writeTextFile failed: $path", t)
+                closeShell()
+                return false
+            }
+        }
+        // Polling en proceso fresco independiente (no usa el shell persistente).
+        repeat(240) {
+            Thread.sleep(500)
+            val size = execShellFresh(arrayOf("stat", "-c", "%s", "--", path))?.trim()?.toLongOrNull()
+            if (size != null && size == expected) {
+                Log.d(TAG, "writeTextFile $path OK (${content.length}B)")
+                return true
+            }
+        }
+        Log.w(TAG, "writeTextFile $path: no se confirman los $expected bytes")
+        return false
+    }
+
     fun hideApp(packageName: String): Boolean {
         if (!hasPermission()) return false
         val out = execShellCapture("pm disable-user $packageName") ?: return false
