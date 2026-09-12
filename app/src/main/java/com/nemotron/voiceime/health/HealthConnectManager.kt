@@ -10,7 +10,11 @@ import androidx.health.connect.client.time.TimeRangeFilter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
 import java.time.temporal.ChronoUnit
+import java.time.temporal.WeekFields
+import java.util.Locale
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -83,8 +87,10 @@ class HealthConnectManager(private val context: Context) {
 
     /**
      * Lee TODOS los tipos de datos del rango indicado y devuelve JSON.
+     * Por defecto: TODA la historia (desde 2000) para el resumen diario/semanal,
+     * y los registros crudos de HR limitados a los ultimos 7 dias (son enormes).
      */
-    suspend fun readAllData(start: Instant = Instant.now().minus(7, ChronoUnit.DAYS),
+    suspend fun readAllData(start: Instant = Instant.parse("2000-01-01T00:00:00Z"),
                             end: Instant = Instant.now()): JSONObject = withContext(Dispatchers.IO) {
         val result = JSONObject()
         result.put("start", start.toString())
@@ -92,28 +98,46 @@ class HealthConnectManager(private val context: Context) {
         result.put("timestamp", Instant.now().toString())
         val filter = TimeRangeFilter.between(start, end)
 
-        putSafe(result, "steps") { readSteps(filter) }
-        putSafe(result, "distance") { readDistance(filter) }
-        putSafe(result, "heart_rate") { readHeartRate(filter) }
-        putSafe(result, "sleep") { readSleep(filter) }
-        putSafe(result, "exercise") { readExercise(filter) }
-        putSafe(result, "weight") { readWeight(filter) }
-        putSafe(result, "calories_active") { readCaloriesActive(filter) }
-        putSafe(result, "calories_total") { readCaloriesTotal(filter) }
-        putSafe(result, "body_fat") { readBodyFat(filter) }
-        putSafe(result, "blood_pressure") { readBloodPressure(filter) }
-        putSafe(result, "blood_glucose") { readBloodGlucose(filter) }
-        putSafe(result, "oxygen_saturation") { readSpO2(filter) }
-        putSafe(result, "body_temperature") { readBodyTemperature(filter) }
-        putSafe(result, "hydration") { readHydration(filter) }
-        putSafe(result, "respiration_rate") { readRespirationRate(filter) }
-        putSafe(result, "height") { readHeight(filter) }
-        putSafe(result, "floors_climbed") { readFloorsClimbed(filter) }
-        putSafe(result, "vo2_max") { readVo2Max(filter) }
-        putSafe(result, "basal_metabolic_rate") { readBmr(filter) }
-        putSafe(result, "resting_heart_rate") { readRestingHeartRate(filter) }
-        putSafe(result, "nutrition") { readNutrition(filter) }
-        putSafe(result, "menstruation") { readMenstruation(filter) }
+        // Resumen diario/semanal de TODA la historia: primero porque las lecturas
+        // crudas son pesadas. Se construye desde records agrupados por dia.
+        putSafe(result, "summary") {
+            buildDailySummary(
+                steps = readSteps(filter, daily = true),
+                distanceM = readDistance(filter),
+                caloriesActive = readCaloriesActive(filter),
+                sleep = readSleep(filter),
+                exercise = readExercise(filter),
+                weight = readWeight(filter),
+                bodyFat = readBodyFat(filter),
+                restingHr = readRestingHeartRate(filter)
+            )
+        }
+
+        // Registros crudos: solo ultimas 4 semanas para no explotar el tamano.
+        val recentStart = Instant.now().minus(28, ChronoUnit.DAYS)
+        val recentFilter = TimeRangeFilter.between(recentStart, end)
+        putSafe(result, "raw_steps") { readSteps(recentFilter, daily = true) }
+        putSafe(result, "distance") { readDistance(recentFilter) }
+        putSafe(result, "heart_rate") { readHeartRate(recentFilter) }
+        putSafe(result, "sleep") { readSleep(recentFilter) }
+        putSafe(result, "exercise") { readExercise(recentFilter) }
+        putSafe(result, "weight") { readWeight(recentFilter) }
+        putSafe(result, "calories_active") { readCaloriesActive(recentFilter) }
+        putSafe(result, "calories_total") { readCaloriesTotal(recentFilter) }
+        putSafe(result, "body_fat") { readBodyFat(recentFilter) }
+        putSafe(result, "blood_pressure") { readBloodPressure(recentFilter) }
+        putSafe(result, "blood_glucose") { readBloodGlucose(recentFilter) }
+        putSafe(result, "oxygen_saturation") { readSpO2(recentFilter) }
+        putSafe(result, "body_temperature") { readBodyTemperature(recentFilter) }
+        putSafe(result, "hydration") { readHydration(recentFilter) }
+        putSafe(result, "respiration_rate") { readRespirationRate(recentFilter) }
+        putSafe(result, "height") { readHeight(recentFilter) }
+        putSafe(result, "floors_climbed") { readFloorsClimbed(recentFilter) }
+        putSafe(result, "vo2_max") { readVo2Max(recentFilter) }
+        putSafe(result, "basal_metabolic_rate") { readBmr(recentFilter) }
+        putSafe(result, "resting_heart_rate") { readRestingHeartRate(recentFilter) }
+        putSafe(result, "nutrition") { readNutrition(recentFilter) }
+        putSafe(result, "menstruation") { readMenstruation(recentFilter) }
 
         Log.d(TAG, "readAllData completado")
         result
@@ -127,7 +151,151 @@ class HealthConnectManager(private val context: Context) {
         }
     }
 
-    private suspend fun readSteps(filter: TimeRangeFilter): JSONArray = JSONArray().also { arr ->
+    /**
+     * Construye resumen diario y semanal de TODA la historia a partir de las lecturas
+     * de los distintos tipos (cada uno se agrupa por dia y se suma/promedia).
+     */
+    private suspend fun buildDailySummary(
+        steps: JSONArray,
+        distanceM: JSONArray,
+        caloriesActive: JSONArray,
+        sleep: JSONArray,
+        exercise: JSONArray,
+        weight: JSONArray,
+        bodyFat: JSONArray,
+        restingHr: JSONArray
+    ): JSONArray = withContext(Dispatchers.IO) {
+        val daily = LinkedHashMap<String, JSONObject>()
+
+        fun day(k: String): JSONObject {
+            val d = dayKey(k)
+            return daily.getOrPut(d) { JSONObject().apply { put("date", d) } }
+        }
+
+        fun addDouble(obj: JSONObject, key: String, v: Double) {
+            obj.put(key, obj.optDouble(key, 0.0) + v)
+        }
+        fun addLong(obj: JSONObject, key: String, v: Long) {
+            obj.put(key, obj.optLong(key, 0L) + v)
+        }
+
+        // Pasos por dia (ya vienen por dia desde readStepsDaily)
+        for (i in 0 until steps.length()) {
+            val s = steps.getJSONObject(i)
+            day(s.getString("date")).put("steps", s.optLong("count"))
+        }
+        // Distancia
+        for (i in 0 until distanceM.length()) {
+            val s = distanceM.getJSONObject(i)
+            addDouble(day(s.getString("start")), "distance_m", s.optDouble("distance_meters"))
+        }
+        // Calorias activas
+        for (i in 0 until caloriesActive.length()) {
+            val s = caloriesActive.getJSONObject(i)
+            addDouble(day(s.getString("start")), "calories_kcal", s.optDouble("calories_kcal"))
+        }
+        // Sueno: suma horas, cuenta sesiones
+        for (i in 0 until sleep.length()) {
+            val s = sleep.getJSONObject(i)
+            val o = day(s.getString("start"))
+            val hrs = runCatching {
+                java.time.Duration.between(Instant.parse(s.getString("start")), Instant.parse(s.getString("end"))).toMinutes() / 60.0
+            }.getOrDefault(0.0)
+            addDouble(o, "sleep_hours", hrs)
+            addLong(o, "sleep_sessions", 1L)
+        }
+        // Ejercicio: minutos por dia, sesiones, por tipo
+        for (i in 0 until exercise.length()) {
+            val s = exercise.getJSONObject(i)
+            val o = day(s.getString("start"))
+            val min = runCatching {
+                java.time.Duration.between(Instant.parse(s.getString("start")), Instant.parse(s.getString("end"))).toMinutes()
+            }.getOrDefault(0L)
+            addLong(o, "exercise_minutes", min)
+            addLong(o, "exercise_sessions", 1L)
+            val t = s.optString("exerciseName", "Desconocido")
+            val key = "ex_${t.replace(' ', '_')}"
+            addLong(o, key, 1L)
+        }
+        // Peso: ultimo valor del dia
+        for (i in 0 until weight.length()) {
+            val s = weight.getJSONObject(i)
+            day(s.getString("time")).put("weight_kg", s.optDouble("weight_kg"))
+        }
+        // Grasa corporal: ultimo valor del dia
+        for (i in 0 until bodyFat.length()) {
+            val s = bodyFat.getJSONObject(i)
+            day(s.getString("time")).put("body_fat_pct", s.optDouble("percentage"))
+        }
+        // FC en reposo: solo el mas bajo del dia (buena senal de recuperacion)
+        for (i in 0 until restingHr.length()) {
+            val s = restingHr.getJSONObject(i)
+            val o = day(s.getString("time"))
+            val cur = o.optDouble("resting_hr_bpm", 0.0)
+            val bpm = s.optDouble("bpm")
+            if (cur == 0.0 || bpm < cur) o.put("resting_hr_bpm", bpm)
+        }
+
+        // Semanal: agrupar los dias de daily en semanas (lunes-domingo)
+        val weekly = LinkedHashMap<String, JSONObject>()
+        for (o in daily.values) {
+            val date = LocalDate.parse(o.getString("date"))
+            val weekStart = date.minusDays((date.dayOfWeek.value - 1).toLong())
+            val w = weekly.getOrPut(weekStart.toString()) { JSONObject().apply { put("week_start", weekStart.toString()) } }
+            w.put("days_count", w.optInt("days_count") + 1)
+            for (key in listOf("steps", "calories_kcal", "exercise_minutes")) {
+                w.put(key, w.optLong(key) + o.optLong(key, 0L))
+            }
+            addDouble(w, "distance_m", o.optDouble("distance_m", 0.0))
+            addDouble(w, "sleep_hours", o.optDouble("sleep_hours", 0.0))
+            addLong(w, "exercise_sessions", o.optLong("exercise_sessions", 0L))
+            addLong(w, "sleep_sessions", o.optLong("sleep_sessions", 0L))
+        }
+
+        JSONArray().apply {
+            put(JSONObject().apply { put("granularity", "daily") }.also { it.put("days", JSONArray().apply {
+                for (o in daily.values) put(o)
+            }) })
+            put(JSONObject().apply { put("granularity", "weekly") }.also { it.put("weeks", JSONArray().apply {
+                for (o in weekly.values) put(o)
+            }) })
+        }
+    }
+
+    /** '2026-09-12' a partir de un timestamp ISO. */
+    private fun dayKey(instant: Instant): String =
+        instant.atZone(ZoneOffset.UTC).toLocalDate().toString()
+
+    /** '2026-09-12' a partir de un string ISO. */
+    private fun dayKey(iso: String): String = runCatching {
+        Instant.parse(iso).atZone(ZoneOffset.UTC).toLocalDate().toString()
+    }.getOrDefault(iso.take(10))
+
+    private suspend fun readSteps(filter: TimeRangeFilter, daily: Boolean = false): JSONArray =
+        if (daily) readStepsDaily(filter) else readStepsRaw(filter)
+
+    /** Una entrada por dia con el total de pasos (para el resumen de toda la historia). */
+    private suspend fun readStepsDaily(filter: TimeRangeFilter): JSONArray = JSONArray().also { arr ->
+        try {
+            val byDay = LinkedHashMap<String, Long>()
+            for (r in healthConnectClient.readRecords(
+                ReadRecordsRequest(StepsRecord::class, timeRangeFilter = filter)).records) {
+                val d = dayKey(r.startTime)
+                byDay[d] = (byDay[d] ?: 0L) + r.count
+            }
+            for ((d, c) in byDay) {
+                arr.put(JSONObject().apply {
+                    put("date", d)
+                    put("count", c)
+                })
+            }
+        } catch (e: Exception) {
+            arr.put(JSONObject().apply { put("error", e.message ?: "readStepsDaily") })
+        }
+    }
+
+    /** Registros crudos originales (por periodo, no por dia). */
+    private suspend fun readStepsRaw(filter: TimeRangeFilter): JSONArray = JSONArray().also { arr ->
         try {
             // Usar agregacion: suma el total de pasos del rango (mas confiable que records)
             val agg = healthConnectClient.aggregate(

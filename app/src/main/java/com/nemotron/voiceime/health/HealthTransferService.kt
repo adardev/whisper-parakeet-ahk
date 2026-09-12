@@ -153,7 +153,7 @@ class HealthTransferService : Service() {
             return
         }
         val end = Instant.now()
-        val start = end.minus(Duration.ofDays(BACKFILL_DAYS))
+        val start = Instant.parse("2000-01-01T00:00:00Z")
         val payload = manager.readAllData(start, end)
 
         // Envolver en el formato que espera el webhook del NAS
