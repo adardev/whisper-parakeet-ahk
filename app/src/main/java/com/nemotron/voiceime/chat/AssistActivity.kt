@@ -45,11 +45,28 @@ class AssistActivity : Activity() {
         input = findViewById(R.id.assistInput)
         status = findViewById(R.id.assistStatus)
         findViewById<ImageButton>(R.id.assistClose).setOnClickListener { finish() }
+        findViewById<ImageButton>(R.id.assistExpand).setOnClickListener {
+            val target = if (conversationId == null) {
+                Intent(this, ChatsListActivity::class.java)
+            } else {
+                Intent(this, ChatActivity::class.java).putExtra("convId", conversationId)
+            }
+            startActivity(target)
+            finish()
+        }
         findViewById<ImageButton>(R.id.assistSend).setOnClickListener { send() }
         findViewById<ImageButton>(R.id.assistMic).setOnClickListener { listen() }
         input.setOnEditorActionListener { _, _, _ -> send(); true }
         input.requestFocus()
-        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE)
+        window.setSoftInputMode(
+            WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE or
+                WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+        )
+        window.decorView.setOnApplyWindowInsetsListener { view, insets ->
+            val imeBottom = insets.getInsets(android.view.WindowInsets.Type.ime()).bottom
+            window.attributes = window.attributes.apply { y = imeBottom }
+            view.onApplyWindowInsets(insets)
+        }
     }
 
     private fun send() {

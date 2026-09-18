@@ -413,7 +413,8 @@
             android:exported="true"
             android:label="Hermes"
             android:launchMode="singleTop"
-            android:theme="@style/Theme.NemotronVoiceIME.Transparent">
+            android:theme="@style/Theme.NemotronVoiceIME.Transparent"
+            android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.ASSIST" />
                 <category android:name="android.intent.category.DEFAULT" />

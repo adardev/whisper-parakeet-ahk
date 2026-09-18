@@ -9,6 +9,7 @@
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Hermes" android:textColor="#F4F3FA" android:textStyle="bold" android:textSize="16sp" />
             <TextView android:id="@+id/assistStatus" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Listo" android:textColor="#9B9DB6" android:textSize="12sp" />
         </LinearLayout>
+        <ImageButton android:id="@+id/assistExpand" android:layout_width="40dp" android:layout_height="40dp" android:background="@android:color/transparent" android:src="@drawable/ic_expand" android:tint="#9B9DB6" android:contentDescription="Abrir chat completo" />
         <ImageButton android:id="@+id/assistClose" android:layout_width="40dp" android:layout_height="40dp" android:background="@android:color/transparent" android:src="@drawable/ic_close" android:tint="#9B9DB6" android:contentDescription="Cerrar" />
     </LinearLayout>
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="14dp" android:gravity="center_vertical">
