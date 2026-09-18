@@ -13,6 +13,8 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.nemotron.voiceime.R
+import org.json.JSONArray
+import org.json.JSONObject
 
 class ChatsListActivity : Activity() {
 
@@ -21,11 +23,15 @@ class ChatsListActivity : Activity() {
     private lateinit var recycler: RecyclerView
     private lateinit var emptyView: TextView
     private lateinit var incognitoBtn: ImageButton
+    private lateinit var chat: ChatClient
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_chats)
         ConversationStore.init(this)
+        val base = getSharedPreferences("hermes_chat", Context.MODE_PRIVATE)
+            .getString("server_url", "http://100.115.113.28:8888") ?: "http://100.115.113.28:8888"
+        chat = ChatClient(base)
 
         recycler = findViewById(R.id.recyclerChats)
         emptyView = findViewById(R.id.emptyView)
@@ -50,9 +56,12 @@ class ChatsListActivity : Activity() {
 
         val fab: FloatingActionButton = findViewById(R.id.fabNew)
         fab.setOnClickListener {
-            val c = ConversationStore.create()
-            refresh()
-            openConv(c)
+            chat.createConversation({ json ->
+                val c = parseConversation(json)
+                runOnUiThread { ConversationStore.save(c); refresh(); openConv(c) }
+            }, { runOnUiThread {
+                val c = ConversationStore.create(); refresh(); openConv(c)
+            }})
         }
 
         applySystemUi()
@@ -70,6 +79,16 @@ class ChatsListActivity : Activity() {
         list.addAll(ConversationStore.list())
         adapter.notifyDataSetChanged()
         emptyView.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
+        chat.conversations({ arr ->
+            val remote = parseConversations(arr)
+            runOnUiThread {
+                if (remote.isNotEmpty()) {
+                    ConversationStore.replaceRemote(remote)
+                    list.clear(); list.addAll(remote); adapter.notifyDataSetChanged()
+                    emptyView.visibility = View.GONE
+                }
+            }
+        }, {})
     }
 
     private fun openConv(c: Conversation) {
@@ -110,4 +129,13 @@ class ChatsListActivity : Activity() {
         window.statusBarColor = Color.parseColor("#0B0C0F")
         window.navigationBarColor = Color.parseColor("#0B0C0F")
     }
+
+    private fun parseConversations(arr: JSONArray): List<Conversation> = buildList {
+        for (i in 0 until arr.length()) add(parseConversation(arr.getJSONObject(i)))
+    }
+
+    private fun parseConversation(o: JSONObject): Conversation = Conversation(
+        o.optString("id"), o.optString("title", "Nuevo chat"),
+        o.optLong("created_at", System.currentTimeMillis())
+    )
 }

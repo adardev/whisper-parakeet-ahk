@@ -90,4 +90,8 @@ object ConversationStore {
     fun delete(id: String) {
         persist(load().filterNot { it.id == id })
     }
+
+    fun replaceRemote(remote: List<Conversation>) {
+        persist(remote)
+    }
 }

@@ -27,10 +27,26 @@ class ChatClient(
     private val current = AtomicReference<EventSource?>(null)
     private val JSON_MT = "application/json; charset=utf-8".toMediaType()
 
+    fun conversations(onComplete: (JSONArray) -> Unit, onError: (Throwable) -> Unit) {
+        request("$baseUrl/api/conversations", "GET", null, { json ->
+            onComplete(json.optJSONArray("conversations") ?: JSONArray())
+        }, onError)
+    }
+
+    fun conversation(id: String, onComplete: (JSONObject) -> Unit, onError: (Throwable) -> Unit) {
+        request("$baseUrl/api/conversations/$id", "GET", null, onComplete, onError)
+    }
+
+    fun createConversation(onComplete: (JSONObject) -> Unit, onError: (Throwable) -> Unit) {
+        request("$baseUrl/api/conversations", "POST", JSONObject(), onComplete, onError)
+    }
+
     fun stream(
         message: String,
         model: String,
         history: List<JSONObject>,
+        conversationId: String? = null,
+        incognito: Boolean = false,
         onToken: (String) -> Unit,
         onComplete: (String) -> Unit,
         onError: (Throwable) -> Unit
@@ -49,6 +65,9 @@ class ChatClient(
         val body = JSONObject().apply {
             put("model", model)
             put("messages", messages)
+            conversationId?.let { put("conversation_id", it) }
+            put("incognito", incognito)
+            put("save", !incognito)
         }.toString()
 
         val req = Request.Builder()
@@ -57,40 +76,18 @@ class ChatClient(
             .post(body.toRequestBody(JSON_MT))
             .build()
 
-        val factory = EventSources.createFactory(http)
-        current.set(factory.newEventSource(req, object : EventSourceListener() {
-            val sb = StringBuilder()
-            override fun onOpen(eventSource: EventSource, response: Response) {}
-            override fun onEvent(es: EventSource, id: String?, type: String?, data: String) {
-                if (data == "[DONE]") {
-                    onComplete(sb.toString())
-                    es.cancel()
-                    current.set(null)
-                    return
+        Thread {
+            try {
+                http.newCall(req).execute().use { response ->
+                    val obj = JSONObject(response.body?.string() ?: "{}")
+                    if (!response.isSuccessful) throw RuntimeException(obj.optString("error", "HTTP ${response.code}"))
+                    val answer = obj.optJSONArray("choices")?.optJSONObject(0)
+                        ?.optJSONObject("message")?.optString("content", "") ?: ""
+                    if (answer.isNotEmpty()) onToken(answer)
+                    onComplete(answer)
                 }
-                try {
-                    val obj = JSONObject(data)
-                    val delta = obj
-                        .optJSONArray("choices")
-                        ?.optJSONObject(0)
-                        ?.optJSONObject("message")
-                        ?.optString("content", "") ?: ""
-                    if (delta.isNotEmpty()) {
-                        sb.append(delta)
-                        onToken(delta)
-                    }
-                } catch (t: Throwable) {
-                    Log.w("ChatClient", "parse fail", t)
-                }
-            }
-            override fun onClosed(es: EventSource) {
-                if (current.get() === es) current.set(null)
-            }
-            override fun onFailure(es: EventSource, t: Throwable?, response: Response?) {
-                onError(t ?: RuntimeException("Error desconocido"))
-                current.set(null)
-            }
-        }))
+            } catch (e: Exception) { onError(e) }
+        }.start()
     }
 
     fun send(
@@ -140,5 +137,19 @@ class ChatClient(
 
     fun cancel() {
         current.getAndSet(null)?.cancel()
+    }
+
+    private fun request(url: String, method: String, payload: JSONObject?, ok: (JSONObject) -> Unit, fail: (Throwable) -> Unit) {
+        val builder = Request.Builder().url(url)
+        if (method == "POST") builder.post((payload ?: JSONObject()).toString().toRequestBody(JSON_MT)) else builder.get()
+        Thread {
+            try {
+                http.newCall(builder.build()).execute().use { response ->
+                    val body = JSONObject(response.body?.string() ?: "{}")
+                    if (!response.isSuccessful) throw RuntimeException(body.optString("error", "HTTP ${response.code}"))
+                    ok(body)
+                }
+            } catch (e: Exception) { fail(e) }
+        }.start()
     }
 }

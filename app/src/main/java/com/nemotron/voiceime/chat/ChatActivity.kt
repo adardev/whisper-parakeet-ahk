@@ -20,6 +20,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.nemotron.voiceime.R
 import org.json.JSONObject
+import org.json.JSONArray
 
 class ChatActivity : Activity() {
 
@@ -76,6 +77,22 @@ class ChatActivity : Activity() {
         recycler.layoutManager = LinearLayoutManager(this)
         recycler.adapter = adapter
         if (messages.isNotEmpty()) recycler.scrollToPosition(messages.size - 1)
+
+        convId?.let { id ->
+            chat.conversation(id, { remote ->
+                val remoteMessages = mutableListOf<ChatMessage>()
+                val arr = remote.optJSONArray("messages") ?: JSONArray()
+                for (i in 0 until arr.length()) {
+                    val m = arr.getJSONObject(i)
+                    remoteMessages.add(ChatMessage(m.optString("role"), m.optString("content"), m.optLong("created_at")))
+                }
+                runOnUiThread {
+                    messages.clear(); messages.addAll(remoteMessages); adapter.notifyDataSetChanged()
+                    conversation?.messages?.clear(); conversation?.messages?.addAll(remoteMessages)
+                    if (messages.isNotEmpty()) recycler.scrollToPosition(messages.size - 1)
+                }
+            }, {})
+        }
 
         backBtn.setOnClickListener { goBack() }
         sendBtn.setOnClickListener { doSend() }
@@ -163,6 +180,8 @@ class ChatActivity : Activity() {
             text,
             models[modelIndex],
             history,
+            conv.id,
+            isIncognito(),
             onToken = { token ->
                 runOnUiThread {
                     if (bubbleIndex < messages.size) {
