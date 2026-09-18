@@ -385,6 +385,40 @@
             android:name="com.google.android.health.connect.PERMISSIONS_APP_NAME"
             android:value="Nemotron Health" />
 
+
+        <!-- ============================================================== -->
+        <!--  Hermes Chat (lista de conversaciones) - LAUNCHER.             -->
+        <!-- ============================================================== -->
+        <activity
+            android:name=".chat.ChatsListActivity"
+            android:exported="true"
+            android:label="Hermes">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Chat de una conversacion concreta (no lanzable desde el menu) -->
+        <activity
+            android:name=".chat.ChatActivity"
+            android:exported="false"
+            android:label="Hermes Chat"
+            android:theme="@style/Theme.NemotronVoiceIME" />
+
+        <!-- Asistente digital: permite elegir Hermes como herramienta
+             de voz por defecto en Ajustes > Aplicaciones > Elegir apps -->
+        <activity
+            android:name=".chat.AssistActivity"
+            android:exported="true"
+            android:label="Hermes"
+            android:launchMode="singleTop"
+            android:theme="@style/Theme.NemotronVoiceIME">
+            <intent-filter>
+                <action android:name="android.intent.action.ASSIST" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
     </application>
 
 </manifest>
