@@ -11,7 +11,10 @@ data class Conversation(
     val id: String,
     var title: String,
     val createdAt: Long,
-    val messages: MutableList<ChatMessage> = mutableListOf()
+    val messages: MutableList<ChatMessage> = mutableListOf(),
+    var source: String = "",
+    var displayName: String = "",
+    var chatId: String = ""
 )
 
 object ConversationStore {
@@ -35,7 +38,7 @@ object ConversationStore {
                     val m = ma.getJSONObject(j)
                     msgs.add(ChatMessage(m.optString("role"), m.optString("content"), m.optLong("ts")))
                 }
-                list.add(Conversation(o.optString("id"), o.optString("title"), o.optLong("createdAt"), msgs))
+                list.add(Conversation(o.optString("id"), o.optString("title"), o.optLong("createdAt"), msgs, o.optString("source"), o.optString("displayName"), o.optString("chatId")))
             }
             list
         } catch (e: Exception) {
@@ -51,6 +54,9 @@ object ConversationStore {
                     put("id", c.id)
                     put("title", c.title)
                     put("createdAt", c.createdAt)
+                    put("source", c.source)
+                    put("displayName", c.displayName)
+                    put("chatId", c.chatId)
                 }
                 val msgs = JSONArray()
                 for (m in c.messages) {

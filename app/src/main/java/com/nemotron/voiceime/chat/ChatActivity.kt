@@ -12,6 +12,7 @@ import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.view.View
 import android.view.HapticFeedbackConstants
+import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.ImageButton
@@ -27,12 +28,12 @@ class ChatActivity : Activity() {
 
     private var convId: String? = null
     private var conversation: Conversation? = null
+    private var incognitoMode = false
     private val messages = mutableListOf<ChatMessage>()
     private lateinit var adapter: MessageAdapter
     private lateinit var recycler: RecyclerView
     private lateinit var input: EditText
     private lateinit var modelChip: TextView
-    private lateinit var incogBtn: ImageButton
     private lateinit var micBtn: ImageButton
     private lateinit var chat: ChatClient
 
@@ -50,7 +51,6 @@ class ChatActivity : Activity() {
         input = findViewById(R.id.inputField)
         modelChip = findViewById(R.id.modelChip)
         micBtn = findViewById(R.id.btnMic)
-        incogBtn = findViewById(R.id.btnIncognito)
         val backBtn: ImageButton = findViewById(R.id.btnBack)
         val sendBtn: ImageButton = findViewById(R.id.btnSend)
         val delBtn: ImageButton = findViewById(R.id.btnDelete)
@@ -58,14 +58,28 @@ class ChatActivity : Activity() {
 
         window.statusBarColor = Color.parseColor("#0B0C0F")
         window.navigationBarColor = Color.parseColor("#0B0C0F")
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        val contentRoot = findViewById<View>(android.R.id.content)
+        contentRoot.setOnApplyWindowInsetsListener { view, insets ->
+            val bottom = insets.getInsets(android.view.WindowInsets.Type.ime()).bottom
+            view.setPadding(view.paddingLeft, view.paddingTop, view.paddingRight, bottom)
+            view.onApplyWindowInsets(insets)
+        }
 
-        val base = getSharedPreferences("hermes_chat", Context.MODE_PRIVATE)
-            .getString("server_url", "http://100.115.113.28:8888") ?: "http://100.115.113.28:8888"
+        val prefs = getSharedPreferences("hermes_chat", Context.MODE_PRIVATE)
+        val savedUrl = prefs.getString("server_url", null)
+        val base = if (savedUrl.isNullOrBlank() || savedUrl.startsWith("http://100.115.113.28")) {
+            prefs.edit().putString("server_url", "http://192.168.0.2:8888").apply()
+            "http://192.168.0.2:8888"
+        } else savedUrl
         chat = ChatClient(base)
 
         convId = intent.getStringExtra("convId")
-        conversation = convId?.let { ConversationStore.get(it) }
-        if (conversation == null) {
+        incognitoMode = intent.getBooleanExtra("incognito", false)
+        conversation = if (incognitoMode) {
+            Conversation("incognito_${System.currentTimeMillis()}", "Chat incógnito", System.currentTimeMillis())
+        } else convId?.let { ConversationStore.get(it) }
+        if (conversation == null && !incognitoMode) {
             conversation = ConversationStore.create()
             convId = conversation!!.id
         }
@@ -79,7 +93,7 @@ class ChatActivity : Activity() {
         recycler.adapter = adapter
         if (messages.isNotEmpty()) recycler.scrollToPosition(messages.size - 1)
 
-        convId?.let { id ->
+        if (!incognitoMode) convId?.let { id ->
             chat.conversation(id, { remote ->
                 val remoteMessages = mutableListOf<ChatMessage>()
                 val arr = remote.optJSONArray("messages") ?: JSONArray()
@@ -116,18 +130,6 @@ class ChatActivity : Activity() {
             startListening()
         }
 
-        incogBtn.setOnClickListener {
-            haptic(it)
-            setIncognito(!isIncognito())
-            updateIncognitoUi()
-            Toast.makeText(
-                this,
-                if (isIncognito()) "Modo incognito: ON" else "Modo incognito: OFF",
-                Toast.LENGTH_SHORT
-            ).show()
-        }
-        incogBtn.setOnLongClickListener { true }
-
         delBtn.setOnClickListener {
             haptic(it)
             ConversationStore.delete(convId!!)
@@ -135,7 +137,6 @@ class ChatActivity : Activity() {
             finish()
         }
 
-        updateIncognitoUi()
     }
 
     override fun onDestroy() {
@@ -293,17 +294,8 @@ class ChatActivity : Activity() {
 
     // ---- incognito / helpers ----
 
-    private fun isIncognito() = prefs().getBoolean("incognito", false)
-    private fun setIncognito(v: Boolean) = prefs().edit().putBoolean("incognito", v).apply()
+    private fun isIncognito() = incognitoMode
     private fun prefs() = getSharedPreferences("hermes_chat", Context.MODE_PRIVATE)
-
-    private fun updateIncognitoUi() {
-        val on = isIncognito()
-        incogBtn.colorFilter = android.graphics.PorterDuffColorFilter(
-            if (on) Color.parseColor("#2F80FF") else Color.parseColor("#5A5A6E"),
-            android.graphics.PorterDuff.Mode.SRC_IN
-        )
-    }
 
     private fun displayName(m: String): String = when (m) {
         "deepseek-flash" -> "DeepSeek"

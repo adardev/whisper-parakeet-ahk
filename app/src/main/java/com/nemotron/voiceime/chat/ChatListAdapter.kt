@@ -14,7 +14,8 @@ import java.util.Locale
 class ChatListAdapter(
     private val items: MutableList<Conversation>,
     private val onClick: (Conversation) -> Unit,
-    private val onDelete: (Conversation) -> Unit
+    private val onDelete: (Conversation) -> Unit,
+    private val onRename: (Conversation) -> Unit
 ) : RecyclerView.Adapter<ChatListAdapter.VH>() {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
@@ -25,9 +26,11 @@ class ChatListAdapter(
     override fun onBindViewHolder(holder: VH, position: Int) {
         val c = items[position]
         holder.title.text = c.title
-        holder.meta.text = SimpleDateFormat("dd MMM, HH:mm", Locale.getDefault()).format(Date(c.createdAt))
+        val date = SimpleDateFormat("dd MMM, HH:mm", Locale.getDefault()).format(Date(c.createdAt))
+        val link = if (c.source.isNotBlank()) "${c.source} · ${c.displayName.ifBlank { c.chatId }}" else date
+        holder.meta.text = if (c.source.isNotBlank()) "$link  ·  $date" else date
         holder.itemView.setOnClickListener { onClick(c) }
-        holder.itemView.setOnLongClickListener { onDelete(c); true }
+        holder.itemView.setOnLongClickListener { onRename(c); true }
         holder.trash.setOnClickListener { onDelete(c) }
     }
 

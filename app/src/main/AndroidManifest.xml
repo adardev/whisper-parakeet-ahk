@@ -404,7 +404,8 @@
             android:name=".chat.ChatActivity"
             android:exported="false"
             android:label="Hermes Chat"
-            android:theme="@style/Theme.NemotronVoiceIME" />
+            android:theme="@style/Theme.NemotronVoiceIME"
+            android:windowSoftInputMode="adjustResize" />
 
         <!-- Asistente digital: permite elegir Hermes como herramienta
              de voz por defecto en Ajustes > Aplicaciones > Elegir apps -->
