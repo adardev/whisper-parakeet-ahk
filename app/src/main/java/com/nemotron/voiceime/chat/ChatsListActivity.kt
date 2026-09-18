@@ -8,9 +8,12 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.View
+import android.view.HapticFeedbackConstants
 import android.widget.ImageButton
 import android.widget.TextView
 import android.widget.Toast
+import android.widget.EditText
+import android.app.AlertDialog
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -40,12 +43,14 @@ class ChatsListActivity : Activity() {
         recycler = findViewById(R.id.recyclerChats)
         emptyView = findViewById(R.id.emptyView)
         incognitoBtn = findViewById(R.id.incognitoBtn)
+        findViewById<ImageButton>(R.id.menuBtn).setOnClickListener { haptic(it); showMenu() }
 
         adapter = ChatListAdapter(list, ::openConv, ::deleteConv)
         recycler.layoutManager = LinearLayoutManager(this)
         recycler.adapter = adapter
 
         incognitoBtn.setOnClickListener {
+            haptic(it)
             setIncognito(!isIncognito())
             updateIncognitoUi()
         }
@@ -60,6 +65,7 @@ class ChatsListActivity : Activity() {
 
         val fab: FloatingActionButton = findViewById(R.id.fabNew)
         fab.setOnClickListener {
+            haptic(it)
             chat.createConversation({ json ->
                 val c = parseConversation(json)
                 runOnUiThread { ConversationStore.save(c); refresh(); openConv(c) }
@@ -117,7 +123,7 @@ class ChatsListActivity : Activity() {
     private fun updateIncognitoUi() {
         val on = isIncognito()
         incognitoBtn.colorFilter = android.graphics.PorterDuffColorFilter(
-            if (on) Color.parseColor("#7C83FD") else Color.parseColor("#5A5A6E"),
+            if (on) Color.parseColor("#2F80FF") else Color.parseColor("#5A5A6E"),
             android.graphics.PorterDuff.Mode.SRC_IN
         )
         incognitoBtn.background = if (on) {
@@ -138,6 +144,31 @@ class ChatsListActivity : Activity() {
     private fun applySystemUi() {
         window.statusBarColor = Color.parseColor("#0B0C0F")
         window.navigationBarColor = Color.parseColor("#0B0C0F")
+    }
+
+    private fun haptic(view: View) {
+        view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+    }
+
+    private fun showMenu() {
+        AlertDialog.Builder(this)
+            .setTitle("Adarbot")
+            .setItems(arrayOf("Buscar conversaciones", "Mi NAS y servidor", "Acerca de Adarbot")) { _, which ->
+                when (which) {
+                    0 -> searchChats()
+                    1 -> AlertDialog.Builder(this).setTitle("Mi NAS").setMessage("Servidor Adarbot\n100.115.113.28:8888\n\nConectado por el proxy de Hermes Agent.").setPositiveButton("Listo", null).show()
+                    2 -> AlertDialog.Builder(this).setTitle("Adarbot").setMessage("Tu agente personal\nVersion 0.6\n\nConversaciones sincronizadas con tu servidor.").setPositiveButton("Listo", null).show()
+                }
+            }.show()
+    }
+
+    private fun searchChats() {
+        val input = EditText(this).apply { hint = "Buscar por nombre"; setSingleLine(true); setPadding(32, 8, 32, 8) }
+        AlertDialog.Builder(this).setTitle("Buscar chats").setView(input).setPositiveButton("Buscar") { _, _ ->
+            val query = input.text.toString().trim().lowercase()
+            val filtered = if (query.isEmpty()) ConversationStore.list() else ConversationStore.list().filter { it.title.lowercase().contains(query) }
+            list.clear(); list.addAll(filtered); adapter.notifyDataSetChanged(); emptyView.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
+        }.setNegativeButton("Cancelar", null).show()
     }
 
     private fun parseConversations(arr: JSONArray): List<Conversation> = buildList {

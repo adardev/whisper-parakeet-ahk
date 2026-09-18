@@ -11,6 +11,7 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.view.View
+import android.view.HapticFeedbackConstants
 import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.ImageButton
@@ -71,7 +72,7 @@ class ChatActivity : Activity() {
 
         messages.clear()
         messages.addAll(conversation!!.messages)
-        titleV.text = if (conversation!!.title == "Nuevo chat") "Hermes" else conversation!!.title
+        titleV.text = if (conversation!!.title == "Nuevo chat") "Adarbot" else conversation!!.title
 
         adapter = MessageAdapter(messages)
         recycler.layoutManager = LinearLayoutManager(this)
@@ -94,17 +95,19 @@ class ChatActivity : Activity() {
             }, {})
         }
 
-        backBtn.setOnClickListener { goBack() }
-        sendBtn.setOnClickListener { doSend() }
+        backBtn.setOnClickListener { haptic(it); goBack() }
+        sendBtn.setOnClickListener { haptic(it); doSend() }
         input.setOnEditorActionListener { _, _, _ -> doSend(); true }
 
         modelChip.text = displayName(models[0])
         modelChip.setOnClickListener {
+            haptic(it)
             modelIndex = (modelIndex + 1) % models.size
             modelChip.text = displayName(models[modelIndex])
         }
 
         micBtn.setOnClickListener {
+            haptic(it)
             if (!checkMic()) return@setOnClickListener
             if (listening) {
                 speech?.stopListening()
@@ -114,6 +117,7 @@ class ChatActivity : Activity() {
         }
 
         incogBtn.setOnClickListener {
+            haptic(it)
             setIncognito(!isIncognito())
             updateIncognitoUi()
             Toast.makeText(
@@ -125,6 +129,7 @@ class ChatActivity : Activity() {
         incogBtn.setOnLongClickListener { true }
 
         delBtn.setOnClickListener {
+            haptic(it)
             ConversationStore.delete(convId!!)
             Toast.makeText(this, "Conversacion eliminada", Toast.LENGTH_SHORT).show()
             finish()
@@ -295,7 +300,7 @@ class ChatActivity : Activity() {
     private fun updateIncognitoUi() {
         val on = isIncognito()
         incogBtn.colorFilter = android.graphics.PorterDuffColorFilter(
-            if (on) Color.parseColor("#7C83FD") else Color.parseColor("#5A5A6E"),
+            if (on) Color.parseColor("#2F80FF") else Color.parseColor("#5A5A6E"),
             android.graphics.PorterDuff.Mode.SRC_IN
         )
     }
@@ -309,5 +314,9 @@ class ChatActivity : Activity() {
     private fun hideKeyboard() {
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
         imm.hideSoftInputFromWindow(input.windowToken, 0)
+    }
+
+    private fun haptic(view: View) {
+        view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
     }
 }

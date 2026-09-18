@@ -11,6 +11,7 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.view.Gravity
+import android.view.HapticFeedbackConstants
 import android.view.Window
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
@@ -44,8 +45,9 @@ class AssistActivity : Activity() {
         chat = ChatClient(base)
         input = findViewById(R.id.assistInput)
         status = findViewById(R.id.assistStatus)
-        findViewById<ImageButton>(R.id.assistClose).setOnClickListener { finish() }
+        findViewById<ImageButton>(R.id.assistClose).setOnClickListener { haptic(it); finish() }
         findViewById<ImageButton>(R.id.assistExpand).setOnClickListener {
+            haptic(it)
             val target = if (conversationId == null) {
                 Intent(this, ChatsListActivity::class.java)
             } else {
@@ -54,8 +56,8 @@ class AssistActivity : Activity() {
             startActivity(target)
             finish()
         }
-        findViewById<ImageButton>(R.id.assistSend).setOnClickListener { send() }
-        findViewById<ImageButton>(R.id.assistMic).setOnClickListener { listen() }
+        findViewById<ImageButton>(R.id.assistSend).setOnClickListener { haptic(it); send() }
+        findViewById<ImageButton>(R.id.assistMic).setOnClickListener { haptic(it); listen() }
         input.setOnEditorActionListener { _, _, _ -> send(); true }
         input.requestFocus()
         window.setSoftInputMode(
@@ -106,4 +108,8 @@ class AssistActivity : Activity() {
     }
 
     override fun onDestroy() { speech?.destroy(); super.onDestroy() }
+
+    private fun haptic(view: android.view.View) {
+        view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
+    }
 }

@@ -33,7 +33,7 @@
             android:ellipsize="end"
             android:maxLines="1"
             android:paddingLeft="4dp"
-            android:text="Hermes"
+            android:text="Adarbot"
             android:textColor="#EDEDF0"
             android:textSize="17sp"
             android:textStyle="bold" />
@@ -58,7 +58,7 @@
             android:background="?attr/selectableItemBackgroundBorderless"
             android:contentDescription="Modo incognito"
             android:padding="10dp"
-            android:src="@drawable/ic_mask"
+            android:src="@drawable/ic_ghost"
             android:tint="#5A5A6E" />
 
         <ImageButton
@@ -127,6 +127,6 @@
             android:contentDescription="Enviar"
             android:padding="10dp"
             android:src="@drawable/ic_send"
-            android:tint="#7C83FD" />
+            android:tint="#2F80FF" />
     </LinearLayout>
 </LinearLayout>
