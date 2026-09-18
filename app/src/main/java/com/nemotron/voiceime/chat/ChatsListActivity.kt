@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.View
 import android.widget.ImageButton
 import android.widget.TextView
@@ -17,6 +19,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 class ChatsListActivity : Activity() {
+    private val refreshHandler = Handler(Looper.getMainLooper())
+    private val refreshLoop = object : Runnable { override fun run() { refresh(); refreshHandler.postDelayed(this, 5000) } }
 
     private val list = mutableListOf<Conversation>()
     private lateinit var adapter: ChatListAdapter
@@ -72,6 +76,12 @@ class ChatsListActivity : Activity() {
     override fun onResume() {
         super.onResume()
         refresh()
+        refreshHandler.postDelayed(refreshLoop, 5000)
+    }
+
+    override fun onPause() {
+        refreshHandler.removeCallbacks(refreshLoop)
+        super.onPause()
     }
 
     private fun refresh() {
