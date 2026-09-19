@@ -92,7 +92,6 @@ class AssistActivity : Activity() {
         input = findViewById(R.id.assistInput)
         modelChip = findViewById(R.id.assistModelChip)
         screenshotPill = findViewById(R.id.assistScreenshotPill)
-        screenshotPill.setOnClickListener { haptic(it); requestScreenCapture() }
         val previewWrap = findViewById<View>(R.id.assistPreviewWrap)
         val preview = findViewById<ImageView>(R.id.assistPreview)
         preview.setOnClickListener { showScreenshotPreview() }
@@ -177,6 +176,13 @@ class AssistActivity : Activity() {
             updateModelChip()
         }
         updateModelChip()
+        screenshotPill.isClickable = true
+        screenshotPill.isFocusable = true
+        screenshotPill.setOnClickListener { haptic(it); requestScreenCapture() }
+        findViewById<ImageButton>(R.id.assistScreenshot).apply {
+            isClickable = false
+            isFocusable = false
+        }
         micButton.setOnClickListener { haptic(it); if (speech != null) { speech?.stopListening(); speech = null; setMicListening(false) } else listen() }
         input.setOnEditorActionListener { _, _, _ -> send(); true }
         // El asistente de voz abre limpio: el teclado solo aparece cuando el usuario toca el campo.
