@@ -9,6 +9,7 @@ import ssl
 import sqlite3
 import uuid
 import time
+import threading
 from urllib.parse import urlparse
 
 PORT = 8888
@@ -26,23 +27,36 @@ API_CONFIG = {
     "deepseek": ("https://api.xiaomimimo.com/v1/chat/completions", XIAOMI_KEY, "mimo-v2.5"),
 }
 DEFAULT_MODEL = "deepseek-flash"
+_db_init_lock = threading.Lock()
+_db_initialized = False
+
+def _init_db(c):
+    global _db_initialized
+    if _db_initialized:
+        return
+    with _db_init_lock:
+        if _db_initialized:
+            return
+        c.executescript("""
+          CREATE TABLE IF NOT EXISTS conversations (
+            id TEXT PRIMARY KEY, title TEXT NOT NULL, created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL, incognito INTEGER NOT NULL DEFAULT 0
+          );
+          CREATE TABLE IF NOT EXISTS messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, conversation_id TEXT NOT NULL,
+            role TEXT NOT NULL, content TEXT NOT NULL, model TEXT, created_at INTEGER NOT NULL
+          );
+          CREATE INDEX IF NOT EXISTS idx_messages_conv ON messages(conversation_id, id);
+        """)
+        c.commit()
+        _db_initialized = True
 
 def db():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    c = sqlite3.connect(DB_PATH)
+    c = sqlite3.connect(DB_PATH, timeout=30, check_same_thread=False)
     c.row_factory = sqlite3.Row
-    c.execute("PRAGMA journal_mode=WAL")
-    c.executescript("""
-      CREATE TABLE IF NOT EXISTS conversations (
-        id TEXT PRIMARY KEY, title TEXT NOT NULL, created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL, incognito INTEGER NOT NULL DEFAULT 0
-      );
-      CREATE TABLE IF NOT EXISTS messages (
-        id INTEGER PRIMARY KEY AUTOINCREMENT, conversation_id TEXT NOT NULL,
-        role TEXT NOT NULL, content TEXT NOT NULL, model TEXT, created_at INTEGER NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS idx_messages_conv ON messages(conversation_id, id);
-    """)
+    c.execute("PRAGMA busy_timeout=30000")
+    _init_db(c)
     return c
 
 def now(): return int(time.time() * 1000)
@@ -61,8 +75,9 @@ def conversation(c, cid, with_messages=False):
 def hermes_conversations(with_messages=False):
     if not os.path.exists(HERMES_DB): return []
     try:
-        h = sqlite3.connect(f"file:{HERMES_DB}?mode=ro", uri=True)
+        h = sqlite3.connect(f"file:{HERMES_DB}?mode=ro", uri=True, timeout=30)
         h.row_factory = sqlite3.Row
+        h.execute("PRAGMA busy_timeout=30000")
         rows = h.execute("SELECT id,title,source,display_name,started_at,last_activity_at,model,message_count FROM sessions WHERE archived=0 AND hidden=0 ORDER BY COALESCE(last_activity_at,started_at) DESC").fetchall()
         result = []
         for row in rows:
@@ -79,7 +94,8 @@ def archive_hermes_conversation(cid):
     """Hide a Hermes session from the chat list without touching agent memory."""
     if not os.path.exists(HERMES_DB): return
     try:
-        h = sqlite3.connect(HERMES_DB)
+        h = sqlite3.connect(HERMES_DB, timeout=30)
+        h.execute("PRAGMA busy_timeout=30000")
         h.execute("UPDATE sessions SET archived=1 WHERE id=?", (cid,))
         h.commit(); h.close()
     except Exception:
@@ -133,6 +149,7 @@ class ChatHandler(http.server.SimpleHTTPRequestHandler):
 
     def do_POST(self):
         path = urlparse(self.path).path
+        c = None
         try:
             data = self.read_body()
             c = db()
@@ -157,7 +174,10 @@ class ChatHandler(http.server.SimpleHTTPRequestHandler):
                     ts = now(); c.execute("INSERT INTO messages(conversation_id,role,content,model,created_at) VALUES(?,?,?,?,?)", (cid, "user", message, model, ts))
                     if conversation(c, cid)["title"] == "Nuevo chat": c.execute("UPDATE conversations SET title=? WHERE id=?", (message[:48] or "Nuevo chat", cid))
                 url, key, api_model = API_CONFIG[model]
-                payload = dict(data); payload.pop("conversation_id", None); payload["model"] = api_model
+                payload = dict(data)
+                for internal_key in ("conversation_id", "incognito", "save"):
+                    payload.pop(internal_key, None)
+                payload["model"] = api_model
                 req = urllib.request.Request(url, data=json.dumps(payload, ensure_ascii=False).encode(), method="POST")
                 req.add_header("Content-Type", "application/json"); req.add_header("Authorization", "Bearer " + key)
                 with urllib.request.urlopen(req, context=ssl.create_default_context(), timeout=120) as resp: result = json.loads(resp.read())
@@ -170,6 +190,9 @@ class ChatHandler(http.server.SimpleHTTPRequestHandler):
             return send_json(self, e.code, {"error": e.read().decode("utf-8", errors="replace")})
         except Exception as e:
             return send_json(self, 500, {"error": str(e)})
+        finally:
+            if c is not None:
+                c.close()
 
     def do_OPTIONS(self):
         self.send_response(200); self.send_header("Access-Control-Allow-Origin", "*"); self.send_header("Access-Control-Allow-Methods", "POST, GET, DELETE, OPTIONS"); self.send_header("Access-Control-Allow-Headers", "Content-Type"); self.end_headers()
