@@ -252,7 +252,34 @@ class ChatsListActivity : Activity() {
         panel.addView(drawerRow(R.drawable.ic_profile, "Perfil y ajustes") { Toast.makeText(this, "Perfil de adarbot", Toast.LENGTH_SHORT).show() })
         val chats = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, dp(8), 0, 0) }
         chats.addView(TextView(this).apply { text = "Conversaciones"; textSize = 14f; setTextColor(Color.parseColor("#777B8A")); setPadding(dp(14), dp(10), 0, dp(6)) })
-        list.forEach { c -> chats.addView(drawerRow(R.drawable.ic_profile, c.title) { (root.tag as? PopupWindow)?.dismiss(); openConv(c) }) }
+        list.forEach { c ->
+            val row = drawerRow(R.drawable.ic_profile, c.title) {
+                (root.tag as? PopupWindow)?.dismiss()
+                openConv(c)
+            }
+            var downX = 0f
+            row.setOnTouchListener { view, event ->
+                when (event.actionMasked) {
+                    android.view.MotionEvent.ACTION_DOWN -> {
+                        downX = event.rawX
+                        false
+                    }
+                    android.view.MotionEvent.ACTION_UP -> {
+                        if (kotlin.math.abs(event.rawX - downX) > dp(56)) {
+                            showChatActions(view, c)
+                            view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+                            true
+                        } else false
+                    }
+                    else -> false
+                }
+            }
+            row.setOnLongClickListener {
+                showChatActions(row, c)
+                true
+            }
+            chats.addView(row)
+        }
         val scroll = ScrollView(this).apply {
             isFillViewport = true
             addView(chats, ViewGroup.LayoutParams(-1, -2))
