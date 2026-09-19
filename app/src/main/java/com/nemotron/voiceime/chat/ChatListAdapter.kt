@@ -17,7 +17,6 @@ class ChatListAdapter(
     private val onClick: (Conversation) -> Unit,
     private val onDelete: (Conversation) -> Unit,
     private val onRename: (Conversation) -> Unit,
-    private val onPin: (Conversation) -> Unit,
     private val onLongPress: (View, Conversation) -> Unit
 ) : RecyclerView.Adapter<ChatListAdapter.VH>() {
 
@@ -45,18 +44,17 @@ class ChatListAdapter(
     override fun onBindViewHolder(holder: VH, position: Int) {
         val c = items[position]
         holder.title.text = c.title
-        holder.pin.setImageResource(if (c.pinned) R.drawable.ic_pin_filled else R.drawable.ic_pin)
         val date = SimpleDateFormat("dd MMM, HH:mm", Locale.getDefault()).format(Date(c.createdAt))
         val link = if (c.source.isNotBlank()) "${c.source} · ${c.displayName.ifBlank { c.chatId }}" else date
         holder.meta.text = if (c.source.isNotBlank()) "$link  ·  $date" else date
         holder.itemView.setOnClickListener { onClick(c) }
+        holder.itemView.isLongClickable = true
         holder.itemView.setOnLongClickListener {
             holder.itemView.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
             onLongPress(holder.itemView, c)
             true
         }
         holder.trash.setOnClickListener { onDelete(c) }
-        holder.pin.setOnClickListener { onPin(c) }
     }
 
     override fun getItemCount(): Int = items.size
@@ -65,6 +63,5 @@ class ChatListAdapter(
         val title: TextView = v.findViewById(R.id.chatTitle)
         val meta: TextView = v.findViewById(R.id.chatMeta)
         val trash: ImageView = v.findViewById(R.id.chatTrash)
-        val pin: ImageView = v.findViewById(R.id.chatPin)
     }
 }
