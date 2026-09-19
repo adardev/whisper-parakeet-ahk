@@ -42,22 +42,22 @@ class AppPickerActivity : AppCompatActivity() {
 
         val title = findViewById<TextView>(R.id.tvTitle)
         title.text = when (mode) {
-            MODE_AUTO_FREEZE -> "Seleccionar apps"
+            MODE_AUTO_FREEZE -> "Select apps"
             MODE_STOP_ON_UNLOCK -> "Stop on unlock"
-            MODE_DOZE_EXEMPT -> "Excluidas de doze"
+            MODE_DOZE_EXEMPT -> "Doze exclusions"
             else -> "Select apps to freeze"
         }
 
         val hint = findViewById<TextView>(R.id.tvHint)
         hint.text = when (mode) {
             MODE_AUTO_FREEZE ->
-                "Marca una app para congelarla al apagar la pantalla. En las marcadas aparece 'detener' (naranja): cerrarla al desbloquear (force-stop)."
+                "Select an app to freeze when the screen turns off. Selected apps can also stop on unlock (force-stop)."
             MODE_STOP_ON_UNLOCK ->
-                "Apps que se detendran al desbloquear (force-stop, no se congelan)."
+                "Apps that stop when unlocked (force-stop; they are not frozen)."
             MODE_DOZE_EXEMPT ->
-                "Apps excluidas del doze profundo: pueden sonar alarmas y trabajar con pantalla apagada (whitelist de doze)."
+                "Apps excluded from deep doze: they can sound alarms and work with the screen off (doze whitelist)."
             else ->
-                "Selecciona apps para congelar/descongelar manualmente."
+                "Select apps to freeze or unfreeze manually."
         }
         hint.visibility = View.VISIBLE
 
