@@ -6,19 +6,36 @@
     <com.nemotron.voiceime.chat.AssistGlowView
         android:layout_width="match_parent" android:layout_height="match_parent"
         android:importantForAccessibility="no" />
-    <ImageButton
-        android:id="@+id/assistScreenshot"
-        android:layout_width="42dp"
-        android:layout_height="42dp"
+    <LinearLayout
+        android:id="@+id/assistScreenshotPill"
+        android:layout_width="wrap_content"
+        android:layout_height="46dp"
         android:layout_gravity="bottom|end"
-        android:layout_marginRight="30dp"
-        android:layout_marginBottom="178dp"
-        android:background="@drawable/bg_assist_icon"
-        android:contentDescription="Capturar pantalla"
+        android:layout_marginRight="24dp"
+        android:layout_marginBottom="166dp"
+        android:background="@drawable/bg_assist_panel"
         android:elevation="28dp"
-        android:padding="9dp"
-        android:src="@drawable/ic_screenshot"
-        android:tint="#8FC1FF" />
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingLeft="8dp"
+        android:paddingRight="14dp">
+        <ImageButton
+            android:id="@+id/assistScreenshot"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:background="@drawable/bg_assist_icon"
+            android:contentDescription="Capturar pantalla"
+            android:padding="8dp"
+            android:src="@drawable/ic_screenshot"
+            android:tint="#8FC1FF" />
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="8dp"
+            android:text="Capturar pantalla"
+            android:textColor="#E8F1FF"
+            android:textSize="13sp" />
+    </LinearLayout>
     <FrameLayout
         android:id="@+id/assistPreviewWrap"
         android:layout_width="match_parent"

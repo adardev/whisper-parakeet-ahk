@@ -34,6 +34,7 @@ import android.widget.ScrollView
 import android.widget.PopupWindow
 import android.view.Gravity
 import android.view.ViewGroup
+import android.view.animation.DecelerateInterpolator
 import android.util.Base64
 import java.io.ByteArrayOutputStream
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -607,6 +608,44 @@ class ChatActivity : Activity() {
         }
         close.setOnClickListener { drawer.dismiss() }
         drawer.show()
+        fun closeDrawerAnimated() {
+            if (!drawer.isShowing) return
+            panel.animate()
+                .translationX(-panel.width.toFloat())
+                .alpha(0.96f)
+                .setDuration(220L)
+                .setInterpolator(DecelerateInterpolator())
+                .withEndAction { drawer.dismiss() }
+                .start()
+        }
+        close.setOnClickListener { haptic(it); closeDrawerAnimated() }
+        var downX = 0f
+        val swipeToClose = View.OnTouchListener { view, event ->
+            when (event.actionMasked) {
+                android.view.MotionEvent.ACTION_DOWN -> {
+                    downX = event.rawX
+                    true
+                }
+                android.view.MotionEvent.ACTION_MOVE -> {
+                    val distance = event.rawX - downX
+                    if (distance < 0f) view.translationX = distance.coerceAtLeast(-view.width.toFloat())
+                    true
+                }
+                android.view.MotionEvent.ACTION_UP, android.view.MotionEvent.ACTION_CANCEL -> {
+                    val distance = event.rawX - downX
+                    if (distance < -panel.width * 0.22f) {
+                        closeDrawerAnimated()
+                    } else {
+                        view.animate().translationX(0f).setDuration(180L)
+                            .setInterpolator(DecelerateInterpolator()).start()
+                    }
+                    true
+                }
+                else -> false
+            }
+        }
+        top.setOnTouchListener(swipeToClose)
+        panel.setOnTouchListener(swipeToClose)
         drawer.window?.apply {
             setBackgroundDrawable(ColorDrawable(Color.parseColor("#090E17")))
             setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
@@ -616,7 +655,7 @@ class ChatActivity : Activity() {
             decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LAYOUT_STABLE or
                 View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
         }
-        panel.post { panel.translationX = -panel.width.toFloat(); panel.animate().translationX(0f).setDuration(260L).start() }
+        panel.post { panel.translationX = -panel.width.toFloat(); panel.alpha = 1f; panel.animate().translationX(0f).setDuration(260L).setInterpolator(DecelerateInterpolator()).start() }
         chat.conversations({ arr ->
             val remote = buildList {
                 for (i in 0 until arr.length()) {

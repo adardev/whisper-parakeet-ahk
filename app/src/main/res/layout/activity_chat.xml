@@ -12,6 +12,13 @@
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginLeft="12dp"
+        android:layout_marginTop="12dp"
+        android:layout_marginRight="12dp"
+        android:layout_marginBottom="6dp"
+        android:background="@drawable/bg_float_bar"
+        android:elevation="24dp"
+        android:translationZ="8dp"
         android:paddingLeft="8dp"
         android:paddingTop="16dp"
         android:paddingRight="8dp"
