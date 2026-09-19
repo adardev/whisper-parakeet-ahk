@@ -67,11 +67,16 @@ class MessageAdapter(
         }
         holder.copy.setOnClickListener { onCopy(msg) }
         holder.speak.setOnClickListener { onSpeak(msg) }
-        holder.bubble.setOnLongClickListener {
-            holder.bubble.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
-            onLongPress(holder.bubble, msg)
+        val openActions: (View) -> Boolean = { anchor ->
+            anchor.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+            onLongPress(anchor, msg)
             true
         }
+        // The whole message row owns the gesture, not just glyph pixels inside the text.
+        holder.itemView.isLongClickable = true
+        holder.itemView.setOnLongClickListener { openActions(holder.bubble) }
+        holder.wrap.setOnLongClickListener { openActions(holder.bubble) }
+        holder.bubble.setOnLongClickListener { openActions(holder.bubble) }
     }
 
     override fun getItemCount(): Int = messages.size

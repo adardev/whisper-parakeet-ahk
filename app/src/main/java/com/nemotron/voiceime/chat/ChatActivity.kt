@@ -641,29 +641,35 @@ class ChatActivity : Activity() {
         if (requestCode == 701 && resultCode == RESULT_OK) {
             val uri = data?.data
             val type = uri?.let { contentResolver.getType(it) }.orEmpty()
-            if (uri != null && type.startsWith("image/")) {
-                val bitmap = contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
-                if (bitmap != null) {
-                    val bytes = ByteArrayOutputStream()
-                    bitmap.compress(Bitmap.CompressFormat.JPEG, 72, bytes)
-                    pendingImageBitmap?.recycle()
-                    pendingImageBitmap = bitmap
-                    pendingImageData = Base64.encodeToString(bytes.toByteArray(), Base64.NO_WRAP)
-                    findViewById<ImageView>(R.id.chatAttachmentImage).setImageBitmap(bitmap)
-                    findViewById<View>(R.id.chatAttachmentPreview).apply {
-                        alpha = 0f
-                        translationY = dp(12).toFloat()
-                        visibility = View.VISIBLE
-                        animate().alpha(1f).translationY(0f).setInterpolator(DecelerateInterpolator()).setDuration(190).start()
-                    }
-                    input.setText("")
-                }
+            val bitmap = when {
+                uri != null && type.startsWith("image/") -> contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
+                else -> data?.extras?.get("data") as? Bitmap
+            }
+            if (bitmap != null) {
+                showPendingImage(bitmap)
             } else {
                 val name = uri?.lastPathSegment ?: "archivo seleccionado"
                 input.setText("[Adjunto: $name] ")
             }
             input.requestFocus()
         }
+    }
+
+    /** Camera returns a bitmap in Intent extras; gallery returns a URI. Both share one preview. */
+    private fun showPendingImage(bitmap: Bitmap) {
+        val bytes = ByteArrayOutputStream()
+        bitmap.compress(Bitmap.CompressFormat.JPEG, 72, bytes)
+        pendingImageBitmap?.recycle()
+        pendingImageBitmap = bitmap
+        pendingImageData = Base64.encodeToString(bytes.toByteArray(), Base64.NO_WRAP)
+        findViewById<ImageView>(R.id.chatAttachmentImage).setImageBitmap(bitmap)
+        findViewById<View>(R.id.chatAttachmentPreview).apply {
+            alpha = 0f
+            translationY = dp(12).toFloat()
+            visibility = View.VISIBLE
+            animate().alpha(1f).translationY(0f).setInterpolator(DecelerateInterpolator()).setDuration(190).start()
+        }
+        input.setText("")
     }
 
     private fun showImagePreview(bitmap: Bitmap?) {

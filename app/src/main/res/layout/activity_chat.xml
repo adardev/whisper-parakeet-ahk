@@ -89,7 +89,7 @@
                 android:layout_height="match_parent"
                 android:ellipsize="end"
                 android:gravity="center"
-                android:maxWidth="230dp"
+                android:maxWidth="190dp"
                 android:maxLines="1"
                 android:text="adarbot"
                 android:textColor="#EDEDF0"
@@ -207,16 +207,6 @@
             android:src="@drawable/ic_attach"
             android:tint="#8FC1FF" />
 
-        <ImageButton
-            android:id="@+id/btnMic"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
-            android:background="@android:color/transparent"
-            android:contentDescription="Escribir por voz"
-            android:padding="10dp"
-            android:src="@drawable/ic_mic"
-            android:tint="#C9C9D6" />
-
         <EditText
             android:id="@+id/inputField"
             android:layout_width="0dp"
@@ -235,6 +225,16 @@
             android:textColor="#EDEDF0"
             android:textColorHint="#8E8EA3"
             android:textSize="14sp" />
+
+        <ImageButton
+            android:id="@+id/btnMic"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:background="@android:color/transparent"
+            android:contentDescription="Escribir por voz"
+            android:padding="10dp"
+            android:src="@drawable/ic_mic"
+            android:tint="#C9C9D6" />
 
         <FrameLayout
             android:layout_width="44dp"
