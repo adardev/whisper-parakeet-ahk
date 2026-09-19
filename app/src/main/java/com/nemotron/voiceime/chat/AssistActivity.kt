@@ -111,12 +111,45 @@ class AssistActivity : Activity() {
         // usamos un OnTouchListener que intercepte el ACTION_UP del botón de
         // captura y termine el overlay accidentalmente.
         findViewById<View>(R.id.assistRoot).setOnClickListener { finish() }
-        var downY = 0f
+        var dragStartY = 0f
+        var panelStartTransY = 0f
+        var isDragging = false
+        val dragHandle = findViewById<View>(R.id.assistDragHandle)
+        val dragThreshold = dp(120)
+        val dismissThreshold = dp(80)
         panel.setOnTouchListener { view, event ->
             when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> { downY = event.rawY; true }
-                MotionEvent.ACTION_UP -> {
-                    if (downY - event.rawY > dp(48)) { haptic(view); openFullChat() }
+                MotionEvent.ACTION_DOWN -> {
+                    dragStartY = event.rawY
+                    panelStartTransY = panel.translationY
+                    isDragging = false
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    val dy = event.rawY - dragStartY
+                    if (!isDragging && Math.abs(dy) > dp(8)) {
+                        isDragging = true
+                    }
+                    if (isDragging) {
+                        panel.translationY = (panelStartTransY + dy).coerceAtMost(0f)
+                    }
+                    true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    if (isDragging) {
+                        val currentY = panel.translationY
+                        val movedUp = -currentY
+                        when {
+                            movedUp > dragThreshold -> { haptic(view); openFullChat() }
+                            -currentY > dismissThreshold -> { haptic(view); finish() }
+                            else -> panel.animate().translationY(0f).setDuration(220)
+                                .setInterpolator(android.view.animation.DecelerateInterpolator()).start()
+                        }
+                    } else {
+                        val dy = event.rawY - dragStartY
+                        if (dy < -dp(48)) { haptic(view); openFullChat() }
+                    }
+                    isDragging = false
                     true
                 }
                 else -> true
