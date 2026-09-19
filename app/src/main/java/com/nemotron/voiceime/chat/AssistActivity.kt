@@ -50,6 +50,7 @@ class AssistActivity : Activity() {
     private lateinit var status: TextView
     private lateinit var micButton: ImageButton
     private lateinit var modelChip: TextView
+    private lateinit var modelBadge: ImageView
     private lateinit var screenshotPill: View
     private lateinit var chat: ChatClient
     private var conversationId: String? = null
@@ -89,6 +90,7 @@ class AssistActivity : Activity() {
         chat = ChatClient(base)
         input = findViewById(R.id.assistInput)
         modelChip = findViewById(R.id.assistModelChip)
+        modelBadge = findViewById(R.id.assistModelBadge)
         screenshotPill = findViewById(R.id.assistScreenshotPill)
         val previewWrap = findViewById<View>(R.id.assistPreviewWrap)
         val preview = findViewById<ImageView>(R.id.assistPreview)
@@ -323,9 +325,11 @@ class AssistActivity : Activity() {
     }
 
     private fun updateModelChip() {
+        val icon = modelIcon(models[modelIndex])
         modelChip.text = displayName(models[modelIndex])
-        modelChip.setCompoundDrawablesWithIntrinsicBounds(modelIcon(models[modelIndex]), 0, 0, 0)
+        modelChip.setCompoundDrawablesWithIntrinsicBounds(icon, 0, 0, 0)
         modelChip.compoundDrawablePadding = dp(5)
+        modelBadge.setImageResource(icon)
     }
 
     private fun showModelPicker(anchor: View) {

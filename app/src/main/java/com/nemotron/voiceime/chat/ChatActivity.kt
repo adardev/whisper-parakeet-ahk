@@ -54,6 +54,7 @@ class ChatActivity : Activity() {
     private lateinit var input: EditText
     private lateinit var welcomeView: TextView
     private lateinit var modelChip: TextView
+    private lateinit var modelBadge: ImageView
     private lateinit var micBtn: ImageButton
     private lateinit var deleteBtn: ImageButton
     private lateinit var incognitoHomeBtn: ImageButton
@@ -97,6 +98,7 @@ class ChatActivity : Activity() {
         input = findViewById(R.id.inputField)
         welcomeView = findViewById(R.id.welcomeView)
         modelChip = findViewById(R.id.modelChip)
+        modelBadge = findViewById(R.id.modelBadge)
         micBtn = findViewById(R.id.btnMic)
         incognitoHomeBtn = findViewById(R.id.btnIncognitoHome)
         findViewById<ImageButton>(R.id.btnAttach).setOnClickListener { haptic(it); showAttachmentMenu(it) }
@@ -554,9 +556,11 @@ class ChatActivity : Activity() {
     }
 
     private fun updateModelChip() {
+        val icon = modelIcon(models[modelIndex])
         modelChip.text = displayName(models[modelIndex])
-        modelChip.setCompoundDrawablesWithIntrinsicBounds(modelIcon(models[modelIndex]), 0, 0, 0)
+        modelChip.setCompoundDrawablesWithIntrinsicBounds(icon, 0, 0, 0)
         modelChip.compoundDrawablePadding = dp(5)
+        modelBadge.setImageResource(icon)
     }
 
     private fun showModelPicker(anchor: View) {

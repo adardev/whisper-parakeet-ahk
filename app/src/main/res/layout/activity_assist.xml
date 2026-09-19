@@ -117,7 +117,10 @@
         <ImageButton android:id="@+id/assistAttach" android:layout_width="36dp" android:layout_height="36dp" android:background="@drawable/bg_assist_icon" android:src="@drawable/ic_attach" android:tint="#8FC1FF" android:padding="8dp" android:contentDescription="Adjuntar" />
         <ImageButton android:id="@+id/assistMic" android:layout_width="44dp" android:layout_height="44dp" android:background="@drawable/bg_assist_icon" android:src="@drawable/ic_mic" android:tint="#C9C9D6" android:padding="10dp" android:contentDescription="Hablar con adarbot" />
         <EditText android:id="@+id/assistInput" android:layout_width="0dp" android:layout_height="44dp" android:layout_weight="1" android:layout_marginLeft="6dp" android:layout_marginRight="6dp" android:background="@android:color/transparent" android:hint="Pregúntale a adarbot..." android:singleLine="true" android:imeOptions="actionSend" android:paddingLeft="18dp" android:paddingRight="18dp" android:textColor="#EDEDF0" android:textColorHint="#8E8EA3" android:textSize="14sp" />
-        <ImageButton android:id="@+id/assistSend" android:layout_width="44dp" android:layout_height="44dp" android:background="@drawable/bg_assist_icon" android:src="@drawable/ic_send" android:tint="#2F80FF" android:padding="10dp" android:contentDescription="Enviar" />
+        <FrameLayout android:layout_width="44dp" android:layout_height="44dp">
+            <ImageButton android:id="@+id/assistSend" android:layout_width="match_parent" android:layout_height="match_parent" android:background="@drawable/bg_assist_icon" android:src="@drawable/ic_send" android:tint="#2F80FF" android:padding="10dp" android:contentDescription="Enviar" />
+            <ImageView android:id="@+id/assistModelBadge" android:layout_width="16dp" android:layout_height="16dp" android:layout_gravity="top|end" android:background="@drawable/bg_model_badge" android:padding="2dp" android:contentDescription="Modelo seleccionado" />
+        </FrameLayout>
     </LinearLayout>
 </LinearLayout>
 </FrameLayout>
