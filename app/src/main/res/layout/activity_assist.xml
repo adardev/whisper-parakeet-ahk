@@ -96,7 +96,8 @@
             android:paddingBottom="5dp"
             android:text="DeepSeek"
             android:textColor="#C9C9D6"
-            android:textSize="12sp" />
+            android:textSize="12sp"
+            android:visibility="gone" />
     </LinearLayout>
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center_vertical">
         <Space android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" />
