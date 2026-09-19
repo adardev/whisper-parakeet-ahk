@@ -170,7 +170,7 @@ class ChatActivity : Activity() {
         chat.conversations({ runOnUiThread { connectionDot.setBackgroundResource(R.drawable.bg_connection_online) } }, { runOnUiThread { connectionDot.setBackgroundResource(R.drawable.bg_connection_offline) } })
         updateIncognitoUi()
 
-        adapter = MessageAdapter(messages, ::copyMessage, ::speakMessage)
+        adapter = MessageAdapter(messages, ::copyMessage, ::speakMessage, ::showMessageActions)
         textToSpeech = TextToSpeech(this) { }
         recycler.layoutManager = LinearLayoutManager(this)
         recycler.adapter = adapter
@@ -255,6 +255,7 @@ class ChatActivity : Activity() {
                 adapter.replaceMessages(merged)
                 conversation?.messages?.clear()
                 conversation?.messages?.addAll(merged)
+                if (!sending && !incognitoMode) conversation?.let { ConversationStore.save(it) }
                 showWelcomeIfEmpty()
                 if (wasAtBottom && merged.isNotEmpty()) recycler.smoothScrollToPosition(merged.lastIndex)
             }
@@ -426,6 +427,45 @@ class ChatActivity : Activity() {
         textToSpeech?.stop()
         textToSpeech?.language = Locale("es", "MX")
         textToSpeech?.speak(message.content, TextToSpeech.QUEUE_FLUSH, null, "adarbot-message")
+    }
+
+    private fun showMessageActions(anchor: View, message: ChatMessage) {
+        lateinit var popup: PopupWindow
+        val menu = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(dp(8), dp(6), dp(8), dp(6))
+            background = GradientDrawable().apply {
+                setColor(Color.parseColor("#111C2D"))
+                cornerRadius = dp(22).toFloat()
+                setStroke(dp(1), Color.parseColor("#34547E"))
+            }
+        }
+        fun action(icon: Int, description: String, callback: () -> Unit): View = ImageButton(this).apply {
+            setImageResource(icon)
+            setColorFilter(Color.parseColor("#9BC4FF"))
+            background = ColorDrawable(Color.TRANSPARENT)
+            contentDescription = description
+            setPadding(dp(10), dp(10), dp(10), dp(10))
+            setOnClickListener { haptic(it); callback() }
+            layoutParams = LinearLayout.LayoutParams(dp(48), dp(44))
+        }
+        menu.addView(action(R.drawable.ic_copy, "Copiar mensaje") {
+            copyMessage(message)
+            popup.dismiss()
+        })
+        menu.addView(action(R.drawable.ic_volume, "Escuchar mensaje") {
+            speakMessage(message)
+            popup.dismiss()
+        })
+        popup = PopupWindow(menu, dp(120), dp(58), true).apply {
+            elevation = dp(18).toFloat()
+            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            isOutsideTouchable = true
+        }
+        menu.post {
+            popup.showAsDropDown(anchor, -dp(12), -anchor.height - dp(66))
+        }
     }
 
     private fun showWelcomeIfEmpty() {

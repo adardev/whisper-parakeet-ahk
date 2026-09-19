@@ -13,7 +13,8 @@ import com.nemotron.voiceime.R
 class MessageAdapter(
     private val messages: MutableList<ChatMessage>,
     private val onCopy: (ChatMessage) -> Unit,
-    private val onSpeak: (ChatMessage) -> Unit
+    private val onSpeak: (ChatMessage) -> Unit,
+    private val onLongPress: (View, ChatMessage) -> Unit
 ) : RecyclerView.Adapter<MessageAdapter.MessageVH>() {
 
     fun replaceMessages(next: List<ChatMessage>) {
@@ -57,8 +58,8 @@ class MessageAdapter(
         holder.copy.setOnClickListener { onCopy(msg) }
         holder.speak.setOnClickListener { onSpeak(msg) }
         holder.bubble.setOnLongClickListener {
-            holder.actions.visibility = if (holder.actions.visibility == View.VISIBLE) View.GONE else View.VISIBLE
             holder.bubble.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+            onLongPress(holder.bubble, msg)
             true
         }
     }
