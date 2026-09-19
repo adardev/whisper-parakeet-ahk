@@ -56,7 +56,7 @@
             android:layout_height="match_parent"
             android:orientation="horizontal">
             <FrameLayout
-                android:layout_width="64dp"
+                android:layout_width="80dp"
                 android:layout_height="56dp"
                 android:background="@drawable/bg_assist_preview"
                 android:padding="4dp">
