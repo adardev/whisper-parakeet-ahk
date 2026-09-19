@@ -62,7 +62,7 @@
         <TextView
             android:id="@+id/convTitle"
             android:layout_width="220dp"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:layout_gravity="center"
             android:ellipsize="end"
             android:gravity="center"
