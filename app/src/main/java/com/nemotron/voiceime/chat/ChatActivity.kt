@@ -157,9 +157,8 @@ class ChatActivity : Activity() {
                 lp.rightMargin = desiredSide
                 composer.layoutParams = lp
             }
-            composer.setBackgroundResource(
-                if (keyboardOpen) R.drawable.bg_float_bar_keyboard else R.drawable.bg_float_bar
-            )
+            // Keep the same floating pill shape above and below the keyboard.
+            composer.setBackgroundResource(R.drawable.bg_float_bar)
             composer.elevation = if (keyboardOpen) 0f else dp(24).toFloat()
         }
 
