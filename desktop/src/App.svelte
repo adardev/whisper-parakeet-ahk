@@ -13,6 +13,26 @@
   let messagesLoading = false;
   let messagesError = '';
   let messageRequest = 0;
+  let sending = false;
+  let searchOpen = false;
+  let search = '';
+  let attachment: { name: string; data: string } | null = null;
+  let fileInput: HTMLInputElement;
+  let recording = false;
+  let recognizer: any;
+  let incognito = false;
+  let model = localStorage.getItem('adarbot-model') || 'deepseek-flash';
+  let modelMenu = false;
+  let suppressSend = false;
+  let sendPressTimer: number | undefined;
+  const models = [
+    { id: 'deepseek-flash', label: 'DeepSeek', provider: 'MiMo' },
+    { id: 'mimo-v2.5', label: 'MiMo', provider: 'Xiaomi' },
+    { id: 'nemotron', label: 'Nemotron', provider: 'NVIDIA' }
+  ];
+  $: visibleChats = search.trim()
+    ? chats.filter((chat) => (chat.title || '').toLowerCase().includes(search.trim().toLowerCase()))
+    : chats;
   let selectedMessage: Message | null = null;
   let pressTimer: number | undefined;
 
@@ -129,6 +149,7 @@
     messagesError = '';
     menuOpen = false;
     input = '';
+    attachment = null;
   }
 
   function selectChat(chat: Chat) {
@@ -140,10 +161,98 @@
     loadMessages(chat.id);
   }
 
-  function submit() {
-    if (!input.trim()) return;
-    // El envío completo se conecta en la siguiente capa del cliente.
+  function chooseAttachment() {
+    fileInput?.click();
+  }
+
+  function handleFile(event: Event) {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => attachment = { name: file.name, data: String(reader.result) };
+    reader.readAsDataURL(file);
+  }
+
+  function toggleRecording() {
+    if (recording) { recognizer?.stop(); return; }
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) { messagesError = 'El reconocimiento de voz no está disponible en este sistema.'; return; }
+    recognizer = new SpeechRecognition();
+    recognizer.lang = 'es-MX';
+    recognizer.interimResults = true;
+    recognizer.onresult = (event: any) => {
+      input = Array.from(event.results).map((result: any) => result[0].transcript).join('');
+    };
+    recognizer.onstart = () => recording = true;
+    recognizer.onend = () => recording = false;
+    recognizer.onerror = () => recording = false;
+    recognizer.start();
+  }
+
+  function toggleIncognito() {
+    incognito = !incognito;
+    if (incognito) { activeChat = null; messages = []; }
+  }
+
+  function chooseModel(id: string) {
+    model = id;
+    localStorage.setItem('adarbot-model', id);
+    modelMenu = false;
+  }
+
+  function startSendPress() {
+    window.clearTimeout(sendPressTimer);
+    sendPressTimer = window.setTimeout(() => { modelMenu = true; suppressSend = true; }, 550);
+  }
+
+  function stopSendPress() { window.clearTimeout(sendPressTimer); }
+
+  async function submit() {
+    if (suppressSend) { suppressSend = false; return; }
+    const text = input.trim();
+    if (!text || sending) return;
+    sending = true;
     input = '';
+    messagesError = '';
+    try {
+      let chat = activeChat;
+      if (!chat && !incognito) {
+        const created = await fetch(`${server}/api/conversations`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}'
+        });
+        if (!created.ok) throw new Error('No se pudo crear la conversación');
+        const createdChat = await created.json();
+        chat = { id: createdChat.id, title: createdChat.title || text.slice(0, 48), model: 'deepseek-flash' };
+        activeChat = chat;
+        chats = [chat, ...chats.filter((item) => item.id !== chat?.id)];
+      }
+
+      const history = messages.map((message) => ({ role: message.role, content: message.content }));
+      messages = [...messages, { role: 'user', content: text, model }];
+      const response = await fetch(`${server}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model,
+          messages: [...history, { role: 'user', content: text }],
+          ...(chat?.id ? { conversation_id: chat.id } : {}),
+          incognito,
+          save: !incognito,
+          ...(attachment?.data ? { imageData: attachment.data.split(',')[1] } : {})
+        })
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || `Error ${response.status}`);
+      const answer = data.choices?.[0]?.message?.content || '';
+      messages = [...messages, { role: 'assistant', content: answer, model }];
+      if (!incognito) await loadChats();
+      attachment = null;
+    } catch (error) {
+      messagesError = error instanceof Error ? error.message : 'No se pudo enviar el mensaje.';
+      messages = messages.filter((message) => message.content !== text || message.role !== 'user');
+    } finally {
+      sending = false;
+    }
   }
 
   loadChats();
@@ -159,13 +268,14 @@
   <aside class:open={menuOpen} class="sidebar">
     <div class="brand-row"><span class="brand-mark">a</span><strong>adarbot</strong><button class="icon close" on:click={() => menuOpen = false}>×</button></div>
     <button class="action primary" on:click={newChat}><span>＋</span>Nuevo chat</button>
-    <button class="action" on:click={() => {}}><span>⌕</span>Buscar chats</button>
+    <button class="action" on:click={() => searchOpen = !searchOpen}><span>⌕</span>Buscar chats</button>
+    <button class:active={incognito} class="action" on:click={toggleIncognito}><span>◌</span>Chat incógnito</button>
+    {#if searchOpen}<input class="chat-search" bind:value={search} placeholder="Buscar por nombre…" aria-label="Buscar chats" />{/if}
     <div class="section-label">Conversaciones</div>
     <div class="chat-list">
-      {#if loading}<div class="muted">Cargando chats…</div>{/if}
-      {#each chats as chat (chat.id)}
+      {#each visibleChats as chat (chat.id)}
         <button class:active={activeChat?.id === chat.id} class="chat-item" on:click={() => selectChat(chat)}>
-          <span>{chat.title || 'Nuevo chat'}</span><small>{chat.model || 'adarbot'}</small>
+          <span>{chat.title || 'Nuevo chat'}</span>
         </button>
       {/each}
     </div>
@@ -175,14 +285,13 @@
   <section class="workspace">
     <header class="topbar">
       <button class="icon menu" on:click={() => menuOpen = !menuOpen}>☰</button>
-      <div class="title"><span class:online={connected} class="status-dot"></span><strong>adarbot</strong></div>
+      <div class="title"><span class:online={connected} class="status-dot"></span><strong>{activeChat?.title || 'adarbot'}</strong></div>
       <button class="avatar" aria-label="Perfil">a</button>
     </header>
 
     <div class="conversation" on:click={() => selectedMessage = null}>
       {#if activeChat}
         <div class="chat-view">
-          <div class="chat-heading"><span class="eyebrow">CONVERSACIÓN</span><h1>{activeChat.title}</h1></div>
           {#if messagesLoading && messages.length === 0}
             <div class="loading-state">Cargando mensajes…</div>
           {:else if messagesError}
@@ -199,13 +308,12 @@
                   on:contextmenu|preventDefault={() => openMessageActions(message)}>
                   <div class="message-bubble">
                     <div class="message-content">{@html renderMarkdown(message.content)}</div>
-                    <div class="message-meta">{message.model || activeChat.model || 'adarbot'}</div>
                   </div>
                   {#if selectedMessage === message}
                     <div class="message-actions" on:click|stopPropagation>
                       <button on:click={() => copyMessage(message)}>Copiar</button>
                       <button on:click={() => readMessage(message)}>Leer en voz alta</button>
-                      <span>{message.model || activeChat.model || 'adarbot'}</span>
+                      <span>Modelo: {message.model || activeChat.model || 'adarbot'}</span>
                     </div>
                   {/if}
                 </article>
@@ -219,10 +327,13 @@
     </div>
 
     <form class="composer" on:submit|preventDefault={submit}>
-      <button type="button" class="attach" aria-label="Adjuntar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m20.5 11.5-8.7 8.7a5 5 0 0 1-7.1-7.1l9.2-9.2a3.5 3.5 0 0 1 5 5l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.3-8.3"/></svg></button>
+      {#if attachment}<div class="attachment-chip"><span>{attachment.name}</span><button type="button" on:click={() => attachment = null} aria-label="Quitar adjunto">×</button></div>{/if}
+      <input bind:this={fileInput} class="hidden-file" type="file" accept="image/*,.pdf,.txt,.md" on:change={handleFile} />
+      <button type="button" class="attach" aria-label="Adjuntar" on:click={chooseAttachment}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m20.5 11.5-8.7 8.7a5 5 0 0 1-7.1-7.1l9.2-9.2a3.5 3.5 0 0 1 5 5l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.3-8.3"/></svg></button>
       <input bind:value={input} placeholder="Pregúntale a adarbot…" aria-label="Mensaje" />
-      <button type="button" class="mic" aria-label="Micrófono"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M9 21h6"/></svg></button>
-      <button type="submit" class="send" aria-label="Enviar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 4 18 8-18 8 3-8-3-8Z"/><path d="M6 12h15"/></svg></button>
+      <button type="button" class:recording class="mic" aria-label="Micrófono" on:click={toggleRecording}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M9 21h6"/></svg></button>
+      {#if modelMenu}<div class="model-menu" on:click|stopPropagation>{#each models as option}<button class:chosen={model === option.id} type="button" on:click={() => chooseModel(option.id)}><span class={`model-dot ${option.id}`}></span><span>{option.label}</span><small>{option.provider}</small></button>{/each}</div>{/if}
+      <button type="submit" class={`send ${model}`} disabled={sending} aria-label="Enviar" on:pointerdown={startSendPress} on:pointerup={stopSendPress} on:pointerleave={stopSendPress} on:contextmenu|preventDefault={() => modelMenu = true}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 4 18 8-18 8 3-8-3-8Z"/><path d="M6 12h15"/></svg><span class={`selected-model-dot ${model}`}></span></button>
     </form>
   </section>
 </main>

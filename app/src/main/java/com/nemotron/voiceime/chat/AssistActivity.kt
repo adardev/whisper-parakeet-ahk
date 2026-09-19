@@ -49,6 +49,7 @@ class AssistActivity : Activity() {
     private lateinit var input: EditText
     private lateinit var status: TextView
     private lateinit var micButton: ImageButton
+    private lateinit var sendButton: ImageButton
     private lateinit var modelChip: TextView
     private lateinit var modelBadge: ImageView
     private lateinit var screenshotPill: View
@@ -123,8 +124,9 @@ class AssistActivity : Activity() {
                 else -> true
             }
         }
-        findViewById<ImageButton>(R.id.assistSend).setOnClickListener { haptic(it); send() }
-        findViewById<ImageButton>(R.id.assistSend).setOnLongClickListener { haptic(it); showModelPicker(it); true }
+        sendButton = findViewById(R.id.assistSend)
+        sendButton.setOnClickListener { haptic(it); send() }
+        sendButton.setOnLongClickListener { haptic(it); showModelPicker(it); true }
         findViewById<ImageButton>(R.id.assistAttach).setOnClickListener { haptic(it); showAttachmentMenu(it) }
         micButton = findViewById(R.id.assistMic)
         modelChip.setOnClickListener {
@@ -332,6 +334,13 @@ class AssistActivity : Activity() {
         modelChip.setCompoundDrawablesWithIntrinsicBounds(icon, 0, 0, 0)
         modelChip.compoundDrawablePadding = dp(5)
         modelBadge.setImageResource(icon)
+        sendButton.setColorFilter(modelColor(models[modelIndex]))
+    }
+
+    private fun modelColor(model: String): Int = when (model) {
+        "nemotron" -> Color.parseColor("#70D45C")
+        "mimo-v2.5" -> Color.parseColor("#FF965F")
+        else -> Color.parseColor("#8B7CFF")
     }
 
     private fun showModelPicker(anchor: View) {

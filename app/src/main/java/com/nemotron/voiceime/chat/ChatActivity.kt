@@ -60,6 +60,7 @@ class ChatActivity : Activity() {
     private lateinit var modelChip: TextView
     private lateinit var modelBadge: ImageView
     private lateinit var micBtn: ImageButton
+    private lateinit var sendBtn: ImageButton
     private lateinit var deleteBtn: ImageButton
     private lateinit var incognitoHomeBtn: ImageButton
     private lateinit var chat: ChatClient
@@ -122,7 +123,7 @@ class ChatActivity : Activity() {
             haptic(it)
             showDrawer()
         }
-        val sendBtn: ImageButton = findViewById(R.id.btnSend)
+        sendBtn = findViewById(R.id.btnSend)
         deleteBtn = findViewById(R.id.btnDelete)
         val titleV: TextView = findViewById(R.id.convTitle)
         val attachmentPreview = findViewById<View>(R.id.chatAttachmentPreview)
@@ -706,6 +707,13 @@ class ChatActivity : Activity() {
         modelChip.setCompoundDrawablesWithIntrinsicBounds(icon, 0, 0, 0)
         modelChip.compoundDrawablePadding = dp(5)
         modelBadge.setImageResource(icon)
+        sendBtn.setColorFilter(modelColor(models[modelIndex]))
+    }
+
+    private fun modelColor(model: String): Int = when (model) {
+        "nemotron" -> Color.parseColor("#70D45C")
+        "mimo-v2.5" -> Color.parseColor("#FF965F")
+        else -> Color.parseColor("#8B7CFF")
     }
 
     private fun showModelPicker(anchor: View) {
@@ -784,6 +792,7 @@ class ChatActivity : Activity() {
         }
         renderChats(ConversationStore.list())
         panel.addView(ScrollView(this).apply {
+            isVerticalScrollBarEnabled = false
             addView(chats, ViewGroup.LayoutParams(-1, -2))
             layoutParams = LinearLayout.LayoutParams(-1, 0, 1f)
             isVerticalScrollBarEnabled = true

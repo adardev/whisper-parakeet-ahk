@@ -256,6 +256,7 @@ class ChatsListActivity : Activity() {
             chats.addView(row)
         }
         val scroll = ScrollView(this).apply {
+            isVerticalScrollBarEnabled = false
             isFillViewport = true
             addView(chats, ViewGroup.LayoutParams(-1, -2))
             layoutParams = LinearLayout.LayoutParams(-1, 0, 1f)
