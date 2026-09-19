@@ -51,6 +51,7 @@ class ChatActivity : Activity() {
     private lateinit var deleteBtn: ImageButton
     private lateinit var incognitoHomeBtn: ImageButton
     private lateinit var chat: ChatClient
+    private lateinit var connectionDot: View
 
     private val models = listOf("deepseek-flash", "mimo-v2.5", "nemotron")
     private var modelIndex = 0
@@ -78,6 +79,7 @@ class ChatActivity : Activity() {
         val sendBtn: ImageButton = findViewById(R.id.btnSend)
         deleteBtn = findViewById(R.id.btnDelete)
         val titleV: TextView = findViewById(R.id.convTitle)
+        connectionDot = findViewById(R.id.connectionDot)
 
         window.statusBarColor = Color.parseColor("#090E17")
         window.navigationBarColor = Color.parseColor("#090E17")
@@ -110,7 +112,9 @@ class ChatActivity : Activity() {
 
         messages.clear()
         conversation?.let { messages.addAll(it.messages) }
-        titleV.text = if (incognitoMode) "Adarbot" else conversation?.let { if (it.title == "Nuevo chat") "Adarbot" else it.title } ?: "Adarbot"
+        titleV.text = if (incognitoMode) "adarbot" else conversation?.let { if (it.title == "Nuevo chat") "adarbot" else it.title } ?: "adarbot"
+        connectionDot.visibility = if (conversation == null && !incognitoMode) View.VISIBLE else View.GONE
+        chat.conversations({ runOnUiThread { connectionDot.setBackgroundResource(R.drawable.bg_connection_online) } }, { runOnUiThread { connectionDot.setBackgroundResource(R.drawable.bg_connection_offline) } })
         updateIncognitoUi()
 
         adapter = MessageAdapter(messages)
@@ -493,10 +497,11 @@ class ChatActivity : Activity() {
             chats.removeAllViews()
             chats.addView(TextView(this).apply { text = "Conversaciones"; textSize = 14f; setTextColor(Color.parseColor("#777B8A")); setPadding(dp(14), dp(10), 0, dp(6)) })
             items.forEach { c ->
-                chats.addView(drawerConversationRow(c.title) {
-                    drawer.dismiss()
-                    startActivity(Intent(this, ChatActivity::class.java).putExtra("convId", c.id))
-                })
+                chats.addView(drawerConversationRow(c,
+                    open = { drawer.dismiss(); startActivity(Intent(this, ChatActivity::class.java).putExtra("convId", c.id)) },
+                    pin = { c.pinned = !c.pinned; ConversationStore.save(c); renderChats(ConversationStore.list()) },
+                    rename = { renameConversation(c) { renderChats(ConversationStore.list()) } }
+                ))
             }
         }
         renderChats(ConversationStore.list())
@@ -559,18 +564,46 @@ class ChatActivity : Activity() {
         setOnClickListener { haptic(this); click() }
     }
 
-    private fun drawerConversationRow(label: String, click: () -> Unit): View = TextView(this).apply {
-        text = label
-        textSize = 18f
-        setTextColor(Color.WHITE)
-        maxLines = 2
-        ellipsize = android.text.TextUtils.TruncateAt.END
-        gravity = Gravity.CENTER_VERTICAL
-        isClickable = true
-        setPadding(dp(16), dp(14), dp(16), dp(14))
-        setBackgroundResource(R.drawable.bg_drawer_conversation)
+    private fun drawerConversationRow(c: Conversation, open: () -> Unit, pin: () -> Unit, rename: () -> Unit): View = LinearLayout(this).apply {
+        gravity = Gravity.CENTER_VERTICAL; setPadding(dp(16), dp(8), dp(6), dp(8)); setBackgroundResource(R.drawable.bg_drawer_conversation)
         layoutParams = LinearLayout.LayoutParams(-1, -2).apply { setMargins(0, dp(4), 0, dp(4)) }
-        setOnClickListener { haptic(this); click() }
+        addView(TextView(context).apply { text = c.title; textSize = 18f; setTextColor(Color.WHITE); maxLines = 2; ellipsize = android.text.TextUtils.TruncateAt.END; gravity = Gravity.CENTER_VERTICAL; layoutParams = LinearLayout.LayoutParams(0, -2, 1f); setOnClickListener { haptic(this); open() } })
+        addView(ImageButton(context).apply { setImageResource(if (c.pinned) R.drawable.ic_pin_filled else R.drawable.ic_pin); setColorFilter(Color.parseColor("#8FC1FF")); background = ColorDrawable(Color.TRANSPARENT); contentDescription = "Fijar conversación"; setOnClickListener { haptic(this); pin() } }, LinearLayout.LayoutParams(dp(38), dp(38)))
+        addView(ImageButton(context).apply { setImageResource(R.drawable.ic_rename); setColorFilter(Color.parseColor("#B9C9E8")); background = ColorDrawable(Color.TRANSPARENT); contentDescription = "Renombrar conversación"; setOnClickListener { haptic(this); rename() } }, LinearLayout.LayoutParams(dp(38), dp(38)))
+    }
+
+    private fun renameConversation(c: Conversation, done: () -> Unit) {
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(22), dp(22), dp(22), dp(18))
+            setBackgroundResource(R.drawable.bg_adarbot_info_dialog)
+        }
+        card.addView(TextView(this).apply {
+            text = "renombrar conversación"; textSize = 22f; setTypeface(null, android.graphics.Typeface.BOLD)
+            setTextColor(Color.parseColor("#E8F1FF")); setPadding(0, 0, 0, dp(14))
+        })
+        val field = EditText(this).apply {
+            hint = c.title; setSingleLine(); textSize = 17f
+            setTextColor(Color.parseColor("#E8F1FF")); setHintTextColor(Color.parseColor("#8294B2"))
+            setBackgroundResource(R.drawable.bg_input); setPadding(dp(16), dp(11), dp(16), dp(11))
+        }
+        card.addView(field, LinearLayout.LayoutParams(-1, -2))
+        val actions = LinearLayout(this).apply { gravity = Gravity.END; setPadding(0, dp(18), 0, 0) }
+        lateinit var dialog: Dialog
+        fun action(label: String, click: () -> Unit) = TextView(this).apply {
+            text = label; textSize = 15f; gravity = Gravity.CENTER; setTextColor(Color.parseColor("#DDEBFF"))
+            setPadding(dp(18), dp(11), dp(18), dp(11)); setBackgroundResource(R.drawable.bg_drawer_action)
+            setOnClickListener { haptic(this); click() }
+        }
+        actions.addView(action("cancelar") { dialog.dismiss() }, LinearLayout.LayoutParams(-2, -2).apply { setMargins(0, 0, dp(8), 0) })
+        actions.addView(action("guardar") {
+            field.text.toString().trim().takeIf { it.isNotEmpty() }?.let { c.title = it; ConversationStore.save(c); done() }
+            dialog.dismiss()
+        })
+        card.addView(actions)
+        dialog = Dialog(this).apply { requestWindowFeature(Window.FEATURE_NO_TITLE); setContentView(card) }
+        dialog.show()
+        dialog.window?.apply { setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT)); setLayout((resources.displayMetrics.widthPixels * .86f).toInt(), ViewGroup.LayoutParams.WRAP_CONTENT); setDimAmount(.58f); addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND) }
     }
 
     private fun showAdarbotInfo() {
