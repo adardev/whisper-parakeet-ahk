@@ -64,7 +64,6 @@ class ChatActivity : Activity() {
     private lateinit var deleteBtn: ImageButton
     private lateinit var incognitoHomeBtn: ImageButton
     private lateinit var chat: ChatClient
-    private lateinit var connectionDot: View
     private var textToSpeech: TextToSpeech? = null
 
     private val models = listOf("deepseek-flash", "mimo-v2.5", "nemotron")
@@ -137,7 +136,6 @@ class ChatActivity : Activity() {
             pendingImageBitmap?.recycle()
             pendingImageBitmap = null
         }
-        connectionDot = findViewById(R.id.connectionDot)
 
         window.statusBarColor = Color.parseColor("#090E17")
         window.navigationBarColor = Color.parseColor("#090E17")
@@ -167,9 +165,7 @@ class ChatActivity : Activity() {
         messages.clear()
         conversation?.let { messages.addAll(it.messages) }
         messages.removeAll { it.role == "assistant" && it.content in thinkingLabels }
-        titleV.text = if (incognitoMode) "adarbot" else conversation?.let { if (it.title == "Nuevo chat") "adarbot" else it.title } ?: "adarbot"
-        connectionDot.visibility = View.VISIBLE
-        chat.conversations({ runOnUiThread { connectionDot.setBackgroundResource(R.drawable.bg_connection_online) } }, { runOnUiThread { connectionDot.setBackgroundResource(R.drawable.bg_connection_offline) } })
+        titleV.text = if (incognitoMode) "adarbot" else conversation?.title ?: "Nuevo chat"
         updateIncognitoUi()
 
         adapter = MessageAdapter(messages, ::copyMessage, ::speakMessage, ::showMessageActions)
@@ -706,7 +702,7 @@ class ChatActivity : Activity() {
             Conversation("incognito_${System.currentTimeMillis()}", "Chat incógnito", System.currentTimeMillis())
         } else null
         convId = null
-        titleView().text = "adarbot"
+        titleView().text = if (incognitoMode) "adarbot" else "Nuevo chat"
         updateIncognitoUi()
         showWelcomeIfEmpty()
     }
@@ -809,6 +805,11 @@ class ChatActivity : Activity() {
             setBackgroundResource(R.drawable.bg_drawer_panel)
         }
         val top = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        val drawerConnectionDot = View(this).apply {
+            setBackgroundResource(R.drawable.bg_connection_offline)
+            layoutParams = LinearLayout.LayoutParams(dp(9), dp(9)).apply { marginEnd = dp(8) }
+        }
+        top.addView(drawerConnectionDot)
         top.addView(TextView(this).apply { text = "adarbot"; textSize = 26f; setTextColor(Color.parseColor("#E8F1FF")); setTypeface(null, android.graphics.Typeface.BOLD); layoutParams = LinearLayout.LayoutParams(0, -2, 1f) })
         val close = ImageButton(this).apply { setImageResource(R.drawable.ic_close); setColorFilter(Color.WHITE); background = ColorDrawable(Color.TRANSPARENT) }
         top.addView(close, LinearLayout.LayoutParams(dp(52), dp(52))); panel.addView(top)
@@ -833,6 +834,10 @@ class ChatActivity : Activity() {
             }
         }
         renderChats(ConversationStore.list())
+        chat.conversations(
+            { runOnUiThread { drawerConnectionDot.setBackgroundResource(R.drawable.bg_connection_online) } },
+            { runOnUiThread { drawerConnectionDot.setBackgroundResource(R.drawable.bg_connection_offline) } }
+        )
         panel.addView(ScrollView(this).apply {
             isVerticalScrollBarEnabled = false
             addView(chats, ViewGroup.LayoutParams(-1, -2))

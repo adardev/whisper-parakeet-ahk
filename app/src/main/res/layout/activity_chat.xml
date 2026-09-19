@@ -83,12 +83,6 @@
             android:layout_gravity="center"
             android:gravity="center"
             android:orientation="horizontal">
-            <View
-                android:id="@+id/connectionDot"
-                android:layout_width="9dp"
-                android:layout_height="9dp"
-                android:layout_marginRight="6dp"
-                android:background="@drawable/bg_connection_offline" />
             <TextView
                 android:id="@+id/convTitle"
                 android:layout_width="wrap_content"
