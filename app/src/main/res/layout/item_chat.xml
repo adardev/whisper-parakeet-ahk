@@ -36,6 +36,16 @@
     </LinearLayout>
 
     <ImageView
+        android:id="@+id/chatPin"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:contentDescription="Fijado"
+        android:padding="6dp"
+        android:src="@drawable/ic_pin_filled"
+        android:tint="#8FC1FF"
+        android:visibility="gone" />
+
+    <ImageView
         android:id="@+id/chatTrash"
         android:layout_width="40dp"
         android:layout_height="40dp"

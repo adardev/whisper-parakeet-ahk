@@ -44,6 +44,7 @@ class ChatListAdapter(
     override fun onBindViewHolder(holder: VH, position: Int) {
         val c = items[position]
         holder.title.text = c.title
+        holder.pin.visibility = if (c.pinned) View.VISIBLE else View.GONE
         val date = SimpleDateFormat("dd MMM, HH:mm", Locale.getDefault()).format(Date(c.createdAt))
         val link = if (c.source.isNotBlank()) "${c.source} · ${c.displayName.ifBlank { c.chatId }}" else date
         holder.meta.text = if (c.source.isNotBlank()) "$link  ·  $date" else date
@@ -62,6 +63,7 @@ class ChatListAdapter(
     class VH(v: View) : RecyclerView.ViewHolder(v) {
         val title: TextView = v.findViewById(R.id.chatTitle)
         val meta: TextView = v.findViewById(R.id.chatMeta)
+        val pin: ImageView = v.findViewById(R.id.chatPin)
         val trash: ImageView = v.findViewById(R.id.chatTrash)
     }
 }
