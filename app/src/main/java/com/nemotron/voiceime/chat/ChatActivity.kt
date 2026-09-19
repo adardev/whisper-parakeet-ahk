@@ -746,7 +746,6 @@ class ChatActivity : Activity() {
         remoteRefreshHandler.removeCallbacks(remoteRefreshLoop)
         convId = null
         conversation = null
-        messages.clear()
         lastRemoteSignature = ""
         adapter.replaceMessages(emptyList())
         titleView().text = "Nuevo chat"
