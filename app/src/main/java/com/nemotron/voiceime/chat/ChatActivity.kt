@@ -123,12 +123,7 @@ class ChatActivity : Activity() {
         window.statusBarColor = Color.parseColor("#090E17")
         window.navigationBarColor = Color.parseColor("#090E17")
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
-        val contentRoot = findViewById<View>(android.R.id.content)
-        contentRoot.setOnApplyWindowInsetsListener { view, insets ->
-            val bottom = insets.getInsets(android.view.WindowInsets.Type.ime()).bottom
-            view.setPadding(view.paddingLeft, view.paddingTop, view.paddingRight, bottom)
-            view.onApplyWindowInsets(insets)
-        }
+        findViewById<View>(android.R.id.content).autoInsets()
 
         val prefs = getSharedPreferences("hermes_chat", Context.MODE_PRIVATE)
         val savedUrl = prefs.getString("server_url", null)

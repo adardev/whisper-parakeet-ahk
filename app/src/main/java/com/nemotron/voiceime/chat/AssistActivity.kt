@@ -149,8 +149,10 @@ class AssistActivity : Activity() {
         }
         window.decorView.setOnApplyWindowInsetsListener { view, insets ->
             val imeBottom = insets.getInsets(android.view.WindowInsets.Type.ime()).bottom
+            val navBottom = insets.getInsets(android.view.WindowInsets.Type.navigationBars()).bottom
             // Gravity.BOTTOM: un desplazamiento positivo levanta el panel por encima del teclado.
-            window.attributes = window.attributes.apply { y = if (imeBottom > 0) imeBottom + dp(10) else 0 }
+            val offset = if (imeBottom > 0) imeBottom + dp(10) else navBottom + dp(10)
+            window.attributes = window.attributes.apply { y = offset }
             view.onApplyWindowInsets(insets)
         }
     }
