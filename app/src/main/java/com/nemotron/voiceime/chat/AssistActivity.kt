@@ -112,41 +112,50 @@ class AssistActivity : Activity() {
         // captura y termine el overlay accidentalmente.
         findViewById<View>(R.id.assistRoot).setOnClickListener { finish() }
         var dragStartY = 0f
-        var panelStartTransY = 0f
+        var panelStartHeight = 0
         var isDragging = false
-        val dragHandle = findViewById<View>(R.id.assistDragHandle)
-        val dragThreshold = dp(120)
-        val dismissThreshold = dp(80)
+        val dragThreshold = dp(160)
+        val minPanelHeight = dp(100)
+        panel.post { panelStartHeight = panel.height }
         panel.setOnTouchListener { view, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     dragStartY = event.rawY
-                    panelStartTransY = panel.translationY
+                    panelStartHeight = panel.height
                     isDragging = false
                     true
                 }
                 MotionEvent.ACTION_MOVE -> {
-                    val dy = event.rawY - dragStartY
-                    if (!isDragging && Math.abs(dy) > dp(8)) {
+                    val dy = dragStartY - event.rawY
+                    if (!isDragging && dy > dp(8)) {
                         isDragging = true
                     }
                     if (isDragging) {
-                        panel.translationY = (panelStartTransY + dy).coerceAtMost(0f)
+                        val newH = (panelStartHeight + dy.toInt()).coerceAtLeast(minPanelHeight)
+                        val lp = panel.layoutParams
+                        lp.height = newH
+                        panel.layoutParams = lp
                     }
                     true
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                     if (isDragging) {
-                        val currentY = panel.translationY
-                        val movedUp = -currentY
-                        when {
-                            movedUp > dragThreshold -> { haptic(view); openFullChat() }
-                            -currentY > dismissThreshold -> { haptic(view); finish() }
-                            else -> panel.animate().translationY(0f).setDuration(220)
-                                .setInterpolator(android.view.animation.DecelerateInterpolator()).start()
+                        val grew = panel.height - panelStartHeight
+                        if (grew > dragThreshold) {
+                            haptic(view); openFullChat()
+                        } else {
+                            val anim = android.animation.ValueAnimator.ofInt(panel.height, panelStartHeight)
+                            anim.duration = 220
+                            anim.interpolator = android.view.animation.DecelerateInterpolator()
+                            anim.addUpdateListener { v ->
+                                val lp = panel.layoutParams
+                                lp.height = v.animatedValue as Int
+                                panel.layoutParams = lp
+                            }
+                            anim.start()
                         }
                     } else {
-                        val dy = event.rawY - dragStartY
+                        val dy = dragStartY - event.rawY
                         if (dy < -dp(48)) { haptic(view); openFullChat() }
                     }
                     isDragging = false
