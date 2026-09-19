@@ -55,7 +55,9 @@ class MessageAdapter(
             holder.bubble.alpha = 1f
             holder.bubble.text = MarkdownRenderer.render(msg.content)
         }
-        holder.actions.visibility = View.GONE
+        val showAssistantActions = msg.role == "assistant" &&
+            msg.content.isNotBlank() && msg.content != "adarbot is thinking…"
+        holder.actions.visibility = if (showAssistantActions) View.VISIBLE else View.GONE
         if (msg.role == "user") {
             holder.wrap.gravity = Gravity.END
             holder.bubble.setBackgroundResource(R.drawable.bg_bubble_user)
