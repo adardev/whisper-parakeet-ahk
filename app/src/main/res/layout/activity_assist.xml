@@ -46,7 +46,7 @@
         android:layout_gravity="bottom|start"
         android:layout_marginLeft="22dp"
         android:layout_marginRight="22dp"
-        android:layout_marginBottom="124dp"
+        android:layout_marginBottom="82dp"
         android:clipToPadding="false"
         android:padding="4dp"
         android:background="@android:color/transparent"
@@ -55,32 +55,54 @@
             android:layout_width="wrap_content"
             android:layout_height="match_parent"
             android:orientation="horizontal">
-            <FrameLayout
-                android:layout_width="150dp"
-                android:layout_height="56dp"
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
                 android:background="@drawable/bg_assist_preview"
-                android:padding="4dp">
+                android:padding="6dp">
             <ImageView
                 android:id="@+id/assistPreview"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
+                android:layout_width="72dp"
+                android:layout_height="48dp"
                 android:background="@drawable/bg_assist_preview"
                 android:clipToOutline="true"
                 android:contentDescription="Vista previa de captura"
                 android:outlineProvider="background"
-                android:scaleType="centerCrop" />
-            <ImageButton
-                android:id="@+id/assistPreviewRemove"
+                android:scaleType="centerCrop"
+                android:visibility="gone" />
+            <ImageView
+                android:id="@+id/assistFileIcon"
                 android:layout_width="32dp"
                 android:layout_height="32dp"
-                android:layout_gravity="center_vertical|end"
+                android:layout_marginLeft="6dp"
+                android:contentDescription="Icono del archivo"
+                android:src="@drawable/ic_file"
+                android:tint="#8FC1FF"
+                android:visibility="gone" />
+            <TextView
+                android:id="@+id/assistFileName"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="8dp"
                 android:layout_marginRight="8dp"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:maxWidth="140dp"
+                android:textColor="#EDEDF0"
+                android:textSize="13sp"
+                android:visibility="gone" />
+            <ImageButton
+                android:id="@+id/assistPreviewRemove"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
                 android:background="@drawable/bg_assist_icon"
                 android:contentDescription="Quitar captura"
-                android:padding="9dp"
+                android:padding="6dp"
                 android:src="@drawable/ic_close"
                 android:tint="#FFFFFF" />
-            </FrameLayout>
+            </LinearLayout>
         </LinearLayout>
     </HorizontalScrollView>
     <LinearLayout

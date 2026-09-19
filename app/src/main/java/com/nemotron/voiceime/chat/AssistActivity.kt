@@ -57,6 +57,8 @@ class AssistActivity : Activity() {
     private var speech: SpeechRecognizer? = null
     private var pendingScreenshot: String? = null
     private var pendingBitmap: Bitmap? = null
+    private var pendingFileUri: android.net.Uri? = null
+    private var pendingFileName: String? = null
     private var projection: MediaProjection? = null
     private var virtualDisplay: VirtualDisplay? = null
     private var imageReader: ImageReader? = null
@@ -98,10 +100,15 @@ class AssistActivity : Activity() {
         findViewById<ImageButton>(R.id.assistPreviewRemove).setOnClickListener {
             haptic(it)
             preview.setImageDrawable(null)
+            preview.visibility = View.GONE
+            findViewById<View>(R.id.assistFileIcon).visibility = View.GONE
+            findViewById<TextView>(R.id.assistFileName).visibility = View.GONE
             previewWrap.visibility = View.GONE
             pendingScreenshot = null
             pendingBitmap?.recycle()
             pendingBitmap = null
+            pendingFileUri = null
+            pendingFileName = null
             status.text = ""
             screenshotPill.visibility = View.VISIBLE
         }
@@ -474,25 +481,36 @@ class AssistActivity : Activity() {
                 launchAttachment(kind)
             })
         }
-        addAction(R.drawable.ic_camera, "Cámara", "camera")
-        addAction(R.drawable.ic_gallery, "Fotos", "gallery")
+        fun addActionDisabled(icon: Int, label: String) {
+            menu.addView(attachmentRow(icon, label, enabled = false) {})
+        }
+        val visionModels = setOf("deepseek-flash", "mimo-v2.5")
+        val hasVision = models[modelIndex] in visionModels
+        if (hasVision) {
+            addAction(R.drawable.ic_camera, "Cámara", "camera")
+            addAction(R.drawable.ic_gallery, "Fotos", "gallery")
+        } else {
+            addActionDisabled(R.drawable.ic_camera, "Cámara")
+            addActionDisabled(R.drawable.ic_gallery, "Fotos")
+        }
         addAction(R.drawable.ic_file, "Archivos", "file")
         popup = AdarbotPopupSurface.popup(menu, dp(190))
         popup.showAsDropDown(anchor, -dp(12), -dp(170))
     }
 
-    private fun attachmentRow(icon: Int, label: String, click: () -> Unit): View = LinearLayout(this).apply {
+    private fun attachmentRow(icon: Int, label: String, enabled: Boolean = true, click: () -> Unit): View = LinearLayout(this).apply {
         orientation = LinearLayout.HORIZONTAL; gravity = android.view.Gravity.CENTER_VERTICAL
-        setPadding(dp(10), dp(10), dp(10), dp(10)); isClickable = true
+        setPadding(dp(10), dp(10), dp(10), dp(10)); isClickable = enabled
+        alpha = if (enabled) 1f else 0.35f
         addView(android.widget.ImageView(context).apply {
-            setImageResource(icon); setColorFilter(Color.parseColor("#8FC1FF"))
+            setImageResource(icon); setColorFilter(if (enabled) Color.parseColor("#8FC1FF") else Color.GRAY)
             layoutParams = LinearLayout.LayoutParams(dp(24), dp(24))
         })
         addView(TextView(context).apply {
-            text = label; textSize = 15f; setTextColor(Color.WHITE)
+            text = label; textSize = 15f; setTextColor(if (enabled) Color.WHITE else Color.GRAY)
             setPadding(dp(12), 0, 0, 0)
         })
-        setOnClickListener { haptic(this); click() }
+        if (enabled) setOnClickListener { haptic(this); click() }
     }
 
     private fun launchAttachment(kind: String) {
@@ -522,14 +540,29 @@ class AssistActivity : Activity() {
                     pendingBitmap?.recycle()
                     pendingBitmap = bitmap
                     pendingScreenshot = Base64.encodeToString(bytes.toByteArray(), Base64.NO_WRAP)
-                    findViewById<ImageView>(R.id.assistPreview).setImageBitmap(bitmap)
+                    pendingFileUri = null
+                    pendingFileName = null
+                    val preview = findViewById<ImageView>(R.id.assistPreview)
+                    preview.setImageBitmap(bitmap)
+                    preview.visibility = View.VISIBLE
+                    findViewById<View>(R.id.assistFileIcon).visibility = View.GONE
+                    findViewById<TextView>(R.id.assistFileName).visibility = View.GONE
                     findViewById<View>(R.id.assistPreviewWrap).visibility = View.VISIBLE
                     screenshotPill.visibility = View.GONE
                     input.setText("")
                 } else {
-                    val name = uri?.lastPathSegment ?: "archivo seleccionado"
-                    input.setText("[Adjunto: $name] ")
-                    input.setSelection(input.length())
+                    val name = resolveFileName(uri)
+                    pendingFileUri = uri
+                    pendingFileName = name
+                    pendingBitmap?.recycle()
+                    pendingBitmap = null
+                    pendingScreenshot = null
+                    findViewById<ImageView>(R.id.assistPreview).visibility = View.GONE
+                    findViewById<TextView>(R.id.assistFileName).apply { text = name; visibility = View.VISIBLE }
+                    findViewById<View>(R.id.assistFileIcon).visibility = View.VISIBLE
+                    findViewById<View>(R.id.assistPreviewWrap).visibility = View.VISIBLE
+                    screenshotPill.visibility = View.GONE
+                    input.setText("")
                 }
                 input.requestFocus()
             }
@@ -537,7 +570,20 @@ class AssistActivity : Activity() {
         }
     }
 
-    override fun onDestroy() { speech?.destroy(); releaseCapture(); pendingBitmap?.recycle(); pendingBitmap = null; super.onDestroy() }
+    private fun resolveFileName(uri: android.net.Uri?): String {
+        if (uri == null) return "archivo"
+        if (uri.scheme == "content") {
+            contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val idx = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                    if (idx >= 0) return cursor.getString(idx) ?: "archivo"
+                }
+            }
+        }
+        return uri.lastPathSegment?.substringAfterLast('/') ?: "archivo"
+    }
+
+    override fun onDestroy() { speech?.destroy(); releaseCapture(); pendingBitmap?.recycle(); pendingBitmap = null; pendingFileUri = null; pendingFileName = null; super.onDestroy() }
 
     private fun haptic(view: android.view.View) {
         view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)

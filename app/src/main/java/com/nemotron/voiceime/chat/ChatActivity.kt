@@ -3,6 +3,7 @@ package com.nemotron.voiceime.chat
 import android.Manifest
 import android.app.Activity
 import android.app.Dialog
+import android.net.Uri
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -73,6 +74,8 @@ class ChatActivity : Activity() {
     private var speech: SpeechRecognizer? = null
     private var pendingImageData: String? = null
     private var pendingImageBitmap: Bitmap? = null
+    private var pendingFileUri: Uri? = null
+    private var pendingFileName: String? = null
     private var remoteRefreshInFlight = false
     private var sending = false
     private var lastRemoteSignature = ""
@@ -136,6 +139,8 @@ class ChatActivity : Activity() {
             pendingImageData = null
             pendingImageBitmap?.recycle()
             pendingImageBitmap = null
+            pendingFileUri = null
+            pendingFileName = null
         }
 
         window.statusBarColor = Color.parseColor("#090E17")
@@ -325,7 +330,11 @@ class ChatActivity : Activity() {
 
     private fun doSend() {
         val text = input.text.toString().trim().ifEmpty {
-            if (pendingImageData != null) "Analiza esta imagen." else return
+            when {
+                pendingImageData != null -> "Analiza esta imagen."
+                pendingFileName != null -> "Adjunto: $pendingFileName"
+                else -> return
+            }
         }
         val existing = conversation
         if (existing == null && !incognitoMode) {
@@ -382,6 +391,10 @@ class ChatActivity : Activity() {
         micBtn.isEnabled = false
         val imageData = pendingImageData
         pendingImageData = null
+        val fileUri = pendingFileUri
+        val fileName = pendingFileName
+        pendingFileUri = null
+        pendingFileName = null
         val previewToHide = findViewById<View>(R.id.chatAttachmentPreview)
         previewToHide.animate().alpha(0f).translationY(dp(10).toFloat()).setDuration(120).withEndAction {
             previewToHide.visibility = View.GONE
@@ -628,27 +641,38 @@ class ChatActivity : Activity() {
                 launchAttachment(kind)
             })
         }
-        addAction(R.drawable.ic_camera, "Cámara", "camera")
-        addAction(R.drawable.ic_gallery, "Fotos", "gallery")
+        fun addActionDisabled(icon: Int, label: String) {
+            menu.addView(attachmentRow(icon, label, enabled = false) {})
+        }
+        val visionModels = setOf("deepseek-flash", "mimo-v2.5")
+        val hasVision = models[modelIndex] in visionModels
+        if (hasVision) {
+            addAction(R.drawable.ic_camera, "Cámara", "camera")
+            addAction(R.drawable.ic_gallery, "Fotos", "gallery")
+        } else {
+            addActionDisabled(R.drawable.ic_camera, "Cámara")
+            addActionDisabled(R.drawable.ic_gallery, "Fotos")
+        }
         addAction(R.drawable.ic_file, "Archivos", "file")
         popup = AdarbotPopupSurface.popup(menu, dp(190))
         popup.showAsDropDown(anchor, -dp(12), -dp(170))
     }
 
-    private fun attachmentRow(icon: Int, label: String, click: () -> Unit): View = LinearLayout(this).apply {
+    private fun attachmentRow(icon: Int, label: String, enabled: Boolean = true, click: () -> Unit): View = LinearLayout(this).apply {
         gravity = Gravity.CENTER_VERTICAL
         setPadding(dp(10), dp(10), dp(10), dp(10))
-        isClickable = true
+        isClickable = enabled
+        alpha = if (enabled) 1f else 0.35f
         addView(ImageView(context).apply {
             setImageResource(icon)
-            setColorFilter(Color.parseColor("#8FC1FF"))
+            setColorFilter(if (enabled) Color.parseColor("#8FC1FF") else Color.GRAY)
             layoutParams = LinearLayout.LayoutParams(dp(24), dp(24))
         })
         addView(TextView(context).apply {
-            text = label; textSize = 15f; setTextColor(Color.WHITE)
+            text = label; textSize = 15f; setTextColor(if (enabled) Color.WHITE else Color.GRAY)
             setPadding(dp(12), 0, 0, 0)
         })
-        setOnClickListener { haptic(this); click() }
+        if (enabled) setOnClickListener { haptic(this); click() }
     }
 
     private fun launchAttachment(kind: String) {
@@ -672,8 +696,8 @@ class ChatActivity : Activity() {
             if (bitmap != null) {
                 showPendingImage(bitmap)
             } else {
-                val name = uri?.lastPathSegment ?: "archivo seleccionado"
-                input.setText("[Adjunto: $name] ")
+                val name = resolveFileName(uri)
+                showPendingFile(uri, name)
             }
             input.requestFocus()
         }
@@ -686,7 +710,11 @@ class ChatActivity : Activity() {
         pendingImageBitmap?.recycle()
         pendingImageBitmap = bitmap
         pendingImageData = Base64.encodeToString(bytes.toByteArray(), Base64.NO_WRAP)
-        findViewById<ImageView>(R.id.chatAttachmentImage).setImageBitmap(bitmap)
+        pendingFileUri = null
+        pendingFileName = null
+        findViewById<ImageView>(R.id.chatAttachmentImage).apply { setImageBitmap(bitmap); visibility = View.VISIBLE }
+        findViewById<View>(R.id.chatFileIcon).visibility = View.GONE
+        findViewById<TextView>(R.id.chatFileName).visibility = View.GONE
         findViewById<View>(R.id.chatAttachmentPreview).apply {
             alpha = 0f
             translationY = dp(12).toFloat()
@@ -694,6 +722,37 @@ class ChatActivity : Activity() {
             animate().alpha(1f).translationY(0f).setInterpolator(DecelerateInterpolator()).setDuration(190).start()
         }
         input.setText("")
+    }
+
+    private fun showPendingFile(uri: Uri?, name: String) {
+        pendingFileUri = uri
+        pendingFileName = name
+        pendingImageBitmap?.recycle()
+        pendingImageBitmap = null
+        pendingImageData = null
+        findViewById<ImageView>(R.id.chatAttachmentImage).visibility = View.GONE
+        findViewById<TextView>(R.id.chatFileName).apply { text = name; visibility = View.VISIBLE }
+        findViewById<View>(R.id.chatFileIcon).visibility = View.VISIBLE
+        findViewById<View>(R.id.chatAttachmentPreview).apply {
+            alpha = 0f
+            translationY = dp(12).toFloat()
+            visibility = View.VISIBLE
+            animate().alpha(1f).translationY(0f).setInterpolator(DecelerateInterpolator()).setDuration(190).start()
+        }
+        input.setText("")
+    }
+
+    private fun resolveFileName(uri: Uri?): String {
+        if (uri == null) return "archivo"
+        if (uri.scheme == "content") {
+            contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val idx = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+                    if (idx >= 0) return cursor.getString(idx) ?: "archivo"
+                }
+            }
+        }
+        return uri.lastPathSegment?.substringAfterLast('/') ?: "archivo"
     }
 
     private fun showImagePreview(bitmap: Bitmap?) {
@@ -750,6 +809,8 @@ class ChatActivity : Activity() {
         pendingImageBitmap?.recycle()
         pendingImageBitmap = null
         pendingImageData = null
+        pendingFileUri = null
+        pendingFileName = null
         val preview = findViewById<View>(R.id.chatAttachmentPreview)
         preview.visibility = View.GONE
         adapter.replaceMessages(emptyList())
