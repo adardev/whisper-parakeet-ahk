@@ -191,7 +191,7 @@ class ChatsListActivity : Activity() {
         val root = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
         val panel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(26), dp(30), dp(26), dp(24)) }
         val top = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-        top.addView(TextView(this).apply { text = "Adarbot"; textSize = 26f; setTextColor(Color.WHITE); setTypeface(null, android.graphics.Typeface.BOLD); layoutParams = LinearLayout.LayoutParams(0, -2, 1f) })
+        top.addView(TextView(this).apply { text = "adarbot"; textSize = 26f; setTextColor(Color.WHITE); setTypeface(null, android.graphics.Typeface.BOLD); layoutParams = LinearLayout.LayoutParams(0, -2, 1f) })
         top.addView(ImageButton(this).apply {
             setImageResource(R.drawable.ic_close); setColorFilter(Color.WHITE); background = ColorDrawable(Color.TRANSPARENT)
             contentDescription = "Cerrar menú"
@@ -200,9 +200,9 @@ class ChatsListActivity : Activity() {
         panel.addView(drawerRow(R.drawable.ic_plus, "Nuevo chat") { (root.tag as? PopupWindow)?.dismiss(); createNewChat() })
         panel.addView(drawerRow(R.drawable.ic_search, "Buscar chats") { (root.tag as? PopupWindow)?.dismiss(); searchChats() })
         panel.addView(drawerRow(R.drawable.ic_ghost, "Chat incógnito") { (root.tag as? PopupWindow)?.dismiss(); startActivity(Intent(this, ChatActivity::class.java).putExtra("incognito", true)) })
-        panel.addView(TextView(this).apply { text = "Adarbot"; textSize = 14f; setTextColor(Color.parseColor("#777B8A")); setPadding(dp(14), dp(28), 0, dp(8)) })
+        panel.addView(TextView(this).apply { text = "adarbot"; textSize = 14f; setTextColor(Color.parseColor("#777B8A")); setPadding(dp(14), dp(28), 0, dp(8)) })
         panel.addView(drawerRow(R.drawable.ic_server, "Mi NAS y servidor") { Toast.makeText(this, "192.168.0.2 · conectado", Toast.LENGTH_SHORT).show() })
-        panel.addView(drawerRow(R.drawable.ic_profile, "Perfil y ajustes") { Toast.makeText(this, "Perfil de Adarbot", Toast.LENGTH_SHORT).show() })
+        panel.addView(drawerRow(R.drawable.ic_profile, "Perfil y ajustes") { Toast.makeText(this, "Perfil de adarbot", Toast.LENGTH_SHORT).show() })
         val chats = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, dp(8), 0, 0) }
         chats.addView(TextView(this).apply { text = "Conversaciones"; textSize = 14f; setTextColor(Color.parseColor("#777B8A")); setPadding(dp(14), dp(10), 0, dp(6)) })
         list.forEach { c -> chats.addView(drawerRow(R.drawable.ic_profile, c.title) { (root.tag as? PopupWindow)?.dismiss(); openConv(c) }) }

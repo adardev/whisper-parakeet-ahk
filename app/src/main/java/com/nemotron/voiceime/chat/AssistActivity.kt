@@ -2,12 +2,25 @@ package com.nemotron.voiceime.chat
 
 import android.Manifest
 import android.app.Activity
+import android.app.Dialog
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.PixelFormat
+import android.graphics.drawable.ColorDrawable
+import android.media.ImageReader
+import android.media.projection.MediaProjection
+import android.media.projection.MediaProjectionManager
+import android.hardware.display.DisplayManager
+import android.hardware.display.VirtualDisplay
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.util.Base64
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
@@ -25,16 +38,27 @@ import android.widget.LinearLayout
 import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.TextView
+import android.widget.ImageView
+import java.io.ByteArrayOutputStream
 import com.nemotron.voiceime.R
+import com.nemotron.voiceime.dhizuku.ShizukuManager
 
 class AssistActivity : Activity() {
     private lateinit var panel: View
     private lateinit var input: EditText
     private lateinit var status: TextView
     private lateinit var micButton: ImageButton
+    private lateinit var modelChip: TextView
     private lateinit var chat: ChatClient
     private var conversationId: String? = null
     private var speech: SpeechRecognizer? = null
+    private var pendingScreenshot: String? = null
+    private var pendingBitmap: Bitmap? = null
+    private var projection: MediaProjection? = null
+    private var virtualDisplay: VirtualDisplay? = null
+    private var imageReader: ImageReader? = null
+    private val models = listOf("deepseek-flash", "mimo-v2.5", "nemotron")
+    private var modelIndex = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -62,6 +86,19 @@ class AssistActivity : Activity() {
         } else savedUrl
         chat = ChatClient(base)
         input = findViewById(R.id.assistInput)
+        modelChip = findViewById(R.id.assistModelChip)
+        val previewWrap = findViewById<View>(R.id.assistPreviewWrap)
+        val preview = findViewById<ImageView>(R.id.assistPreview)
+        preview.setOnClickListener { showScreenshotPreview() }
+        findViewById<ImageButton>(R.id.assistPreviewRemove).setOnClickListener {
+            haptic(it)
+            preview.setImageDrawable(null)
+            previewWrap.visibility = View.GONE
+            pendingScreenshot = null
+            pendingBitmap?.recycle()
+            pendingBitmap = null
+            status.text = ""
+        }
         status = findViewById(R.id.assistStatus)
         panel = findViewById(R.id.assistPanel)
         findViewById<View>(R.id.assistRoot).apply {
@@ -85,6 +122,12 @@ class AssistActivity : Activity() {
         findViewById<ImageButton>(R.id.assistSend).setOnClickListener { haptic(it); send() }
         findViewById<ImageButton>(R.id.assistAttach).setOnClickListener { haptic(it); showAttachmentMenu(it) }
         micButton = findViewById(R.id.assistMic)
+        modelChip.setOnClickListener {
+            haptic(it)
+            modelIndex = (modelIndex + 1) % models.size
+            modelChip.text = displayName(models[modelIndex])
+        }
+        findViewById<ImageButton>(R.id.assistScreenshot).setOnClickListener { haptic(it); requestScreenCapture() }
         micButton.setOnClickListener { haptic(it); if (speech != null) { speech?.stopListening(); speech = null; setMicListening(false) } else listen() }
         input.setOnEditorActionListener { _, _, _ -> send(); true }
         // El asistente de voz abre limpio: el teclado solo aparece cuando el usuario toca el campo.
@@ -113,17 +156,123 @@ class AssistActivity : Activity() {
     }
 
     private fun send() {
-        val text = input.text.toString().trim()
-        if (text.isEmpty()) return
+        val text = input.text.toString().trim().ifEmpty {
+            if (pendingScreenshot != null) "Analiza esta captura de pantalla." else return
+        }
         input.setText(""); status.text = "Pensando..."
         val id = conversationId
         val done: (String) -> Unit = { answer -> runOnUiThread { status.text = answer.ifEmpty { "Listo" }.take(72) } }
         val fail: (Throwable) -> Unit = { e -> runOnUiThread { status.text = "Sin conexión: ${e.message ?: "error"}" } }
         val start: (String) -> Unit = { cid ->
             conversationId = cid
-            chat.stream(text, "deepseek-flash", emptyList(), cid, false, {}, done, fail)
+            val image = pendingScreenshot
+            pendingScreenshot = null
+            chat.stream(text, models[modelIndex], emptyList(), cid, false, image, {}, done, fail)
         }
         if (id != null) start(id) else chat.createConversation({ runOnUiThread { start(it.optString("id")) } }, fail)
+    }
+
+    private fun requestScreenCapture() {
+        if (!ShizukuManager.hasPermission()) {
+            status.text = "Activa Shizuku para capturar sin compartir pantalla"
+            return
+        }
+        val file = java.io.File(getExternalFilesDir(null), "adarbot_capture.png")
+        Thread {
+            try {
+                ShizukuManager.execShellCapture("screencap -p ${file.absolutePath}")
+                val bitmap = BitmapFactory.decodeFile(file.absolutePath)
+                    ?: throw IllegalStateException("No se pudo capturar la pantalla")
+                val bytes = ByteArrayOutputStream()
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 72, bytes)
+                val encoded = Base64.encodeToString(bytes.toByteArray(), Base64.NO_WRAP)
+                runOnUiThread {
+                    pendingBitmap?.recycle()
+                    pendingBitmap = bitmap
+                    pendingScreenshot = encoded
+                    status.text = "Captura adjunta"
+                    findViewById<ImageView>(R.id.assistPreview).setImageBitmap(bitmap)
+                    findViewById<View>(R.id.assistPreviewWrap).visibility = View.VISIBLE
+                }
+            } catch (e: Exception) {
+                runOnUiThread { status.text = "No se pudo capturar la pantalla" }
+            } finally {
+                file.delete()
+            }
+        }.start()
+    }
+
+    private fun captureScreen(resultCode: Int, data: Intent) {
+        val manager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+        projection = manager.getMediaProjection(resultCode, data)
+        val metrics = resources.displayMetrics
+        val width = metrics.widthPixels
+        val height = metrics.heightPixels
+        val reader = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
+        imageReader = reader
+        reader.setOnImageAvailableListener({ source ->
+            val image = source.acquireLatestImage() ?: return@setOnImageAvailableListener
+            try {
+                val plane = image.planes[0]
+                val pixelStride = plane.pixelStride
+                val rowStride = plane.rowStride
+                val rowPadding = rowStride - pixelStride * width
+                val raw = Bitmap.createBitmap(width + rowPadding / pixelStride, height, Bitmap.Config.ARGB_8888)
+                raw.copyPixelsFromBuffer(plane.buffer)
+                val bitmap = Bitmap.createBitmap(raw, 0, 0, width, height)
+                raw.recycle()
+                val bytes = ByteArrayOutputStream()
+                bitmap.compress(Bitmap.CompressFormat.JPEG, 72, bytes)
+                bitmap.recycle()
+                pendingScreenshot = Base64.encodeToString(bytes.toByteArray(), Base64.NO_WRAP)
+                runOnUiThread {
+                    status.text = "Captura adjunta"
+                    pendingBitmap = bitmap
+                    findViewById<ImageView>(R.id.assistPreview).setImageBitmap(bitmap)
+                    findViewById<View>(R.id.assistPreviewWrap).visibility = View.VISIBLE
+                }
+            } finally {
+                image.close()
+                releaseCapture()
+            }
+        }, Handler(Looper.getMainLooper()))
+        virtualDisplay = projection?.createVirtualDisplay(
+            "adarbot-screen", width, height, metrics.densityDpi,
+            DisplayManager.VIRTUAL_DISPLAY_FLAG_AUTO_MIRROR, reader.surface, null, null
+        )
+    }
+
+    private fun releaseCapture() {
+        virtualDisplay?.release(); virtualDisplay = null
+        imageReader?.close(); imageReader = null
+        projection?.stop(); projection = null
+    }
+
+    private fun showScreenshotPreview() {
+        val bitmap = pendingBitmap ?: return
+        lateinit var dialog: Dialog
+        val image = ImageView(this).apply {
+            setImageBitmap(bitmap)
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            setBackgroundColor(Color.BLACK)
+            setOnClickListener { dialog.dismiss() }
+        }
+        dialog = Dialog(this).apply {
+            requestWindowFeature(Window.FEATURE_NO_TITLE)
+            setContentView(image)
+            setOnShowListener {
+                window?.setBackgroundDrawable(ColorDrawable(Color.BLACK))
+                window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+            }
+        }
+        dialog.show()
+        dialog.window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
+    }
+
+    private fun displayName(model: String): String = when (model) {
+        "deepseek-flash" -> "DeepSeek"
+        "mimo-v2.5" -> "MiMo"
+        else -> "Nemotron"
     }
 
     private fun openFullChat() {
@@ -169,7 +318,7 @@ class AssistActivity : Activity() {
             if (active) setStroke(dp(2), Color.parseColor("#9BC4FF"))
         }
         micButton.setColorFilter(if (active) Color.WHITE else Color.parseColor("#C9C9D6"))
-        micButton.contentDescription = if (active) "Detener grabación" else "Hablar con Adarbot"
+        micButton.contentDescription = if (active) "Detener grabación" else "Hablar con adarbot"
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
@@ -226,15 +375,18 @@ class AssistActivity : Activity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == 700 && resultCode == RESULT_OK) {
-            val name = data?.data?.lastPathSegment ?: "archivo seleccionado"
-            input.setText("[Adjunto: $name] ")
-            input.setSelection(input.length())
-            input.requestFocus()
+        when {
+            requestCode == 700 && resultCode == RESULT_OK -> {
+                val name = data?.data?.lastPathSegment ?: "archivo seleccionado"
+                input.setText("[Adjunto: $name] ")
+                input.setSelection(input.length())
+                input.requestFocus()
+            }
+            requestCode == 701 && resultCode == RESULT_OK && data != null -> captureScreen(resultCode, data)
         }
     }
 
-    override fun onDestroy() { speech?.destroy(); super.onDestroy() }
+    override fun onDestroy() { speech?.destroy(); releaseCapture(); pendingBitmap?.recycle(); pendingBitmap = null; super.onDestroy() }
 
     private fun haptic(view: android.view.View) {
         view.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)

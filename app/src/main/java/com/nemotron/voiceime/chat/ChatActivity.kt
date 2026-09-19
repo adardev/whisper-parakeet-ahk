@@ -7,9 +7,13 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.Build
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
@@ -30,6 +34,8 @@ import android.widget.ScrollView
 import android.widget.PopupWindow
 import android.view.Gravity
 import android.view.ViewGroup
+import android.util.Base64
+import java.io.ByteArrayOutputStream
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.nemotron.voiceime.R
@@ -57,6 +63,28 @@ class ChatActivity : Activity() {
     private var modelIndex = 0
     private var listening = false
     private var speech: SpeechRecognizer? = null
+    private var pendingImageData: String? = null
+    private var pendingImageBitmap: Bitmap? = null
+    private val thinkingLabels = listOf(
+        "conectando con adarbot…",
+        "adarbot está pensando…",
+        "preparando respuesta…"
+    )
+    private val thinkingHandler = Handler(Looper.getMainLooper())
+    private var thinkingIndex = -1
+    private var thinkingStep = 0
+    private val thinkingRunnable = object : Runnable {
+        override fun run() {
+            if (thinkingIndex !in messages.indices) return
+            messages[thinkingIndex] = messages[thinkingIndex].copy(
+                content = thinkingLabels[thinkingStep % thinkingLabels.size]
+            )
+            adapter.notifyItemChanged(thinkingIndex)
+            recycler.scrollToPosition(thinkingIndex)
+            thinkingStep++
+            thinkingHandler.postDelayed(this, 700L)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -79,6 +107,17 @@ class ChatActivity : Activity() {
         val sendBtn: ImageButton = findViewById(R.id.btnSend)
         deleteBtn = findViewById(R.id.btnDelete)
         val titleV: TextView = findViewById(R.id.convTitle)
+        val attachmentPreview = findViewById<View>(R.id.chatAttachmentPreview)
+        val attachmentImage = findViewById<ImageView>(R.id.chatAttachmentImage)
+        attachmentImage.setOnClickListener { showImagePreview(pendingImageBitmap) }
+        findViewById<ImageButton>(R.id.chatAttachmentRemove).setOnClickListener {
+            haptic(it)
+            attachmentPreview.visibility = View.GONE
+            attachmentImage.setImageDrawable(null)
+            pendingImageData = null
+            pendingImageBitmap?.recycle()
+            pendingImageBitmap = null
+        }
         connectionDot = findViewById(R.id.connectionDot)
 
         window.statusBarColor = Color.parseColor("#090E17")
@@ -179,6 +218,7 @@ class ChatActivity : Activity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        thinkingHandler.removeCallbacks(thinkingRunnable)
         try {
             speech?.destroy()
         } catch (e: Exception) {
@@ -192,8 +232,9 @@ class ChatActivity : Activity() {
     }
 
     private fun doSend() {
-        val text = input.text.toString().trim()
-        if (text.isEmpty()) return
+        val text = input.text.toString().trim().ifEmpty {
+            if (pendingImageData != null) "Analiza esta imagen." else return
+        }
         val existing = conversation
         if (existing == null && !incognitoMode) {
             chat.createConversation({ json ->
@@ -235,10 +276,17 @@ class ChatActivity : Activity() {
             ConversationStore.save(conv)
         }
 
-        appendUi("assistant", "")
+        appendUi("assistant", thinkingLabels[0])
         val bubbleIndex = messages.size - 1
+        thinkingIndex = bubbleIndex
+        thinkingStep = 1
+        thinkingHandler.removeCallbacks(thinkingRunnable)
+        thinkingHandler.postDelayed(thinkingRunnable, 700L)
         recycler.scrollToPosition(messages.size - 1)
         micBtn.isEnabled = false
+        val imageData = pendingImageData
+        pendingImageData = null
+        findViewById<View>(R.id.chatAttachmentPreview).visibility = View.GONE
 
         chat.stream(
             text,
@@ -246,10 +294,14 @@ class ChatActivity : Activity() {
             history,
             conv.id,
             isIncognito(),
+            imageData = imageData,
             onToken = { token ->
                 runOnUiThread {
+                    stopThinking()
                     if (bubbleIndex < messages.size) {
-                        messages[bubbleIndex] = messages[bubbleIndex].copy(content = messages[bubbleIndex].content + token)
+                        val current = messages[bubbleIndex].content
+                        val prefix = if (current in thinkingLabels) "" else current
+                        messages[bubbleIndex] = messages[bubbleIndex].copy(content = prefix + token)
                         adapter.notifyItemChanged(bubbleIndex)
                         recycler.scrollToPosition(bubbleIndex)
                     }
@@ -257,6 +309,7 @@ class ChatActivity : Activity() {
             },
             onComplete = { full ->
                 runOnUiThread {
+                    stopThinking()
                     if (bubbleIndex < messages.size) {
                         messages[bubbleIndex] = messages[bubbleIndex].copy(content = full)
                         adapter.notifyItemChanged(bubbleIndex)
@@ -271,6 +324,7 @@ class ChatActivity : Activity() {
             },
             onError = { err ->
                 runOnUiThread {
+                    stopThinking()
                     if (bubbleIndex < messages.size) {
                         messages[bubbleIndex] = messages[bubbleIndex].copy(content = "Error: ${err.message ?: "sin conexion al servidor"}")
                         adapter.notifyItemChanged(bubbleIndex)
@@ -279,6 +333,11 @@ class ChatActivity : Activity() {
                 }
             }
         )
+    }
+
+    private fun stopThinking() {
+        thinkingHandler.removeCallbacks(thinkingRunnable)
+        thinkingIndex = -1
     }
 
     private fun appendUi(role: String, content: String) {
@@ -418,10 +477,37 @@ class ChatActivity : Activity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == 701 && resultCode == RESULT_OK) {
-            val name = data?.data?.lastPathSegment ?: "archivo seleccionado"
-            input.setText("[Adjunto: $name] ")
-            input.setSelection(input.length())
+            val uri = data?.data
+            val type = uri?.let { contentResolver.getType(it) }.orEmpty()
+            if (uri != null && type.startsWith("image/")) {
+                val bitmap = contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
+                if (bitmap != null) {
+                    val bytes = ByteArrayOutputStream()
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 72, bytes)
+                    pendingImageBitmap?.recycle()
+                    pendingImageBitmap = bitmap
+                    pendingImageData = Base64.encodeToString(bytes.toByteArray(), Base64.NO_WRAP)
+                    findViewById<ImageView>(R.id.chatAttachmentImage).setImageBitmap(bitmap)
+                    findViewById<View>(R.id.chatAttachmentPreview).visibility = View.VISIBLE
+                    input.setText("")
+                }
+            } else {
+                val name = uri?.lastPathSegment ?: "archivo seleccionado"
+                input.setText("[Adjunto: $name] ")
+            }
             input.requestFocus()
+        }
+    }
+
+    private fun showImagePreview(bitmap: Bitmap?) {
+        if (bitmap == null) return
+        val image = ImageView(this).apply { setImageBitmap(bitmap); scaleType = ImageView.ScaleType.FIT_CENTER; setBackgroundColor(Color.BLACK) }
+        Dialog(this).apply {
+            requestWindowFeature(Window.FEATURE_NO_TITLE)
+            setContentView(image)
+            show()
+            window?.setBackgroundDrawable(ColorDrawable(Color.BLACK))
+            window?.setLayout(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         }
     }
 
@@ -436,7 +522,7 @@ class ChatActivity : Activity() {
             Conversation("incognito_${System.currentTimeMillis()}", "Chat incógnito", System.currentTimeMillis())
         } else null
         convId = null
-        titleView().text = "Adarbot"
+        titleView().text = "adarbot"
         updateIncognitoUi()
         showWelcomeIfEmpty()
     }
@@ -481,17 +567,17 @@ class ChatActivity : Activity() {
             setBackgroundResource(R.drawable.bg_drawer_panel)
         }
         val top = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-        top.addView(TextView(this).apply { text = "Adarbot"; textSize = 26f; setTextColor(Color.parseColor("#E8F1FF")); setTypeface(null, android.graphics.Typeface.BOLD); layoutParams = LinearLayout.LayoutParams(0, -2, 1f) })
+        top.addView(TextView(this).apply { text = "adarbot"; textSize = 26f; setTextColor(Color.parseColor("#E8F1FF")); setTypeface(null, android.graphics.Typeface.BOLD); layoutParams = LinearLayout.LayoutParams(0, -2, 1f) })
         val close = ImageButton(this).apply { setImageResource(R.drawable.ic_close); setColorFilter(Color.WHITE); background = ColorDrawable(Color.TRANSPARENT) }
         top.addView(close, LinearLayout.LayoutParams(dp(52), dp(52))); panel.addView(top)
         lateinit var drawer: Dialog
         panel.addView(drawerRow(R.drawable.ic_plus, "Nuevo chat") { drawer.dismiss(); startActivity(Intent(this, ChatActivity::class.java)) })
-        panel.addView(TextView(this).apply { text = "Adarbot"; textSize = 14f; setTextColor(Color.parseColor("#8394B1")); setPadding(dp(14), dp(28), 0, dp(8)) })
+        panel.addView(TextView(this).apply { text = "adarbot"; textSize = 14f; setTextColor(Color.parseColor("#8394B1")); setPadding(dp(14), dp(28), 0, dp(8)) })
         panel.addView(drawerRow(R.drawable.ic_mic, "Nemotron: voz y atajos") {
             drawer.dismiss()
             startActivity(Intent(this, com.nemotron.voiceime.ui.SetupActivity::class.java))
         })
-        panel.addView(drawerRow(R.drawable.ic_server, "Adarbot y servidor") { drawer.dismiss(); showAdarbotInfo() })
+        panel.addView(drawerRow(R.drawable.ic_server, "adarbot y servidor") { drawer.dismiss(); showAdarbotInfo() })
         val chats = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, dp(12), 0, 0) }
         fun renderChats(items: List<Conversation>) {
             chats.removeAllViews()
@@ -613,7 +699,7 @@ class ChatActivity : Activity() {
             setBackgroundResource(R.drawable.bg_adarbot_info_dialog)
         }
         card.addView(TextView(this).apply {
-            text = "Adarbot"
+            text = "adarbot"
             textSize = 27f
             setTextColor(Color.parseColor("#E8F1FF"))
             setTypeface(null, android.graphics.Typeface.BOLD)
@@ -639,7 +725,7 @@ class ChatActivity : Activity() {
         card.addView(sync)
         card.addView(info("Acceso remoto", "HTTPS público · sin VPN"))
         val version = try { packageManager.getPackageInfo(packageName, 0).versionName } catch (_: Exception) { "1.0" }
-        card.addView(info("Versión", "Adarbot $version"))
+        card.addView(info("Versión", "adarbot $version"))
         val close = TextView(this).apply {
             text = "Cerrar"
             textSize = 16f

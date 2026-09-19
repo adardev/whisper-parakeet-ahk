@@ -47,6 +47,7 @@ class ChatClient(
         history: List<JSONObject>,
         conversationId: String? = null,
         incognito: Boolean = false,
+        imageData: String? = null,
         onToken: (String) -> Unit,
         onComplete: (String) -> Unit,
         onError: (Throwable) -> Unit
@@ -54,12 +55,16 @@ class ChatClient(
         val messages = JSONArray()
         messages.put(JSONObject().apply {
             put("role", "system")
-            put("content", "Eres Hermes, tu agente personal. Responde en espanol. CERO emojis.")
+            put("content", "Eres adarbot, tu agente personal. Responde en espanol. CERO emojis.")
         })
         for (msg in history) { messages.put(msg) }
+        val userContent: Any = if (!imageData.isNullOrBlank()) JSONArray().apply {
+            put(JSONObject().apply { put("type", "text"); put("text", message) })
+            put(JSONObject().apply { put("type", "image_url"); put("image_url", JSONObject().put("url", "data:image/jpeg;base64,$imageData")) })
+        } else message
         messages.put(JSONObject().apply {
             put("role", "user")
-            put("content", message)
+            put("content", userContent)
         })
 
         val body = JSONObject().apply {
@@ -100,7 +105,7 @@ class ChatClient(
         val messages = JSONArray()
         messages.put(JSONObject().apply {
             put("role", "system")
-            put("content", "Eres Hermes, tu agente personal. Responde en espanol. CERO emojis.")
+            put("content", "Eres adarbot, tu agente personal. Responde en espanol. CERO emojis.")
         })
         for (msg in history) { messages.put(msg) }
         messages.put(JSONObject().apply {

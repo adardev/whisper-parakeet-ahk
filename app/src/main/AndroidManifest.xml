@@ -120,7 +120,7 @@
             android:enabled="true"
             android:exported="true"
             android:icon="@mipmap/ic_launcher"
-            android:label="Adarbot"
+            android:label="adarbot"
             android:targetActivity=".chat.ChatActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -397,7 +397,7 @@
         <activity
             android:name=".chat.ChatActivity"
             android:exported="true"
-            android:label="Hermes Chat"
+            android:label="adarbot"
             android:theme="@style/Theme.NemotronVoiceIME"
             android:windowSoftInputMode="adjustResize" />
 
@@ -406,7 +406,7 @@
         <activity
             android:name=".chat.AssistActivity"
             android:exported="true"
-            android:label="Hermes"
+            android:label="adarbot"
             android:launchMode="singleTop"
             android:theme="@style/Theme.NemotronVoiceIME.Transparent"
             android:windowSoftInputMode="adjustResize">
