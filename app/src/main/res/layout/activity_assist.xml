@@ -49,11 +49,10 @@
     <!-- El adjunto vive dentro del compositor, como en Gemini. -->
     <FrameLayout
         android:id="@+id/assistPreviewWrap"
-        android:layout_width="match_parent"
-        android:layout_height="92dp"
+        android:layout_width="96dp"
+        android:layout_height="96dp"
         android:layout_marginLeft="10dp"
         android:layout_marginTop="8dp"
-        android:layout_marginRight="10dp"
         android:padding="4dp"
         android:background="@drawable/bg_chip"
         android:visibility="gone">
