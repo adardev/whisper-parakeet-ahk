@@ -164,6 +164,7 @@ class ChatActivity : Activity() {
 
         messages.clear()
         conversation?.let { messages.addAll(it.messages) }
+        messages.removeAll { it.role == "assistant" && it.content in thinkingLabels }
         titleV.text = if (incognitoMode) "adarbot" else conversation?.let { if (it.title == "Nuevo chat") "adarbot" else it.title } ?: "adarbot"
         connectionDot.visibility = View.VISIBLE
         chat.conversations({ runOnUiThread { connectionDot.setBackgroundResource(R.drawable.bg_connection_online) } }, { runOnUiThread { connectionDot.setBackgroundResource(R.drawable.bg_connection_offline) } })
@@ -273,10 +274,14 @@ class ChatActivity : Activity() {
     }
 
     private fun mergeRemoteMessages(remote: List<ChatMessage>): List<ChatMessage> {
-        if (messages.isEmpty()) return remote
-        val merged = remote.toMutableList()
+        val cleanRemote = remote.filterNot { it.role == "assistant" && it.content in thinkingLabels }
+        val stableLocal = messages.filterNot {
+            it.role == "assistant" && it.content in thinkingLabels && !sending
+        }
+        if (stableLocal.isEmpty()) return cleanRemote
+        val merged = cleanRemote.toMutableList()
         val remoteIsPartial = remote.size < messages.size || sending
-        messages.filter { it.content.isNotBlank() && (it.role == "user" || remoteIsPartial) }.forEach { local ->
+        stableLocal.filter { it.content.isNotBlank() && (it.role == "user" || remoteIsPartial) }.forEach { local ->
             if (merged.none { it.role == local.role && it.content == local.content }) {
                 if (local.role == "user") {
                     val firstAssistant = merged.indexOfFirst { it.role == "assistant" }
@@ -287,7 +292,7 @@ class ChatActivity : Activity() {
             }
         }
         if (sending) {
-            messages.filter { it.role == "assistant" && it.content in thinkingLabels }
+            stableLocal.filter { it.role == "assistant" && it.content in thinkingLabels }
                 .filter { pending -> merged.none { it.role == pending.role && it.content == pending.content } }
                 .forEach { merged.add(it) }
         }

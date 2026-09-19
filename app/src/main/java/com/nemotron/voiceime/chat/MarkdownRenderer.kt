@@ -23,7 +23,10 @@ object MarkdownRenderer {
         }
 
         body = body.replace(Regex("""(?s)\$\$(.+?)\$\$""")) { saveMath(it.groupValues[1], true) }
+        body = body.replace(Regex("""(?s)\\\[(.+?)\\\]""")) { saveMath(it.groupValues[1], true) }
+        body = body.replace(Regex("""(?m)^\s*\\\((.+?)\\\)\s*$""")) { saveMath(it.groupValues[1], true) }
         body = body.replace(Regex("""(?s)\\\((.+?)\\\)""")) { saveMath(it.groupValues[1], false) }
+        body = body.replace(Regex("""(?m)^\s*\$([^$\n]+)\$\s*$""")) { saveMath(it.groupValues[1], true) }
         body = body.replace(Regex("""\$([^$\n]+)\$""")) { saveMath(it.groupValues[1], false) }
 
         var html = escape(body)
@@ -62,6 +65,8 @@ object MarkdownRenderer {
             "\\neq" to "≠", "\\equiv" to "≡", "\\in" to "∈", "\\notin" to "∉",
             "\\pi" to "π", "\\theta" to "θ", "\\alpha" to "α", "\\beta" to "β",
             "\\gamma" to "γ", "\\Delta" to "Δ", "\\lambda" to "λ", "\\mu" to "μ",
+            "\\to" to "→", "\\rightarrow" to "→", "\\leftarrow" to "←",
+            "\\iff" to "⇔", "\\land" to "∧", "\\lor" to "∨", "\\therefore" to "∴",
             "\\quad" to " ", "\\qquad" to "  ", "\\," to " ", "\\;" to " ",
             "\\!" to "", "\\left" to "", "\\right" to ""
         )
@@ -71,6 +76,8 @@ object MarkdownRenderer {
         value = value.replace(Regex("&+"), " ")
         value = value.replace(Regex("""\\text\{([^{}]*)\}"""), "$1")
         value = value.replace(Regex("""\\mathrm\{([^{}]*)\}"""), "$1")
+        value = value.replace(Regex("""\\(mathbf|mathbb|mathcal|operatorname)\{([^{}]*)\}"""), "$2")
+        value = value.replace(Regex("""\\(overline|underline|hat|bar)\{([^{}]*)\}"""), "$2")
         value = value.replace(Regex("""\^\{([^{}]*)\}""")) { toSuperscript(it.groupValues[1]) }
         value = value.replace(Regex("""_\{([^{}]*)\}""")) { toSubscript(it.groupValues[1]) }
         value = value.replace(Regex("""\^([A-Za-z0-9]+)""")) { toSuperscript(it.groupValues[1]) }
