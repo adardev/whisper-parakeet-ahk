@@ -88,7 +88,7 @@
         android:layout_width="match_parent" android:layout_height="wrap_content"
         android:layout_gravity="bottom" android:orientation="vertical"
         android:layout_margin="14dp"
-        android:paddingLeft="4dp" android:paddingRight="4dp" android:paddingBottom="10dp"
+        android:paddingLeft="4dp" android:paddingTop="8dp" android:paddingRight="4dp" android:paddingBottom="10dp"
         android:background="@drawable/bg_assist_panel" android:elevation="24dp"
         android:focusable="true" android:focusableInTouchMode="true">
     <FrameLayout
@@ -120,6 +120,7 @@
         android:textColor="#C9C9D6"
         android:textSize="12sp"
         android:visibility="gone" />
+    <Space android:layout_width="0dp" android:layout_height="0dp" android:layout_weight="1" />
     <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginLeft="8dp" android:layout_marginRight="8dp" android:layout_marginBottom="2dp" android:gravity="center_vertical" android:paddingLeft="8dp" android:paddingTop="2dp" android:paddingRight="8dp" android:paddingBottom="2dp">
         <ImageButton android:id="@+id/assistAttach" android:layout_width="32dp" android:layout_height="32dp" android:background="@drawable/bg_assist_icon" android:src="@drawable/ic_attach" android:tint="#8FC1FF" android:padding="6dp" android:contentDescription="Adjuntar" />
         <EditText android:id="@+id/assistInput" android:layout_width="0dp" android:layout_height="36dp" android:layout_weight="1" android:layout_marginLeft="4dp" android:layout_marginRight="4dp" android:background="@android:color/transparent" android:hint="Pregúntale a adarbot..." android:singleLine="true" android:imeOptions="actionSend" android:paddingLeft="14dp" android:paddingRight="14dp" android:textColor="#EDEDF0" android:textColorHint="#8E8EA3" android:textSize="14sp" />
