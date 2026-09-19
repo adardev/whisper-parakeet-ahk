@@ -84,7 +84,7 @@
             android:textColor="#EDEDF0"
             android:textSize="17sp"
             android:textStyle="bold"
-            android:visibility="gone" />
+            android:visibility="invisible" />
         <LinearLayout
             android:layout_width="48dp"
             android:layout_height="40dp"

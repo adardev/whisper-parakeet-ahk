@@ -1052,15 +1052,17 @@ class ChatActivity : Activity() {
     }
 
     private fun drawerConversationRow(c: Conversation, open: () -> Unit, pin: () -> Unit, rename: () -> Unit): View {
+        val active = c.id == convId
         val row = LinearLayout(this).apply {
-            gravity = Gravity.CENTER_VERTICAL; setPadding(dp(16), dp(8), dp(6), dp(8)); setBackgroundResource(R.drawable.bg_drawer_conversation)
+            gravity = Gravity.CENTER_VERTICAL; setPadding(dp(16), dp(8), dp(6), dp(8))
+            setBackgroundResource(if (active) R.drawable.bg_bubble_user else R.drawable.bg_drawer_conversation)
             layoutParams = LinearLayout.LayoutParams(-1, -2).apply { setMargins(0, dp(4), 0, dp(4)) }
         }
         if (c.pinned) {
             row.addView(ImageView(this).apply { setImageResource(R.drawable.ic_pin_filled); setColorFilter(Color.parseColor("#8FC1FF")); layoutParams = LinearLayout.LayoutParams(dp(24), dp(24)).apply { marginEnd = dp(6) } })
         }
         row.addView(TextView(this).apply { text = c.title; textSize = 18f; setTextColor(Color.WHITE); maxLines = 2; ellipsize = android.text.TextUtils.TruncateAt.END; gravity = Gravity.CENTER_VERTICAL; layoutParams = LinearLayout.LayoutParams(0, -2, 1f) })
-        row.addView(ImageButton(this).apply { setImageResource(R.drawable.ic_rename); setColorFilter(Color.parseColor("#B9C9E8")); background = ColorDrawable(Color.TRANSPARENT); contentDescription = "Rename conversation"; setOnClickListener { haptic(this); rename() } }, LinearLayout.LayoutParams(dp(38), dp(38)))
+        row.addView(ImageButton(this).apply { setImageResource(R.drawable.ic_rename); setColorFilter(Color.parseColor(if (active) "#E8F1FF" else "#B9C9E8")); background = ColorDrawable(Color.TRANSPARENT); contentDescription = "Rename conversation"; setOnClickListener { haptic(this); rename() } }, LinearLayout.LayoutParams(dp(38), dp(38)))
         row.setOnClickListener { haptic(it); open() }
         row.isLongClickable = true
         row.setOnLongClickListener { haptic(it); pin(); true }
