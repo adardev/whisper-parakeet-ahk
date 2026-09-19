@@ -61,7 +61,10 @@
             android:id="@+id/assistPreview"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
+            android:background="@drawable/bg_assist_preview"
+            android:clipToOutline="true"
             android:contentDescription="Vista previa de captura"
+            android:outlineProvider="background"
             android:scaleType="centerCrop" />
         <ImageButton
             android:id="@+id/assistPreviewRemove"
