@@ -51,11 +51,15 @@
         android:scrollbars="none"
         android:background="@android:color/transparent"
         android:visibility="gone">
-        <FrameLayout
-            android:layout_width="64dp"
-            android:layout_height="56dp"
-            android:background="@drawable/bg_assist_preview"
-            android:padding="4dp">
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:orientation="horizontal">
+            <FrameLayout
+                android:layout_width="64dp"
+                android:layout_height="56dp"
+                android:background="@drawable/bg_assist_preview"
+                android:padding="4dp">
             <ImageView
                 android:id="@+id/assistPreview"
                 android:layout_width="match_parent"
@@ -76,7 +80,8 @@
                 android:padding="7dp"
                 android:src="@drawable/ic_close"
                 android:tint="#FFFFFF" />
-        </FrameLayout>
+            </FrameLayout>
+        </LinearLayout>
     </HorizontalScrollView>
     <LinearLayout
         android:id="@+id/assistPanel"
