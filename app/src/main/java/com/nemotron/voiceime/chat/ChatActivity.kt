@@ -569,8 +569,6 @@ class ChatActivity : Activity() {
                 override fun onRmsChanged(rmsdB: Float) {}
                 override fun onBufferReceived(buffer: ByteArray?) {}
                 override fun onEndOfSpeech() {
-                    listening = false
-                    runOnUiThread { setMicListening(false) }
                 }
                 override fun onError(error: Int) {
                     listening = false
@@ -600,6 +598,7 @@ class ChatActivity : Activity() {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE, "es-MX")
                 putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+                putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 30000L)
             }
             recognizer.startListening(intent)
             listening = true

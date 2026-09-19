@@ -135,7 +135,7 @@ class AssistActivity : Activity() {
                         val lp = panel.layoutParams
                         lp.height = newH
                         panel.layoutParams = lp
-                        screenshotPill.alpha = (1f - (dy.toFloat() / dp(200))).coerceIn(0f, 1f)
+                        screenshotPill.alpha = (1f - (dy.toFloat() / dp(50))).coerceIn(0f, 1f)
                     }
                     true
                 }
