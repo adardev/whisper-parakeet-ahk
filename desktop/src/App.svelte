@@ -13,6 +13,81 @@
   let messagesLoading = false;
   let messagesError = '';
   let messageRequest = 0;
+  let selectedMessage: Message | null = null;
+  let pressTimer: number | undefined;
+
+  function escapeHtml(value: string) {
+    return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function normalizeMath(value: string) {
+    return value
+      .replace(/\\frac\{([^{}]*)\}\{([^{}]*)\}/g, '$1⁄$2')
+      .replace(/\\sqrt\{([^{}]*)\}/g, '√($1)')
+      .replace(/\\partial/g, '∂').replace(/\\nabla/g, '∇').replace(/\\int/g, '∫')
+      .replace(/\\sum/g, 'Σ').replace(/\\infty/g, '∞').replace(/\\times/g, '×')
+      .replace(/\\cdot/g, '·').replace(/\\approx/g, '≈').replace(/\\pm/g, '±')
+      .replace(/\\leq/g, '≤').replace(/\\geq/g, '≥').replace(/\\neq/g, '≠')
+      .replace(/\\equiv/g, '≡').replace(/\\pi/g, 'π').replace(/\\theta/g, 'θ')
+      .replace(/\\alpha/g, 'α').replace(/\\beta/g, 'β').replace(/\\gamma/g, 'γ')
+      .replace(/\\Delta/g, 'Δ').replace(/\\lambda/g, 'λ').replace(/\\mu/g, 'μ')
+      .replace(/\\quad/g, ' ').replace(/\\qquad/g, '  ').replace(/\\,/g, ' ')
+      .replace(/\\left|\\right/g, '').replace(/\\text\{([^{}]*)\}/g, '$1')
+      .replace(/\\mathrm\{([^{}]*)\}/g, '$1').replace(/\\\\/g, '\n')
+      .replace(/\^\{([^{}]*)\}/g, '<sup>$1</sup>').replace(/_\{([^{}]*)\}/g, '<sub>$1</sub>')
+      .replace(/\^([A-Za-z0-9]+)/g, '<sup>$1</sup>').replace(/_([A-Za-z0-9]+)/g, '<sub>$1</sub>')
+      .replace(/\\[A-Za-z]+/g, '').replace(/[{}]/g, '').trim();
+  }
+
+  function renderMarkdown(source: string) {
+    let body = source.replace(/\r\n/g, '\n');
+    const math: string[] = [];
+    const saveMath = (value: string, block: boolean) => {
+      const content = normalizeMath(value);
+      const html = block
+        ? `<div class="math-block">${content.replace(/\n/g, '<br>')}</div>`
+        : `<span class="math-inline">${content}</span>`;
+      math.push(html);
+      return `@@MATH${math.length - 1}@@`;
+    };
+    body = body.replace(/\$\$([\s\S]+?)\$\$/g, (_, v) => saveMath(v, true));
+    body = body.replace(/\\\[([\s\S]+?)\\\]/g, (_, v) => saveMath(v, true));
+    body = body.replace(/\$([^$\n]+)\$/g, (_, v) => saveMath(v, false));
+    let html = escapeHtml(body);
+    html = html.replace(/^#{1,6}\s+(.+)$/gm, '<strong>$1</strong>');
+    html = html.replace(/^[-*]\s+/gm, '• ');
+    html = html.replace(/```(?:[\w+-]+)?\n?([\s\S]*?)```/g, '<pre>$1</pre>');
+    html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+    html = html.replace(/\*\*([^*]+)\*\*|__([^_]+)__/g, (_, a, b) => `<strong>${a || b}</strong>`);
+    html = html.replace(/(?<!\*)\*([^*]+)\*(?!\*)|(?<!_)_([^_]+)_(?!_)/g, (_, a, b) => `<em>${a || b}</em>`);
+    html = html.replace(/\n/g, '<br>');
+    math.forEach((value, index) => { html = html.replace(`@@MATH${index}@@`, value); });
+    return html;
+  }
+
+  function openMessageActions(message: Message) {
+    selectedMessage = message;
+  }
+
+  function startMessagePress(message: Message) {
+    window.clearTimeout(pressTimer);
+    pressTimer = window.setTimeout(() => openMessageActions(message), 550);
+  }
+
+  function stopMessagePress() {
+    window.clearTimeout(pressTimer);
+  }
+
+  async function copyMessage(message: Message) {
+    await navigator.clipboard?.writeText(message.content);
+    selectedMessage = null;
+  }
+
+  function readMessage(message: Message) {
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(new SpeechSynthesisUtterance(message.content));
+    selectedMessage = null;
+  }
 
   async function loadMessages(id: string) {
     const request = ++messageRequest;
@@ -50,6 +125,7 @@
   function newChat() {
     activeChat = null;
     messages = [];
+    selectedMessage = null;
     messagesError = '';
     menuOpen = false;
     input = '';
@@ -58,6 +134,7 @@
   function selectChat(chat: Chat) {
     activeChat = chat;
     messages = [];
+    selectedMessage = null;
     messagesError = '';
     menuOpen = false;
     loadMessages(chat.id);
@@ -102,7 +179,7 @@
       <button class="avatar" aria-label="Perfil">a</button>
     </header>
 
-    <div class="conversation">
+    <div class="conversation" on:click={() => selectedMessage = null}>
       {#if activeChat}
         <div class="chat-view">
           <div class="chat-heading"><span class="eyebrow">CONVERSACIÓN</span><h1>{activeChat.title}</h1></div>
@@ -115,11 +192,22 @@
           {:else}
             <div class="message-list">
               {#each messages as message (message.id ?? `${message.role}-${message.created_at}-${message.content.slice(0, 12)}`)}
-                <article class:mine={message.role === 'user'} class="message-row">
+                <article class:mine={message.role === 'user'} class="message-row"
+                  on:pointerdown={() => startMessagePress(message)}
+                  on:pointerup={stopMessagePress}
+                  on:pointerleave={stopMessagePress}
+                  on:contextmenu|preventDefault={() => openMessageActions(message)}>
                   <div class="message-bubble">
-                    <div class="message-content">{message.content}</div>
+                    <div class="message-content">{@html renderMarkdown(message.content)}</div>
                     <div class="message-meta">{message.model || activeChat.model || 'adarbot'}</div>
                   </div>
+                  {#if selectedMessage === message}
+                    <div class="message-actions" on:click|stopPropagation>
+                      <button on:click={() => copyMessage(message)}>Copiar</button>
+                      <button on:click={() => readMessage(message)}>Leer en voz alta</button>
+                      <span>{message.model || activeChat.model || 'adarbot'}</span>
+                    </div>
+                  {/if}
                 </article>
               {/each}
             </div>

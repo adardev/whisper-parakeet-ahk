@@ -38,10 +38,23 @@ button { color: inherit; border: 0; cursor: pointer; }
 .message-bubble { max-width: min(78%, 760px); padding: 16px 18px 12px; border: 1px solid #3d67a0; border-radius: 23px 23px 23px 8px; background: #172943; color: #eef4ff; box-shadow: 0 8px 24px #02050a30; }
 .message-row.mine .message-bubble { border-color: #6faaff; border-radius: 23px 23px 8px 23px; background: #347ff2; }
 .message-content { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.52; font-size: 16px; }
+.message-content strong { font-weight: 750; color: #f5f8ff; }
+.message-content em { font-style: italic; }
+.message-content code, .message-content pre { color: #b8d5ff; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+.message-content pre { margin: 12px 0; padding: 12px 14px; overflow-x: auto; white-space: pre-wrap; border-radius: 12px; background: #0c1728; }
+.math-block { margin: 18px 0; padding: 12px 8px; text-align: center; color: #f3f5fb; font-family: Georgia, 'Times New Roman', serif; font-size: 1.18em; line-height: 1.8; white-space: normal; }
+.math-inline { color: #dce8ff; font-family: Georgia, 'Times New Roman', serif; font-size: 1.03em; }
+.math-block sup, .math-block sub, .math-inline sup, .math-inline sub { font-size: .7em; line-height: 0; }
 .message-meta { margin-top: 8px; color: #a9c5ec; font-size: 11px; opacity: .82; }
 .message-row.mine .message-meta { color: #dceaff; }
 .loading-state { margin: auto; color: #94a9c9; font-size: 16px; padding: 32px; }
 .loading-state.error { color: #ff9c9c; }
+.message-row { position: relative; }
+.message-actions { position: absolute; z-index: 4; left: 18px; bottom: -48px; display: flex; align-items: center; gap: 5px; padding: 6px; border: 1px solid #3d67a0; border-radius: 14px; background: #111e32; box-shadow: 0 12px 30px #02050acc; }
+.message-row.mine .message-actions { left: auto; right: 18px; }
+.message-actions button { padding: 8px 10px; border-radius: 9px; background: transparent; color: #dce9ff; font-size: 12px; white-space: nowrap; }
+.message-actions button:hover { background: #1c3557; }
+.message-actions span { padding: 0 8px; color: #8fbfff; font-size: 11px; white-space: nowrap; }
 .composer svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
 .composer .send svg { width: 27px; height: 27px; }
 .composer { width: min(760px, calc(100% - 56px)); margin: 0 auto 28px; display: flex; align-items: center; gap: 7px; padding: 9px 12px; border: 1px solid #416fac; border-radius: 24px; background: #111e32; box-shadow: 0 10px 35px #02050a88; }.composer input { flex: 1; min-width: 0; border: 0; outline: 0; color: #eff5ff; background: transparent; padding: 12px 8px; }.composer input::placeholder { color: #8291aa; }.attach, .mic, .send { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 13px; background: transparent; color: #8fbfff; }.mic { color: #b5c2d5; }.send { color: #55a0ff; }
