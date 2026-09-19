@@ -749,9 +749,9 @@ class ChatActivity : Activity() {
     }
 
     private fun modelColor(model: String): Int = when (model) {
-        "nemotron" -> Color.parseColor("#70D45C")
-        "mimo-v2.5" -> Color.parseColor("#FF965F")
-        else -> Color.parseColor("#8B7CFF")
+        "nemotron" -> Color.parseColor("#76B900")
+        "mimo-v2.5" -> Color.parseColor("#FF6900")
+        else -> Color.parseColor("#4D6BFE")
     }
 
     private fun showModelPicker(anchor: View) {
