@@ -213,10 +213,12 @@ class AssistActivity : Activity() {
         }
         window.decorView.setOnApplyWindowInsetsListener { view, insets ->
             val imeBottom = insets.getInsets(android.view.WindowInsets.Type.ime()).bottom
-            val navBottom = insets.getInsets(android.view.WindowInsets.Type.navigationBars()).bottom
-            // Gravity.BOTTOM: un desplazamiento positivo levanta el panel por encima del teclado.
-            val offset = if (imeBottom > 0) imeBottom + dp(10) else navBottom + dp(10)
-            window.attributes = window.attributes.apply { y = offset }
+            // The overlay window is fullscreen, so explicitly lift its bottom controls
+            // above the IME instead of letting the keyboard cover them.
+            val lift = if (imeBottom > 0) imeBottom.toFloat() else 0f
+            panel.translationY = -lift
+            screenshotPill.translationY = -lift
+            previewWrap.translationY = -lift
             view.onApplyWindowInsets(insets)
         }
     }
