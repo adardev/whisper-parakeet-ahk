@@ -25,4 +25,6 @@
     <color name="adarbot_model_deepseek">#8B7CFF</color>
     <color name="adarbot_model_mimo">#FF965F</color>
     <color name="adarbot_model_nemotron">#70D45C</color>
+    <color name="adarbot_selection">#335B97F4</color>
+    <color name="adarbot_cursor">#5B97F4</color>
 </resources>
