@@ -16,7 +16,7 @@
   let sending = false;
   let searchOpen = false;
   let search = '';
-  let attachment: { name: string; data: string } | null = null;
+  let attachment: { name: string; data: string; type: string } | null = null;
   let fileInput: HTMLInputElement;
   let recording = false;
   let recognizer: any;
@@ -168,9 +168,22 @@
   function handleFile(event: Event) {
     const file = (event.target as HTMLInputElement).files?.[0];
     if (!file) return;
+    readAttachment(file);
+  }
+
+  function readAttachment(file: File) {
     const reader = new FileReader();
-    reader.onload = () => attachment = { name: file.name, data: String(reader.result) };
+    reader.onload = () => attachment = { name: file.name || 'Archivo pegado', data: String(reader.result), type: file.type };
     reader.readAsDataURL(file);
+  }
+
+  function handlePaste(event: ClipboardEvent) {
+    const items = Array.from(event.clipboardData?.items || []);
+    const fileItem = items.find((item) => item.kind === 'file');
+    const file = fileItem?.getAsFile() || event.clipboardData?.files?.[0];
+    if (!file) return;
+    event.preventDefault();
+    readAttachment(file);
   }
 
   function toggleRecording() {
@@ -238,7 +251,7 @@
           ...(chat?.id ? { conversation_id: chat.id } : {}),
           incognito,
           save: !incognito,
-          ...(attachment?.data ? { imageData: attachment.data.split(',')[1] } : {})
+          ...(attachment?.type.startsWith('image/') ? { imageData: attachment.data.split(',')[1] } : {})
         })
       });
       const data = await response.json();
@@ -327,10 +340,10 @@
     </div>
 
     <form class="composer" on:submit|preventDefault={submit}>
-      {#if attachment}<div class="attachment-chip"><span>{attachment.name}</span><button type="button" on:click={() => attachment = null} aria-label="Quitar adjunto">×</button></div>{/if}
+      {#if attachment}<div class="attachment-chip">{#if attachment.type.startsWith('image/') }<img src={attachment.data} alt="Vista previa del adjunto" />{/if}<span>{attachment.name}</span><button type="button" on:click={() => attachment = null} aria-label="Quitar adjunto">×</button></div>{/if}
       <input bind:this={fileInput} class="hidden-file" type="file" accept="image/*,.pdf,.txt,.md" on:change={handleFile} />
       <button type="button" class="attach" aria-label="Adjuntar" on:click={chooseAttachment}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m20.5 11.5-8.7 8.7a5 5 0 0 1-7.1-7.1l9.2-9.2a3.5 3.5 0 0 1 5 5l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.3-8.3"/></svg></button>
-      <input bind:value={input} placeholder="Pregúntale a adarbot…" aria-label="Mensaje" />
+      <input bind:value={input} on:paste={handlePaste} placeholder="Pregúntale a adarbot…" aria-label="Mensaje" />
       <button type="button" class:recording class="mic" aria-label="Micrófono" on:click={toggleRecording}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M9 21h6"/></svg></button>
       {#if modelMenu}<div class="model-menu" on:click|stopPropagation>{#each models as option}<button class:chosen={model === option.id} type="button" on:click={() => chooseModel(option.id)}><span class={`model-dot ${option.id}`}></span><span>{option.label}</span><small>{option.provider}</small></button>{/each}</div>{/if}
       <button type="submit" class={`send ${model}`} disabled={sending} aria-label="Enviar" on:pointerdown={startSendPress} on:pointerup={stopSendPress} on:pointerleave={stopSendPress} on:contextmenu|preventDefault={() => modelMenu = true}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 4 18 8-18 8 3-8-3-8Z"/><path d="M6 12h15"/></svg><span class={`selected-model-dot ${model}`}></span></button>
