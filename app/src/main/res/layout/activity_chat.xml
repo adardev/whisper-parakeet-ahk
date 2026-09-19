@@ -120,11 +120,12 @@
                 android:id="@+id/btnDelete"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
+                android:layout_marginLeft="4dp"
+                android:background="@drawable/bg_chip"
                 android:contentDescription="Eliminar conversacion"
                 android:padding="10dp"
                 android:src="@drawable/ic_trash"
-                android:tint="#5A5A6E"
+                android:tint="#8FC1FF"
                 android:visibility="gone" />
         </LinearLayout>
     </FrameLayout>
