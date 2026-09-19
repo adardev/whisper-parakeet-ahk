@@ -238,6 +238,7 @@
             android:textColor="#EDEDF0"
             android:textColorHint="#8E8EA3"
             android:textColorHighlight="@color/adarbot_selection"
+            android:lineSpacingExtra="4dp"
             android:textSize="14sp" />
 
         <ImageButton
