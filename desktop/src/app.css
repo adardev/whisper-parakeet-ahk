@@ -18,7 +18,7 @@ button { color: inherit; border: 0; cursor: pointer; }
 .chat-item { display: flex; flex-direction: column; gap: 4px; }
 .chat-item span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .chat-item small, .muted { color: #7586a2; font-size: 12px; }
-.sidebar-footer { margin-top: auto; display: flex; align-items: center; gap: 8px; color: #71819a; font-size: 12px; padding: 10px; }
+.sidebar-footer { margin-top: auto; display: flex; align-items: center; padding: 10px; }
 .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #707b8c; display: inline-block; box-shadow: 0 0 0 3px #1a2432; }
 .status-dot.online { background: #45d795; box-shadow: 0 0 0 3px #123529; }
 .workspace { min-width: 0; flex: 1; display: flex; flex-direction: column; }
@@ -27,7 +27,22 @@ button { color: inherit; border: 0; cursor: pointer; }
 .menu { display: none; }
 .title { display: flex; align-items: center; gap: 10px; font-size: 19px; }
 .avatar { width: 38px; height: 38px; border-radius: 50%; background: #327ff2; font-weight: 800; }
-.conversation { flex: 1; display: grid; place-items: center; padding: 42px; overflow: auto; }
+.conversation { flex: 1; display: flex; align-items: stretch; justify-content: center; padding: 42px; overflow: auto; min-height: 0; }
 .empty-state { text-align: center; color: #a8b7ce; }.empty-state h1 { margin: 16px 0 8px; color: #f3f7ff; font-size: clamp(30px, 4vw, 52px); letter-spacing: -.04em; }.empty-state p { font-size: 18px; }.empty-state.compact { text-align: left; width: min(700px, 100%); }.empty-state.compact h1 { font-size: 36px; }.eyebrow { color: #71aaff; font-size: 12px; letter-spacing: .16em; }.spark { color: #71aaff; font-size: 48px; }
-.composer { width: min(760px, calc(100% - 56px)); margin: 0 auto 28px; display: flex; align-items: center; gap: 7px; padding: 9px 12px; border: 1px solid #416fac; border-radius: 24px; background: #111e32; box-shadow: 0 10px 35px #02050a88; }.composer input { flex: 1; min-width: 0; border: 0; outline: 0; color: #eff5ff; background: transparent; padding: 12px 8px; }.composer input::placeholder { color: #8291aa; }.attach, .mic, .send { width: 40px; height: 40px; border-radius: 13px; background: transparent; color: #8fbfff; font-size: 23px; }.mic { color: #b5c2d5; }.send { color: #55a0ff; font-size: 27px; }
+.chat-view { width: min(920px, 100%); min-height: 100%; display: flex; flex-direction: column; }
+.chat-heading { flex: 0 0 auto; padding: 8px 12px 22px; }
+.chat-heading h1 { margin: 10px 0 0; color: #f3f7ff; font-size: clamp(26px, 3vw, 42px); letter-spacing: -.035em; }
+.message-list { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 14px; overflow: auto; padding: 8px 12px 34px; }
+.message-row { display: flex; justify-content: flex-start; }
+.message-row.mine { justify-content: flex-end; }
+.message-bubble { max-width: min(78%, 760px); padding: 16px 18px 12px; border: 1px solid #3d67a0; border-radius: 23px 23px 23px 8px; background: #172943; color: #eef4ff; box-shadow: 0 8px 24px #02050a30; }
+.message-row.mine .message-bubble { border-color: #6faaff; border-radius: 23px 23px 8px 23px; background: #347ff2; }
+.message-content { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.52; font-size: 16px; }
+.message-meta { margin-top: 8px; color: #a9c5ec; font-size: 11px; opacity: .82; }
+.message-row.mine .message-meta { color: #dceaff; }
+.loading-state { margin: auto; color: #94a9c9; font-size: 16px; padding: 32px; }
+.loading-state.error { color: #ff9c9c; }
+.composer svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.composer .send svg { width: 27px; height: 27px; }
+.composer { width: min(760px, calc(100% - 56px)); margin: 0 auto 28px; display: flex; align-items: center; gap: 7px; padding: 9px 12px; border: 1px solid #416fac; border-radius: 24px; background: #111e32; box-shadow: 0 10px 35px #02050a88; }.composer input { flex: 1; min-width: 0; border: 0; outline: 0; color: #eff5ff; background: transparent; padding: 12px 8px; }.composer input::placeholder { color: #8291aa; }.attach, .mic, .send { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 13px; background: transparent; color: #8fbfff; }.mic { color: #b5c2d5; }.send { color: #55a0ff; }
 @media (max-width: 900px) { .sidebar { position: fixed; z-index: 5; inset: 0 auto 0 0; transform: translateX(-100%); transition: transform .22s ease; }.sidebar.open { transform: translateX(0); }.brand-row .close { display: block; }.menu { display: block; }.topbar { padding: 0 16px; } }
