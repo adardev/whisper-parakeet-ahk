@@ -59,7 +59,7 @@ class ChatClient(
         val messages = JSONArray()
         messages.put(JSONObject().apply {
             put("role", "system")
-            put("content", "Eres adarbot, tu agente personal. Responde en espanol. CERO emojis.")
+            put("content", "You are adarbot, the user's personal AI agent. Reply in the user's language. NO emojis.")
         })
         for (msg in history) { messages.put(msg) }
         val userContent: Any = if (!imageData.isNullOrBlank()) JSONArray().apply {
@@ -109,7 +109,7 @@ class ChatClient(
         val messages = JSONArray()
         messages.put(JSONObject().apply {
             put("role", "system")
-            put("content", "Eres adarbot, tu agente personal. Responde en espanol. CERO emojis.")
+            put("content", "You are adarbot, the user's personal AI agent. Reply in the user's language. NO emojis.")
         })
         for (msg in history) { messages.put(msg) }
         messages.put(JSONObject().apply {

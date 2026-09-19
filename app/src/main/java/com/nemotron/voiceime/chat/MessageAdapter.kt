@@ -45,8 +45,8 @@ class MessageAdapter(
     override fun onBindViewHolder(holder: MessageVH, position: Int) {
         val msg = messages[position]
         holder.bubble.animate().cancel()
-        if (msg.role == "assistant" && msg.content == "adarbot está pensando…") {
-            holder.bubble.text = "adarbot está pensando"
+        if (msg.role == "assistant" && msg.content == "adarbot is thinking…") {
+            holder.bubble.text = "adarbot is thinking"
             holder.bubble.alpha = 0.55f
             holder.bubble.animate().alpha(1f).setDuration(620).withEndAction {
                 holder.bubble.animate().alpha(0.55f).setDuration(620).start()
@@ -59,10 +59,14 @@ class MessageAdapter(
         if (msg.role == "user") {
             holder.wrap.gravity = Gravity.END
             holder.bubble.setBackgroundResource(R.drawable.bg_bubble_user)
+            holder.bubble.maxWidth = dp(320)
+            holder.bubble.setPadding(dp(16), dp(12), dp(16), dp(12))
             holder.actions.gravity = Gravity.END
         } else {
             holder.wrap.gravity = Gravity.START
-            holder.bubble.setBackgroundResource(R.drawable.bg_bubble_ai)
+            holder.bubble.background = null
+            holder.bubble.maxWidth = Int.MAX_VALUE
+            holder.bubble.setPadding(dp(16), dp(8), dp(16), dp(8))
             holder.actions.gravity = Gravity.START
         }
         holder.copy.setOnClickListener { onCopy(msg) }
@@ -80,6 +84,8 @@ class MessageAdapter(
     }
 
     override fun getItemCount(): Int = messages.size
+
+    private fun dp(v: Int): Int = (v * 3f).toInt()
 
     class MessageVH(item: View) : RecyclerView.ViewHolder(item) {
         val wrap: LinearLayout = item.findViewById(R.id.msgWrap)

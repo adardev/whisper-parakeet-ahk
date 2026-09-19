@@ -79,7 +79,7 @@ class ChatsListActivity : Activity() {
             startActivity(Intent(this, ChatActivity::class.java).putExtra("incognito", true))
         }
         incognitoBtn.setOnLongClickListener {
-            Toast.makeText(this, "Nuevo chat incógnito: se descarta al salir", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Incognito chat: discarded on exit", Toast.LENGTH_SHORT).show()
             true
         }
 
@@ -158,10 +158,10 @@ class ChatsListActivity : Activity() {
     }
 
     private fun renameConv(c: Conversation) {
-        val input = EditText(this).apply { setText(c.title); selectAll(); hint = "Nombre de la conversación" }
-        AlertDialog.Builder(this).setTitle("Renombrar conversación").setView(input)
-            .setNegativeButton("Cancelar", null)
-            .setPositiveButton("Guardar") { _, _ ->
+        val input = EditText(this).apply { setText(c.title); selectAll(); hint = "Conversation name" }
+        AlertDialog.Builder(this).setTitle("Rename conversation").setView(input)
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Save") { _, _ ->
                 val title = input.text.toString().trim()
                 if (title.isNotEmpty()) { c.title = title; ConversationStore.save(c); refresh() }
             }.show()
@@ -195,8 +195,8 @@ class ChatsListActivity : Activity() {
             })
             setOnClickListener { haptic(this); action(); popup.dismiss() }
         }
-        menu.addView(row(R.drawable.ic_rename, "Renombrar", Color.parseColor("#9BC4FF")) { renameConv(conversation) })
-        menu.addView(row(R.drawable.ic_trash, "Eliminar conversación", Color.parseColor("#FF9A9A")) { deleteConv(conversation) })
+        menu.addView(row(R.drawable.ic_rename, "Rename", Color.parseColor("#9BC4FF")) { renameConv(conversation) })
+        menu.addView(row(R.drawable.ic_trash, "Delete conversation", Color.parseColor("#FF9A9A")) { deleteConv(conversation) })
         popup = PopupWindow(menu, dp(220), ViewGroup.LayoutParams.WRAP_CONTENT, true).apply {
             elevation = dp(18).toFloat()
             setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
@@ -235,17 +235,17 @@ class ChatsListActivity : Activity() {
         top.addView(TextView(this).apply { text = "adarbot"; textSize = 26f; setTextColor(Color.WHITE); setTypeface(null, android.graphics.Typeface.BOLD); layoutParams = LinearLayout.LayoutParams(0, -2, 1f) })
         top.addView(ImageButton(this).apply {
             setImageResource(R.drawable.ic_close); setColorFilter(Color.WHITE); background = ColorDrawable(Color.TRANSPARENT)
-            contentDescription = "Cerrar menú"
+            contentDescription = "Close menu"
         }, LinearLayout.LayoutParams(dp(52), dp(52)))
         panel.addView(top)
-        panel.addView(drawerRow(R.drawable.ic_plus, "Nuevo chat") { (root.tag as? PopupWindow)?.dismiss(); createNewChat() })
-        panel.addView(drawerRow(R.drawable.ic_search, "Buscar chats") { (root.tag as? PopupWindow)?.dismiss(); searchChats() })
-        panel.addView(drawerRow(R.drawable.ic_ghost, "Chat incógnito") { (root.tag as? PopupWindow)?.dismiss(); startActivity(Intent(this, ChatActivity::class.java).putExtra("incognito", true)) })
+        panel.addView(drawerRow(R.drawable.ic_plus, "New chat") { (root.tag as? PopupWindow)?.dismiss(); createNewChat() })
+        panel.addView(drawerRow(R.drawable.ic_search, "Search chats") { (root.tag as? PopupWindow)?.dismiss(); searchChats() })
+        panel.addView(drawerRow(R.drawable.ic_ghost, "Incognito chat") { (root.tag as? PopupWindow)?.dismiss(); startActivity(Intent(this, ChatActivity::class.java).putExtra("incognito", true)) })
         panel.addView(TextView(this).apply { text = "adarbot"; textSize = 14f; setTextColor(Color.parseColor("#777B8A")); setPadding(dp(14), dp(28), 0, dp(8)) })
-        panel.addView(drawerRow(R.drawable.ic_server, "Mi NAS y servidor") { Toast.makeText(this, "192.168.0.2 · conectado", Toast.LENGTH_SHORT).show() })
-        panel.addView(drawerRow(R.drawable.ic_profile, "Perfil y ajustes") { Toast.makeText(this, "Perfil de adarbot", Toast.LENGTH_SHORT).show() })
+        panel.addView(drawerRow(R.drawable.ic_server, "My NAS and server") { Toast.makeText(this, "192.168.0.2 · connected", Toast.LENGTH_SHORT).show() })
+        panel.addView(drawerRow(R.drawable.ic_profile, "Profile and settings") { Toast.makeText(this, "adarbot profile", Toast.LENGTH_SHORT).show() })
         val chats = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, dp(8), 0, 0) }
-        chats.addView(TextView(this).apply { text = "Conversaciones"; textSize = 14f; setTextColor(Color.parseColor("#777B8A")); setPadding(dp(14), dp(10), 0, dp(6)) })
+        chats.addView(TextView(this).apply { text = "Conversations"; textSize = 14f; setTextColor(Color.parseColor("#777B8A")); setPadding(dp(14), dp(10), 0, dp(6)) })
         list.forEach { c ->
             val row = drawerRow(R.drawable.ic_profile, c.title) {
                 (root.tag as? PopupWindow)?.dismiss()
@@ -325,12 +325,12 @@ class ChatsListActivity : Activity() {
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
     private fun searchChats() {
-        val input = EditText(this).apply { hint = "Buscar por nombre"; setSingleLine(true); setPadding(32, 8, 32, 8) }
-        AlertDialog.Builder(this).setTitle("Buscar chats").setView(input).setPositiveButton("Buscar") { _, _ ->
+        val input = EditText(this).apply { hint = "Search by name"; setSingleLine(true); setPadding(32, 8, 32, 8) }
+        AlertDialog.Builder(this).setTitle("Search chats").setView(input).setPositiveButton("Search") { _, _ ->
             val query = input.text.toString().trim().lowercase()
             val filtered = if (query.isEmpty()) ConversationStore.list() else ConversationStore.list().filter { it.title.lowercase().contains(query) }
             list.clear(); list.addAll(filtered); adapter.notifyDataSetChanged(); emptyView.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
-        }.setNegativeButton("Cancelar", null).show()
+        }.setNegativeButton("Cancel", null).show()
     }
 
     private fun parseConversations(arr: JSONArray): List<Conversation> = buildList {
@@ -338,7 +338,7 @@ class ChatsListActivity : Activity() {
     }.sortedWith(compareByDescending<Conversation> { it.createdAt }.thenBy { it.id })
 
     private fun parseConversation(o: JSONObject): Conversation = Conversation(
-        o.optString("id"), o.optString("title", "Nuevo chat"),
+        o.optString("id"), o.optString("title", "New chat"),
         o.optLong("updated_at", o.optLong("created_at", System.currentTimeMillis())),
         mutableListOf(), o.optString("source"), o.optString("display_name"), o.optString("chat_id"), o.optBoolean("pinned", false)
     )

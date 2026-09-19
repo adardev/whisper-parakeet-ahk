@@ -39,7 +39,7 @@
         android:id="@+id/chatPin"
         android:layout_width="32dp"
         android:layout_height="32dp"
-        android:contentDescription="Fijado"
+        android:contentDescription="Pinned"
         android:padding="6dp"
         android:src="@drawable/ic_pin_filled"
         android:tint="#8FC1FF"
@@ -49,7 +49,7 @@
         android:id="@+id/chatTrash"
         android:layout_width="40dp"
         android:layout_height="40dp"
-        android:contentDescription="Eliminar"
+        android:contentDescription="Delete"
         android:padding="10dp"
         android:src="@drawable/ic_trash"
         android:tint="#8E8EA3" />

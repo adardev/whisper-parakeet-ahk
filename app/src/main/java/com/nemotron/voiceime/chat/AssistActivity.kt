@@ -223,12 +223,12 @@ class AssistActivity : Activity() {
 
     private fun send() {
         val text = input.text.toString().trim().ifEmpty {
-            if (pendingScreenshot != null) "Analiza esta captura de pantalla." else return
+            if (pendingScreenshot != null) "Analyze this screenshot." else return
         }
-        input.setText(""); status.text = "Pensando..."
+        input.setText(""); status.text = "Thinking..."
         val id = conversationId
-        val done: (String) -> Unit = { answer -> runOnUiThread { status.text = answer.ifEmpty { "Listo" }.take(72) } }
-        val fail: (Throwable) -> Unit = { e -> runOnUiThread { status.text = "Sin conexión: ${e.message ?: "error"}" } }
+        val done: (String) -> Unit = { answer -> runOnUiThread { status.text = answer.ifEmpty { "Done" }.take(72) } }
+        val fail: (Throwable) -> Unit = { e -> runOnUiThread { status.text = "No connection: ${e.message ?: "error"}" } }
         val start: (String) -> Unit = { cid ->
             conversationId = cid
             val image = pendingScreenshot
@@ -241,18 +241,18 @@ class AssistActivity : Activity() {
     private fun requestScreenCapture() {
         if (!ShizukuManager.isAvailable()) {
             status.visibility = View.VISIBLE
-            status.text = "Inicia Shizuku para capturar sin compartir pantalla"
+            status.text = "Start Shizuku to capture without screen sharing"
             return
         }
         if (!ShizukuManager.hasPermission()) {
             status.visibility = View.VISIBLE
-            status.text = "Autoriza la captura en Shizuku..."
+            status.text = "Authorize capture in Shizuku..."
             lateinit var listener: Shizuku.OnRequestPermissionResultListener
             listener = Shizuku.OnRequestPermissionResultListener { _, result ->
                 Shizuku.removeRequestPermissionResultListener(listener)
                 runOnUiThread {
                     if (result == PackageManager.PERMISSION_GRANTED) requestScreenCapture()
-                    else status.text = "Permiso de captura denegado"
+                    else status.text = "Capture permission denied"
                 }
             }
             Shizuku.addRequestPermissionResultListener(listener)
@@ -272,10 +272,10 @@ class AssistActivity : Activity() {
                     10000L
                 )
                 if (!file.exists() || file.length() < 128L) {
-                    throw IllegalStateException("screencap no creó el archivo")
+                    throw IllegalStateException("screencap did not create file")
                 }
                 val bitmap = BitmapFactory.decodeFile(file.absolutePath)
-                    ?: throw IllegalStateException("No se pudo capturar la pantalla")
+                    ?: throw IllegalStateException("Could not capture screen")
                 val bytes = ByteArrayOutputStream()
                 bitmap.compress(Bitmap.CompressFormat.JPEG, 72, bytes)
                 val encoded = Base64.encodeToString(bytes.toByteArray(), Base64.NO_WRAP)
@@ -283,13 +283,13 @@ class AssistActivity : Activity() {
                     pendingBitmap?.recycle()
                     pendingBitmap = bitmap
                     pendingScreenshot = encoded
-                    status.text = "Captura adjunta"
+                    status.text = "Screenshot attached"
                     findViewById<ImageView>(R.id.assistPreview).setImageBitmap(bitmap)
                     findViewById<View>(R.id.assistPreviewWrap).visibility = View.VISIBLE
                     screenshotPill.visibility = View.GONE
                 }
             } catch (e: Exception) {
-                runOnUiThread { status.text = "No se pudo capturar: ${e.message ?: "permiso de Shizuku"}" }
+                runOnUiThread { status.text = "Capture failed: ${e.message ?: "Shizuku permission"}" }
             } finally {
                 file.delete()
             }
@@ -320,7 +320,7 @@ class AssistActivity : Activity() {
                 bitmap.recycle()
                 pendingScreenshot = Base64.encodeToString(bytes.toByteArray(), Base64.NO_WRAP)
                 runOnUiThread {
-                    status.text = "Captura adjunta"
+                    status.text = "Screenshot attached"
                     pendingBitmap = bitmap
                     findViewById<ImageView>(R.id.assistPreview).setImageBitmap(bitmap)
                     findViewById<View>(R.id.assistPreviewWrap).visibility = View.VISIBLE
@@ -439,12 +439,12 @@ class AssistActivity : Activity() {
         val recognizer = SpeechRecognizer.createSpeechRecognizer(this); speech = recognizer
         setMicListening(true)
         recognizer.setRecognitionListener(object : RecognitionListener {
-            override fun onReadyForSpeech(p: Bundle?) { runOnUiThread { status.text = "Te escucho..." } }
+            override fun onReadyForSpeech(p: Bundle?) { runOnUiThread { status.text = "Listening..." } }
             override fun onBeginningOfSpeech() {}
             override fun onRmsChanged(v: Float) {}
             override fun onBufferReceived(b: ByteArray?) {}
             override fun onEndOfSpeech() {}
-            override fun onError(e: Int) { speech = null; runOnUiThread { setMicListening(false); status.text = "No te escuché" } }
+            override fun onError(e: Int) { speech = null; runOnUiThread { setMicListening(false); status.text = "Couldn't hear you" } }
             override fun onResults(b: Bundle?) { speech = null; runOnUiThread { setMicListening(false) }; val r = b?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION); if (!r.isNullOrEmpty()) { input.setText(r[0]); send() } }
             override fun onPartialResults(b: Bundle?) {}
             override fun onEvent(t: Int, p: Bundle?) {}
@@ -462,7 +462,7 @@ class AssistActivity : Activity() {
             if (active) setStroke(dp(2), Color.parseColor("#9BC4FF"))
         }
         micButton.setColorFilter(if (active) Color.WHITE else Color.parseColor("#C9C9D6"))
-        micButton.contentDescription = if (active) "Detener grabación" else "Hablar con adarbot"
+        micButton.contentDescription = if (active) "Stop recording" else "Talk to adarbot"
     }
 
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
@@ -487,13 +487,13 @@ class AssistActivity : Activity() {
         val visionModels = setOf("deepseek-flash", "mimo-v2.5")
         val hasVision = models[modelIndex] in visionModels
         if (hasVision) {
-            addAction(R.drawable.ic_camera, "Cámara", "camera")
-            addAction(R.drawable.ic_gallery, "Fotos", "gallery")
+            addAction(R.drawable.ic_camera, "Camera", "camera")
+            addAction(R.drawable.ic_gallery, "Photos", "gallery")
         } else {
-            addActionDisabled(R.drawable.ic_camera, "Cámara")
-            addActionDisabled(R.drawable.ic_gallery, "Fotos")
+            addActionDisabled(R.drawable.ic_camera, "Camera")
+            addActionDisabled(R.drawable.ic_gallery, "Photos")
         }
-        addAction(R.drawable.ic_file, "Archivos", "file")
+        addAction(R.drawable.ic_file, "Files", "file")
         popup = AdarbotPopupSurface.popup(menu, dp(190))
         popup.showAsDropDown(anchor, -dp(12), -dp(170))
     }
@@ -571,16 +571,16 @@ class AssistActivity : Activity() {
     }
 
     private fun resolveFileName(uri: android.net.Uri?): String {
-        if (uri == null) return "archivo"
+        if (uri == null) return "file"
         if (uri.scheme == "content") {
             contentResolver.query(uri, null, null, null, null)?.use { cursor ->
                 if (cursor.moveToFirst()) {
                     val idx = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
-                    if (idx >= 0) return cursor.getString(idx) ?: "archivo"
+                    if (idx >= 0) return cursor.getString(idx) ?: "file"
                 }
             }
         }
-        return uri.lastPathSegment?.substringAfterLast('/') ?: "archivo"
+        return uri.lastPathSegment?.substringAfterLast('/') ?: "file"
     }
 
     override fun onDestroy() { speech?.destroy(); releaseCapture(); pendingBitmap?.recycle(); pendingBitmap = null; pendingFileUri = null; pendingFileName = null; super.onDestroy() }

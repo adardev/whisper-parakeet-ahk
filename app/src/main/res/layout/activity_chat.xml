@@ -27,7 +27,7 @@
             android:layout_height="wrap_content"
             android:layout_gravity="center"
             android:gravity="center"
-            android:text="Hola, soy adarbot.\n¿En qué te ayudo?"
+            android:text="Hi, I'm adarbot.\nHow can I help you?"
             android:textColor="#F5F5F7"
             android:textSize="27sp"
             android:textStyle="bold" />
@@ -58,7 +58,7 @@
                 android:layout_width="40dp"
                 android:layout_height="40dp"
                 android:background="@drawable/bg_chip"
-                android:contentDescription="Abrir menú de chats"
+                android:contentDescription="Open chat menu"
                 android:padding="8dp"
                 android:src="@drawable/ic_menu"
                 android:tint="#8FC1FF" />
@@ -67,7 +67,7 @@
                 android:layout_width="40dp"
                 android:layout_height="40dp"
                 android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="Volver"
+                android:contentDescription="Back"
                 android:padding="8dp"
                 android:src="@drawable/ic_back"
                 android:tint="#EDEDF0"
@@ -94,7 +94,7 @@
                 android:layout_width="40dp"
                 android:layout_height="40dp"
                 android:background="@drawable/bg_chip"
-                android:contentDescription="Nuevo chat incógnito"
+                android:contentDescription="New incognito chat"
                 android:padding="9dp"
                 android:src="@drawable/ic_ghost"
                 android:tint="#8FC1FF" />
@@ -103,7 +103,7 @@
                 android:layout_width="40dp"
                 android:layout_height="40dp"
                 android:background="@drawable/bg_chip"
-                android:contentDescription="Eliminar conversacion"
+                android:contentDescription="Delete conversation"
                 android:padding="10dp"
                 android:src="@drawable/ic_trash"
                 android:tint="#8FC1FF"
@@ -131,7 +131,7 @@
             android:layout_height="48dp"
             android:background="@drawable/bg_assist_preview"
             android:clipToOutline="true"
-            android:contentDescription="Vista previa del adjunto"
+            android:contentDescription="Attachment preview"
             android:outlineProvider="background"
             android:scaleType="centerCrop"
             android:visibility="gone" />
@@ -140,7 +140,7 @@
             android:layout_width="32dp"
             android:layout_height="32dp"
             android:layout_marginLeft="6dp"
-            android:contentDescription="Icono del archivo"
+            android:contentDescription="File icon"
             android:src="@drawable/ic_file"
             android:tint="#8FC1FF"
             android:visibility="gone" />
@@ -161,7 +161,7 @@
             android:layout_width="28dp"
             android:layout_height="28dp"
             android:background="@drawable/bg_assist_icon"
-            android:contentDescription="Quitar adjunto"
+            android:contentDescription="Remove attachment"
             android:padding="6dp"
             android:src="@drawable/ic_close"
             android:tint="#FFFFFF" />
@@ -214,7 +214,7 @@
             android:layout_width="40dp"
             android:layout_height="44dp"
             android:background="@android:color/transparent"
-            android:contentDescription="Adjuntar"
+            android:contentDescription="Attach"
             android:padding="9dp"
             android:src="@drawable/ic_attach"
             android:tint="#8FC1FF" />
@@ -228,7 +228,7 @@
             android:layout_marginRight="2dp"
             android:background="@android:color/transparent"
             android:gravity="center_vertical"
-            android:hint="Escribe tu mensaje..."
+            android:hint="Type your message..."
             android:imeOptions="actionSend|flagNoFullscreen"
             android:importantForAutofill="no"
             android:inputType="textMultiLine|textNoSuggestions"
@@ -246,7 +246,7 @@
             android:layout_width="44dp"
             android:layout_height="44dp"
             android:background="@android:color/transparent"
-            android:contentDescription="Escribir por voz"
+            android:contentDescription="Voice input"
             android:padding="10dp"
             android:src="@drawable/ic_mic"
             android:tint="#C9C9D6" />

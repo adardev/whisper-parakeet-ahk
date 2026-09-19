@@ -13,7 +13,8 @@
         android:id="@+id/msgColumn"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:layout_marginBottom="8dp">
     <TextView
         android:id="@+id/msgBubble"
         android:layout_width="wrap_content"
@@ -38,7 +39,7 @@
             android:layout_width="30dp"
             android:layout_height="30dp"
             android:background="@android:color/transparent"
-            android:contentDescription="Copiar mensaje"
+            android:contentDescription="Copy message"
             android:padding="7dp"
             android:src="@drawable/ic_copy" />
         <ImageButton
@@ -46,7 +47,7 @@
             android:layout_width="30dp"
             android:layout_height="30dp"
             android:background="@android:color/transparent"
-            android:contentDescription="Escuchar mensaje"
+            android:contentDescription="Listen to message"
             android:padding="7dp"
             android:src="@drawable/ic_volume" />
     </LinearLayout>

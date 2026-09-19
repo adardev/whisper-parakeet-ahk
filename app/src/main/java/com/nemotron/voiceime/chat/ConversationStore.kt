@@ -90,11 +90,11 @@ object ConversationStore {
     fun purgeEmpty() {
         // Solo borra borradores creados por versiones previas de la app.
         // Las conversaciones remotas se sincronizan inicialmente sin mensajes.
-        persist(load().filterNot { it.title == "Nuevo chat" && it.messages.isEmpty() && it.source.isBlank() })
+        persist(load().filterNot { it.title == "New chat" && it.messages.isEmpty() && it.source.isBlank() })
     }
 
     fun create(): Conversation {
-        val c = Conversation(System.currentTimeMillis().toString(), "Nuevo chat", System.currentTimeMillis())
+        val c = Conversation(System.currentTimeMillis().toString(), "New chat", System.currentTimeMillis())
         val l = load()
         l.add(0, c)
         persist(l)

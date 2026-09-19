@@ -70,7 +70,7 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="¿Qué hacemos hoy?"
+                android:text="What are we doing today?"
                 android:textColor="#F5F5F7"
                 android:textSize="28sp"
                 android:textStyle="bold" />
@@ -78,7 +78,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:text="Pregúntale a adarbot"
+                android:text="Ask adarbot"
                 android:textColor="#8E9DB5"
                 android:textSize="16sp" />
             <LinearLayout
@@ -99,7 +99,7 @@
                     android:layout_height="44dp"
                     android:layout_weight="1"
                     android:background="@android:color/transparent"
-                    android:hint="Pregúntale a adarbot..."
+                    android:hint="Ask adarbot..."
                     android:imeOptions="actionSend"
                     android:maxLines="1"
                     android:paddingLeft="14dp"
@@ -111,7 +111,7 @@
                     android:layout_width="44dp"
                     android:layout_height="44dp"
                     android:background="@android:color/transparent"
-                    android:contentDescription="Enviar"
+                    android:contentDescription="Send"
                     android:padding="10dp"
                     android:src="@drawable/ic_send"
                     android:tint="#2F80FF" />
@@ -133,7 +133,7 @@
             android:layout_gravity="center"
             android:gravity="center"
             android:lineSpacingExtra="4dp"
-            android:text="Sin conversaciones\nToca + para empezar"
+            android:text="No conversations\nTap + to start"
             android:textColor="#5A5A6E"
             android:textSize="14sp" />
 
@@ -144,7 +144,7 @@
             android:layout_gravity="end|bottom"
             android:layout_margin="20dp"
             android:background="@drawable/bg_chip"
-            android:contentDescription="Nueva conversacion"
+            android:contentDescription="New conversation"
             android:src="@drawable/ic_plus"
             android:tint="#FFFFFF" />
     </FrameLayout>

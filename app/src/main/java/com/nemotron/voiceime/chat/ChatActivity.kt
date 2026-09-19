@@ -87,7 +87,7 @@ class ChatActivity : Activity() {
         }
     }
     // Estado estable: alternar frases parecía un error de conexión.
-    private val thinkingLabels = listOf("adarbot está pensando…")
+    private val thinkingLabels = listOf("adarbot is thinking…")
     private val thinkingHandler = Handler(Looper.getMainLooper())
     private var thinkingIndex = -1
     private var thinkingStep = 0
@@ -175,7 +175,7 @@ class ChatActivity : Activity() {
         convId = intent.getStringExtra("convId")
         incognitoMode = intent.getBooleanExtra("incognito", false)
         conversation = if (incognitoMode) {
-            Conversation("incognito_${System.currentTimeMillis()}", "Chat incógnito", System.currentTimeMillis())
+            Conversation("incognito_${System.currentTimeMillis()}", "Incognito chat", System.currentTimeMillis())
         } else convId?.let { ConversationStore.get(it) }
         // Un chat nuevo no se persiste hasta que el usuario envía el primer mensaje.
         if (intent.getStringExtra("convId").isNullOrBlank()) backBtn.visibility = View.GONE
@@ -186,7 +186,7 @@ class ChatActivity : Activity() {
         messages.clear()
         conversation?.let { messages.addAll(it.messages) }
         messages.removeAll { it.role == "assistant" && it.content in thinkingLabels }
-        titleV.text = if (incognitoMode) "Nuevo chat (incógnito)" else conversation?.title ?: "Nuevo chat"
+        titleV.text = if (incognitoMode) "New chat (incognito)" else conversation?.title ?: "New chat"
         updateIncognitoUi()
 
         adapter = MessageAdapter(messages, ::copyMessage, ::speakMessage, ::showMessageActions)
@@ -331,8 +331,8 @@ class ChatActivity : Activity() {
     private fun doSend() {
         val text = input.text.toString().trim().ifEmpty {
             when {
-                pendingImageData != null -> "Analiza esta imagen."
-                pendingFileName != null -> "Adjunto: $pendingFileName"
+                pendingImageData != null -> "Analyze this image."
+                pendingFileName != null -> "Attachment: $pendingFileName"
                 else -> return
             }
         }
@@ -348,7 +348,7 @@ class ChatActivity : Activity() {
                 }
             }, {
                 runOnUiThread {
-                    conversation = Conversation(System.currentTimeMillis().toString(), "Nuevo chat", System.currentTimeMillis())
+                    conversation = Conversation(System.currentTimeMillis().toString(), "New chat", System.currentTimeMillis())
                     updateIncognitoUi()
                     doSend()
                 }
@@ -365,7 +365,7 @@ class ChatActivity : Activity() {
         appendUi("user", text)
         updateIncognitoUi()
 
-        if (conv.title == "Nuevo chat") {
+        if (conv.title == "New chat") {
             conv.title = if (text.length > 32) text.substring(0, 32) else text
             titleView().text = conv.title
         }
@@ -443,7 +443,7 @@ class ChatActivity : Activity() {
                 runOnUiThread {
                     stopThinking()
                     if (bubbleIndex < messages.size) {
-                        messages[bubbleIndex] = messages[bubbleIndex].copy(content = "Error: ${err.message ?: "sin conexion al servidor"}")
+                        messages[bubbleIndex] = messages[bubbleIndex].copy(content = "Error: ${err.message ?: "no connection to server"}")
                         adapter.notifyItemChanged(bubbleIndex)
                     }
                     micBtn.isEnabled = true
@@ -461,7 +461,7 @@ class ChatActivity : Activity() {
 
     private fun setSendingUi(active: Boolean) {
         sendBtn.isEnabled = !active
-        sendBtn.contentDescription = if (active) "adarbot está pensando" else "Enviar"
+        sendBtn.contentDescription = if (active) "adarbot is thinking" else "Send"
         sendBtn.animate().cancel()
         if (active) {
             sendBtn.animate().scaleX(0.82f).scaleY(0.82f).alpha(0.7f).setDuration(140).start()
@@ -511,11 +511,11 @@ class ChatActivity : Activity() {
             setOnClickListener { haptic(it); callback() }
             layoutParams = LinearLayout.LayoutParams(dp(48), dp(44))
         }
-        menu.addView(action(R.drawable.ic_copy, "Copiar mensaje") {
+        menu.addView(action(R.drawable.ic_copy, "Copy message") {
             copyMessage(message)
             popup.dismiss()
         })
-        menu.addView(action(R.drawable.ic_volume, "Escuchar mensaje") {
+        menu.addView(action(R.drawable.ic_volume, "Listen to message") {
             speakMessage(message)
             popup.dismiss()
         })
@@ -578,7 +578,7 @@ class ChatActivity : Activity() {
                 override fun onReadyForSpeech(params: Bundle?) {}
                 override fun onBeginningOfSpeech() {
                     listening = true
-                    runOnUiThread { Toast.makeText(this@ChatActivity, "Escuchando...", Toast.LENGTH_SHORT).show() }
+                    runOnUiThread { Toast.makeText(this@ChatActivity, "Listening...", Toast.LENGTH_SHORT).show() }
                 }
                 override fun onRmsChanged(rmsdB: Float) {}
                 override fun onBufferReceived(buffer: ByteArray?) {}
@@ -589,9 +589,9 @@ class ChatActivity : Activity() {
                     runOnUiThread {
                         setMicListening(false)
                         val msg = when (error) {
-                            SpeechRecognizer.ERROR_NO_MATCH -> "No te entendi. Intenta de nuevo."
-                            SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "No se detecto voz."
-                            else -> "Error de reconocimiento ($error)"
+                            SpeechRecognizer.ERROR_NO_MATCH -> "I didn't understand. Try again."
+                            SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "No speech detected."
+                            else -> "Recognition error ($error)"
                         }
                         Toast.makeText(this@ChatActivity, msg, Toast.LENGTH_SHORT).show()
                     }
@@ -629,7 +629,7 @@ class ChatActivity : Activity() {
             if (active) setStroke(dp(2), Color.parseColor("#9BC4FF"))
         }
         micBtn.setColorFilter(if (active) Color.WHITE else Color.parseColor("#C9C9D6"))
-        micBtn.contentDescription = if (active) "Detener grabación" else "Escribir por voz"
+        micBtn.contentDescription = if (active) "Stop recording" else "Voice input"
     }
 
     private fun showAttachmentMenu(anchor: View) {
@@ -647,13 +647,13 @@ class ChatActivity : Activity() {
         val visionModels = setOf("deepseek-flash", "mimo-v2.5")
         val hasVision = models[modelIndex] in visionModels
         if (hasVision) {
-            addAction(R.drawable.ic_camera, "Cámara", "camera")
-            addAction(R.drawable.ic_gallery, "Fotos", "gallery")
+            addAction(R.drawable.ic_camera, "Camera", "camera")
+            addAction(R.drawable.ic_gallery, "Photos", "gallery")
         } else {
-            addActionDisabled(R.drawable.ic_camera, "Cámara")
-            addActionDisabled(R.drawable.ic_gallery, "Fotos")
+            addActionDisabled(R.drawable.ic_camera, "Camera")
+            addActionDisabled(R.drawable.ic_gallery, "Photos")
         }
-        addAction(R.drawable.ic_file, "Archivos", "file")
+        addAction(R.drawable.ic_file, "Files", "file")
         popup = AdarbotPopupSurface.popup(menu, dp(190))
         popup.showAsDropDown(anchor, -dp(12), -dp(170))
     }
@@ -743,16 +743,16 @@ class ChatActivity : Activity() {
     }
 
     private fun resolveFileName(uri: Uri?): String {
-        if (uri == null) return "archivo"
+        if (uri == null) return "file"
         if (uri.scheme == "content") {
             contentResolver.query(uri, null, null, null, null)?.use { cursor ->
                 if (cursor.moveToFirst()) {
                     val idx = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
-                    if (idx >= 0) return cursor.getString(idx) ?: "archivo"
+                    if (idx >= 0) return cursor.getString(idx) ?: "file"
                 }
             }
         }
-        return uri.lastPathSegment?.substringAfterLast('/') ?: "archivo"
+        return uri.lastPathSegment?.substringAfterLast('/') ?: "file"
     }
 
     private fun showImagePreview(bitmap: Bitmap?) {
@@ -775,10 +775,10 @@ class ChatActivity : Activity() {
     private fun toggleIncognitoMode() {
         incognitoMode = !incognitoMode
         conversation = if (incognitoMode) {
-            Conversation("incognito_${System.currentTimeMillis()}", "Chat incógnito", System.currentTimeMillis())
+            Conversation("incognito_${System.currentTimeMillis()}", "Incognito chat", System.currentTimeMillis())
         } else null
         convId = null
-        titleView().text = if (incognitoMode) "Nuevo chat (incógnito)" else "Nuevo chat"
+        titleView().text = if (incognitoMode) "New chat (incognito)" else "New chat"
         updateIncognitoUi()
         showWelcomeIfEmpty()
     }
@@ -792,11 +792,11 @@ class ChatActivity : Activity() {
         if (incognitoMode) {
             incognitoHomeBtn.setImageResource(R.drawable.ic_ghost_filled)
             incognitoHomeBtn.setColorFilter(Color.parseColor("#79A9FF"))
-            incognitoHomeBtn.contentDescription = "Modo incógnito activo"
+            incognitoHomeBtn.contentDescription = "Incognito mode active"
         } else {
             incognitoHomeBtn.setImageResource(R.drawable.ic_ghost)
             incognitoHomeBtn.setColorFilter(Color.parseColor("#8FC1FF"))
-            incognitoHomeBtn.contentDescription = "Activar modo incógnito"
+            incognitoHomeBtn.contentDescription = "Enable incognito mode"
         }
     }
 
@@ -814,7 +814,7 @@ class ChatActivity : Activity() {
         val preview = findViewById<View>(R.id.chatAttachmentPreview)
         preview.visibility = View.GONE
         adapter.replaceMessages(emptyList())
-        titleView().text = "Nuevo chat"
+        titleView().text = "New chat"
         updateIncognitoUi()
         showWelcomeIfEmpty()
         recycler.scrollToPosition(0)
@@ -910,11 +910,11 @@ class ChatActivity : Activity() {
         val close = ImageButton(this).apply { setImageResource(R.drawable.ic_close); setColorFilter(Color.WHITE); background = ColorDrawable(Color.TRANSPARENT) }
         top.addView(close, LinearLayout.LayoutParams(dp(52), dp(52))); panel.addView(top)
         lateinit var drawer: Dialog
-        panel.addView(drawerRow(R.drawable.ic_plus, "Nuevo chat") { drawer.dismiss(); startActivity(Intent(this, ChatActivity::class.java)) })
+        panel.addView(drawerRow(R.drawable.ic_plus, "New chat") { drawer.dismiss(); startActivity(Intent(this, ChatActivity::class.java)) })
         val chats = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, dp(12), 0, 0) }
         fun renderChats(items: List<Conversation>) {
             chats.removeAllViews()
-            chats.addView(TextView(this).apply { text = "Conversaciones"; textSize = 14f; setTextColor(Color.parseColor("#777B8A")); setPadding(dp(14), dp(10), 0, dp(6)) })
+            chats.addView(TextView(this).apply { text = "Conversations"; textSize = 14f; setTextColor(Color.parseColor("#777B8A")); setPadding(dp(14), dp(10), 0, dp(6)) })
             items.forEach { c ->
                 chats.addView(drawerConversationRow(c,
                     open = { drawer.dismiss(); startActivity(Intent(this, ChatActivity::class.java).putExtra("convId", c.id)) },
@@ -1057,7 +1057,7 @@ class ChatActivity : Activity() {
             row.addView(ImageView(this).apply { setImageResource(R.drawable.ic_pin_filled); setColorFilter(Color.parseColor("#8FC1FF")); layoutParams = LinearLayout.LayoutParams(dp(24), dp(24)).apply { marginEnd = dp(6) } })
         }
         row.addView(TextView(this).apply { text = c.title; textSize = 18f; setTextColor(Color.WHITE); maxLines = 2; ellipsize = android.text.TextUtils.TruncateAt.END; gravity = Gravity.CENTER_VERTICAL; layoutParams = LinearLayout.LayoutParams(0, -2, 1f) })
-        row.addView(ImageButton(this).apply { setImageResource(R.drawable.ic_rename); setColorFilter(Color.parseColor("#B9C9E8")); background = ColorDrawable(Color.TRANSPARENT); contentDescription = "Renombrar conversación"; setOnClickListener { haptic(this); rename() } }, LinearLayout.LayoutParams(dp(38), dp(38)))
+        row.addView(ImageButton(this).apply { setImageResource(R.drawable.ic_rename); setColorFilter(Color.parseColor("#B9C9E8")); background = ColorDrawable(Color.TRANSPARENT); contentDescription = "Rename conversation"; setOnClickListener { haptic(this); rename() } }, LinearLayout.LayoutParams(dp(38), dp(38)))
         row.setOnClickListener { haptic(it); open() }
         row.isLongClickable = true
         row.setOnLongClickListener { haptic(it); pin(); true }
@@ -1071,7 +1071,7 @@ class ChatActivity : Activity() {
             setBackgroundResource(R.drawable.bg_adarbot_info_dialog)
         }
         card.addView(TextView(this).apply {
-            text = "renombrar conversación"; textSize = 22f; setTypeface(null, android.graphics.Typeface.BOLD)
+            text = "Rename conversation"; textSize = 22f; setTypeface(null, android.graphics.Typeface.BOLD)
             setTextColor(Color.parseColor("#E8F1FF")); setPadding(0, 0, 0, dp(14))
         })
         val field = EditText(this).apply {
@@ -1087,8 +1087,8 @@ class ChatActivity : Activity() {
             setPadding(dp(18), dp(11), dp(18), dp(11)); setBackgroundResource(R.drawable.bg_drawer_action)
             setOnClickListener { haptic(this); click() }
         }
-        actions.addView(action("cancelar") { dialog.dismiss() }, LinearLayout.LayoutParams(-2, -2).apply { setMargins(0, 0, dp(8), 0) })
-        actions.addView(action("guardar") {
+        actions.addView(action("Cancel") { dialog.dismiss() }, LinearLayout.LayoutParams(-2, -2).apply { setMargins(0, 0, dp(8), 0) })
+        actions.addView(action("Save") {
             field.text.toString().trim().takeIf { it.isNotEmpty() }?.let { c.title = it; ConversationStore.save(c); done() }
             dialog.dismiss()
         })
@@ -1111,7 +1111,7 @@ class ChatActivity : Activity() {
             setTypeface(null, android.graphics.Typeface.BOLD)
         })
         card.addView(TextView(this).apply {
-            text = "Agente personal conectado a tu NAS"
+            text = "Personal agent connected to your NAS"
             textSize = 15f
             setTextColor(Color.parseColor("#99ABC9"))
             setPadding(0, dp(4), 0, dp(24))
@@ -1126,11 +1126,11 @@ class ChatActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(-1, -2).apply { setMargins(0, 0, 0, dp(10)) }
         }
         val server = prefs().getString("server_url", "https://adarlpz-2.tail4988cb.ts.net") ?: "https://adarlpz-2.tail4988cb.ts.net"
-        card.addView(info("Servidor NAS", server))
-        val sync = info("Sincronización", "Comprobando conexión…")
+        card.addView(info("NAS Server", server))
+        val sync = info("Sync", "Checking connection…")
         card.addView(sync)
         val close = TextView(this).apply {
-            text = "Cerrar"
+            text = "Close"
             textSize = 16f
             gravity = Gravity.CENTER
             setTextColor(Color.parseColor("#DCEAFF"))
@@ -1149,11 +1149,11 @@ class ChatActivity : Activity() {
         }
         chat.conversations({ arr ->
             runOnUiThread {
-                sync.text = "Sincronización\nActiva · ${arr.length()} conversaciones disponibles"
+                sync.text = "Sync\nActive · ${arr.length()} conversations available"
             }
         }, { error ->
             runOnUiThread {
-                sync.text = "Sincronización\nSin conexión · ${error.message ?: "revisa el NAS"}"
+                sync.text = "Sync\nOffline · ${error.message ?: "check the NAS"}"
             }
         })
     }
