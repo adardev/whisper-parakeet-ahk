@@ -370,7 +370,7 @@
     </div>
 
     <form class="composer" on:submit|preventDefault={submit}>
-      {#if attachment}<div class="attachment-chip">{#if attachment.type.startsWith('image/') }<img src={attachment.data} alt="Vista previa del adjunto" />{/if}<span>{attachment.name}</span><button type="button" on:click={() => attachment = null} aria-label="Quitar adjunto">×</button></div>{/if}
+      {#if attachment}<div class:attachment-image={attachment.type.startsWith('image/')} class="attachment-chip">{#if attachment.type.startsWith('image/') }<img src={attachment.data} alt="Vista previa del adjunto" />{:else}<span>{attachment.name}</span>{/if}<button type="button" on:click={() => attachment = null} aria-label="Quitar adjunto">×</button></div>{/if}
       <input bind:this={fileInput} class="hidden-file" type="file" accept="image/*,.pdf,.txt,.md" on:change={handleFile} />
       <button type="button" class="attach" aria-label="Adjuntar" on:click={chooseAttachment}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m20.5 11.5-8.7 8.7a5 5 0 0 1-7.1-7.1l9.2-9.2a3.5 3.5 0 0 1 5 5l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.3-8.3"/></svg></button>
       <input bind:value={input} on:paste={handlePaste} placeholder="Pregúntale a adarbot…" aria-label="Mensaje" />
