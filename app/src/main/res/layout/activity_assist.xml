@@ -40,8 +40,8 @@
     </LinearLayout>
     <HorizontalScrollView
         android:id="@+id/assistPreviewWrap"
-        android:layout_width="match_parent"
-        android:layout_height="72dp"
+        android:layout_width="166dp"
+        android:layout_height="64dp"
         android:layout_gravity="bottom|center_horizontal"
         android:layout_marginLeft="22dp"
         android:layout_marginRight="22dp"
