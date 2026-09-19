@@ -802,11 +802,6 @@ class ChatActivity : Activity() {
         top.addView(close, LinearLayout.LayoutParams(dp(52), dp(52))); panel.addView(top)
         lateinit var drawer: Dialog
         panel.addView(drawerRow(R.drawable.ic_plus, "Nuevo chat") { drawer.dismiss(); startActivity(Intent(this, ChatActivity::class.java)) })
-        panel.addView(TextView(this).apply { text = "adarbot"; textSize = 14f; setTextColor(Color.parseColor("#8394B1")); setPadding(dp(14), dp(28), 0, dp(8)) })
-        panel.addView(drawerRow(R.drawable.ic_mic, "Nemotron: voz y atajos") {
-            drawer.dismiss()
-            startActivity(Intent(this, com.nemotron.voiceime.ui.SetupActivity::class.java))
-        })
         val chats = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, dp(12), 0, 0) }
         fun renderChats(items: List<Conversation>) {
             chats.removeAllViews()
@@ -857,10 +852,28 @@ class ChatActivity : Activity() {
                 .start()
         }
         close.setOnClickListener { haptic(it); closeDrawerAnimated() }
+        var titleTaps = 0
+        val titleTapHandler = Handler(Looper.getMainLooper())
+        val openInfo = Runnable {
+            if (titleTaps == 1 && drawer.isShowing) {
+                closeDrawerAnimated()
+                drawerTitle.postDelayed({ showAdarbotInfo() }, 220L)
+            }
+            titleTaps = 0
+        }
         drawerTitle.setOnClickListener {
             haptic(it)
-            closeDrawerAnimated()
-            it.postDelayed({ showAdarbotInfo() }, 220L)
+            titleTaps += 1
+            titleTapHandler.removeCallbacks(openInfo)
+            if (titleTaps >= 5) {
+                titleTaps = 0
+                closeDrawerAnimated()
+                drawerTitle.postDelayed({
+                    startActivity(Intent(this, com.nemotron.voiceime.ui.SetupActivity::class.java))
+                }, 220L)
+            } else {
+                titleTapHandler.postDelayed(openInfo, 360L)
+            }
         }
         var downX = 0f
         val swipeToClose = View.OnTouchListener { view, event ->
