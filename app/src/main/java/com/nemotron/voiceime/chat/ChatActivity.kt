@@ -150,7 +150,7 @@ class ChatActivity : Activity() {
         messages.clear()
         conversation?.let { messages.addAll(it.messages) }
         titleV.text = if (incognitoMode) "adarbot" else conversation?.let { if (it.title == "Nuevo chat") "adarbot" else it.title } ?: "adarbot"
-        connectionDot.visibility = if (conversation == null && !incognitoMode) View.VISIBLE else View.GONE
+        connectionDot.visibility = View.VISIBLE
         chat.conversations({ runOnUiThread { connectionDot.setBackgroundResource(R.drawable.bg_connection_online) } }, { runOnUiThread { connectionDot.setBackgroundResource(R.drawable.bg_connection_offline) } })
         updateIncognitoUi()
 
