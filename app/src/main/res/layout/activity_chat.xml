@@ -254,14 +254,6 @@
                 android:padding="10dp"
                 android:src="@drawable/ic_send"
                 android:tint="#2F80FF" />
-            <ImageView
-                android:id="@+id/modelBadge"
-                android:layout_width="16dp"
-                android:layout_height="16dp"
-                android:layout_gravity="top|end"
-                android:background="@drawable/bg_model_badge"
-                android:contentDescription="Modelo seleccionado"
-                android:padding="2dp" />
         </FrameLayout>
         </LinearLayout>
     </LinearLayout>

@@ -59,7 +59,6 @@ class ChatActivity : Activity() {
     private lateinit var input: EditText
     private lateinit var welcomeView: TextView
     private lateinit var modelChip: TextView
-    private lateinit var modelBadge: ImageView
     private lateinit var micBtn: ImageButton
     private lateinit var sendBtn: ImageButton
     private lateinit var deleteBtn: ImageButton
@@ -112,7 +111,6 @@ class ChatActivity : Activity() {
         input = findViewById(R.id.inputField)
         welcomeView = findViewById(R.id.welcomeView)
         modelChip = findViewById(R.id.modelChip)
-        modelBadge = findViewById(R.id.modelBadge)
         micBtn = findViewById(R.id.btnMic)
         incognitoHomeBtn = findViewById(R.id.btnIncognitoHome)
         findViewById<ImageButton>(R.id.btnAttach).setOnClickListener { haptic(it); showAttachmentMenu(it) }
@@ -747,7 +745,6 @@ class ChatActivity : Activity() {
         modelChip.text = displayName(models[modelIndex])
         modelChip.setCompoundDrawablesWithIntrinsicBounds(icon, 0, 0, 0)
         modelChip.compoundDrawablePadding = dp(5)
-        modelBadge.setImageResource(icon)
         sendBtn.setColorFilter(modelColor(models[modelIndex]))
     }
 
@@ -773,12 +770,16 @@ class ChatActivity : Activity() {
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(dp(10), dp(10), dp(10), dp(10))
                 background = if (index == modelIndex) getDrawable(R.drawable.bg_drawer_action) else ColorDrawable(Color.TRANSPARENT)
-                addView(ImageView(context).apply {
-                    setImageResource(modelIcon(model)); layoutParams = LinearLayout.LayoutParams(dp(24), dp(24))
+                addView(View(context).apply {
+                    background = android.graphics.drawable.GradientDrawable().apply {
+                        shape = android.graphics.drawable.GradientDrawable.OVAL
+                        setColor(modelColor(model))
+                    }
+                    layoutParams = LinearLayout.LayoutParams(dp(12), dp(12))
                 })
                 addView(TextView(context).apply {
                     text = when (model) { "mimo-v2.5" -> "MiMo · Xiaomi"; "deepseek-flash" -> "DeepSeek"; else -> "Nemotron · NVIDIA" }
-                    textSize = 14f; setTextColor(Color.WHITE); setPadding(dp(12), 0, 0, 0)
+                    textSize = 14f; setTextColor(Color.WHITE); setPadding(dp(14), 0, 0, 0)
                 })
             }
             row.setOnClickListener {

@@ -51,7 +51,6 @@ class AssistActivity : Activity() {
     private lateinit var micButton: ImageButton
     private lateinit var sendButton: ImageButton
     private lateinit var modelChip: TextView
-    private lateinit var modelBadge: ImageView
     private lateinit var screenshotPill: View
     private lateinit var chat: ChatClient
     private var conversationId: String? = null
@@ -92,7 +91,6 @@ class AssistActivity : Activity() {
         modelIndex = prefs.getInt("model_index", 0).coerceIn(0, models.lastIndex)
         input = findViewById(R.id.assistInput)
         modelChip = findViewById(R.id.assistModelChip)
-        modelBadge = findViewById(R.id.assistModelBadge)
         screenshotPill = findViewById(R.id.assistScreenshotPill)
         val previewWrap = findViewById<View>(R.id.assistPreviewWrap)
         val preview = findViewById<ImageView>(R.id.assistPreview)
@@ -333,7 +331,6 @@ class AssistActivity : Activity() {
         modelChip.text = displayName(models[modelIndex])
         modelChip.setCompoundDrawablesWithIntrinsicBounds(icon, 0, 0, 0)
         modelChip.compoundDrawablePadding = dp(5)
-        modelBadge.setImageResource(icon)
         sendButton.setColorFilter(modelColor(models[modelIndex]))
     }
 
@@ -359,12 +356,16 @@ class AssistActivity : Activity() {
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(dp(10), dp(10), dp(10), dp(10))
                 background = if (index == modelIndex) getDrawable(R.drawable.bg_drawer_action) else ColorDrawable(Color.TRANSPARENT)
-                addView(ImageView(context).apply {
-                    setImageResource(modelIcon(model)); layoutParams = LinearLayout.LayoutParams(dp(24), dp(24))
+                addView(View(context).apply {
+                    background = android.graphics.drawable.GradientDrawable().apply {
+                        shape = android.graphics.drawable.GradientDrawable.OVAL
+                        setColor(modelColor(model))
+                    }
+                    layoutParams = LinearLayout.LayoutParams(dp(12), dp(12))
                 })
                 addView(TextView(context).apply {
                     text = when (model) { "mimo-v2.5" -> "MiMo · Xiaomi"; "deepseek-flash" -> "DeepSeek"; else -> "Nemotron · NVIDIA" }
-                    textSize = 14f; setTextColor(Color.WHITE); setPadding(dp(12), 0, 0, 0)
+                    textSize = 14f; setTextColor(Color.WHITE); setPadding(dp(14), 0, 0, 0)
                 })
             }
             row.setOnClickListener {

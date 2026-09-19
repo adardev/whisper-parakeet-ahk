@@ -368,7 +368,7 @@
       <button class="avatar" aria-label="Perfil">a</button>
     </header>
 
-    <div class="conversation" on:click={() => selectedMessage = null}>
+    <div class="conversation" role="presentation" on:click={() => selectedMessage = null}>
       {#if activeChat}
         <div class="chat-view">
           {#if messagesLoading && messages.length === 0}
@@ -393,9 +393,9 @@
                     {/if}
                   </div>
                   {#if selectedMessage === message}
-                    <div class="message-actions" on:click|stopPropagation>
-                      <button on:click={() => copyMessage(message)}>Copiar</button>
-                      <button on:click={() => readMessage(message)}>Leer en voz alta</button>
+                    <div class="message-actions" role="toolbar" aria-label="Acciones del mensaje">
+                      <button on:click|stopPropagation={() => copyMessage(message)}>Copiar</button>
+                      <button on:click|stopPropagation={() => readMessage(message)}>Leer en voz alta</button>
                       <span>Modelo: {message.model || activeChat.model || 'adarbot'}</span>
                     </div>
                   {/if}
@@ -415,8 +415,8 @@
       <button type="button" class="attach" aria-label="Adjuntar" on:click={chooseAttachment}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m20.5 11.5-8.7 8.7a5 5 0 0 1-7.1-7.1l9.2-9.2a3.5 3.5 0 0 1 5 5l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.3-8.3"/></svg></button>
       <input bind:this={inputElement} bind:value={input} on:paste={handlePaste} placeholder="Pregúntale a adarbot…" aria-label="Mensaje" />
       <button type="button" class:recording class="mic" aria-label="Micrófono" on:click={toggleRecording}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M9 21h6"/></svg></button>
-      {#if modelMenu}<div class="model-menu" on:click|stopPropagation>{#each models as option}<button class:chosen={model === option.id} type="button" on:click={() => chooseModel(option.id)}><span class={`model-dot ${option.id}`}></span><span>{option.label}</span><small>{option.provider}</small></button>{/each}</div>{/if}
-      <button type="submit" class={`send ${model}`} disabled={sending} aria-label="Enviar" on:pointerdown={startSendPress} on:pointerup={stopSendPress} on:pointerleave={stopSendPress} on:contextmenu|preventDefault={() => modelMenu = true}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 4 18 8-18 8 3-8-3-8Z"/><path d="M6 12h15"/></svg><span class={`selected-model-dot ${model}`}></span></button>
+      {#if modelMenu}<div class="model-menu" role="menu" aria-label="Elegir modelo">{#each models as option}<button class:chosen={model === option.id} type="button" on:click|stopPropagation={() => chooseModel(option.id)}><span class={`model-dot ${option.id}`}></span><span>{option.label}</span><small>{option.provider}</small></button>{/each}</div>{/if}
+      <button type="submit" class={`send ${model}`} disabled={sending} aria-label="Enviar" on:pointerdown={startSendPress} on:pointerup={stopSendPress} on:pointerleave={stopSendPress} on:contextmenu|preventDefault={() => modelMenu = true}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 4 18 8-18 8 3-8-3-8Z"/><path d="M6 12h15"/></svg></button>
     </form>
   </section>
 </main>
