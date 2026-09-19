@@ -150,6 +150,7 @@ class ChatActivity : Activity() {
             "https://adarlpz-2.tail4988cb.ts.net"
         } else savedUrl
         chat = ChatClient(base)
+        modelIndex = prefs.getInt("model_index", 0).coerceIn(0, models.lastIndex)
 
         convId = intent.getStringExtra("convId")
         incognitoMode = intent.getBooleanExtra("incognito", false)
@@ -191,6 +192,7 @@ class ChatActivity : Activity() {
         modelChip.setOnClickListener {
             haptic(it)
             modelIndex = (modelIndex + 1) % models.size
+            prefs.edit().putInt("model_index", modelIndex).apply()
             updateModelChip()
         }
         sendBtn.setOnLongClickListener { haptic(it); showModelPicker(it); true }
@@ -712,7 +714,9 @@ class ChatActivity : Activity() {
                 })
             }
             row.setOnClickListener {
-                haptic(it); modelIndex = index; updateModelChip(); popup.dismiss()
+                haptic(it); modelIndex = index
+                getSharedPreferences("hermes_chat", Context.MODE_PRIVATE).edit().putInt("model_index", modelIndex).apply()
+                updateModelChip(); popup.dismiss()
             }
             menu.addView(row, LinearLayout.LayoutParams(-1, dp(48)))
         }

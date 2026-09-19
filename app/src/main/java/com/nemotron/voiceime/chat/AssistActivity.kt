@@ -88,6 +88,7 @@ class AssistActivity : Activity() {
             "https://adarlpz-2.tail4988cb.ts.net"
         } else savedUrl
         chat = ChatClient(base)
+        modelIndex = prefs.getInt("model_index", 0).coerceIn(0, models.lastIndex)
         input = findViewById(R.id.assistInput)
         modelChip = findViewById(R.id.assistModelChip)
         modelBadge = findViewById(R.id.assistModelBadge)
@@ -129,6 +130,7 @@ class AssistActivity : Activity() {
         modelChip.setOnClickListener {
             haptic(it)
             modelIndex = (modelIndex + 1) % models.size
+            prefs.edit().putInt("model_index", modelIndex).apply()
             updateModelChip()
         }
         updateModelChip()
@@ -357,7 +359,9 @@ class AssistActivity : Activity() {
                 })
             }
             row.setOnClickListener {
-                haptic(it); modelIndex = index; updateModelChip(); popup.dismiss()
+                haptic(it); modelIndex = index
+                getSharedPreferences("hermes_chat", Context.MODE_PRIVATE).edit().putInt("model_index", modelIndex).apply()
+                updateModelChip(); popup.dismiss()
             }
             menu.addView(row, LinearLayout.LayoutParams(-1, dp(48)))
         }
