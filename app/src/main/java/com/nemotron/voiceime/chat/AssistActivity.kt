@@ -126,7 +126,16 @@ class AssistActivity : Activity() {
             updateModelChip()
         }
         updateModelChip()
-        findViewById<ImageButton>(R.id.assistScreenshot).setOnClickListener { haptic(it); requestScreenCapture() }
+        // La acción pertenece a toda la pastilla, no solo al icono. Así el
+        // toque sobre el texto o el borde no cae en el listener del fondo.
+        val screenshotPill = findViewById<View>(R.id.assistScreenshotPill)
+        screenshotPill.isClickable = true
+        screenshotPill.isFocusable = true
+        screenshotPill.setOnClickListener { haptic(it); requestScreenCapture() }
+        findViewById<ImageButton>(R.id.assistScreenshot).apply {
+            isClickable = false
+            isFocusable = false
+        }
         micButton.setOnClickListener { haptic(it); if (speech != null) { speech?.stopListening(); speech = null; setMicListening(false) } else listen() }
         input.setOnEditorActionListener { _, _, _ -> send(); true }
         // El asistente de voz abre limpio: el teclado solo aparece cuando el usuario toca el campo.
