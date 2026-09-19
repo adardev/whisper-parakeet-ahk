@@ -144,8 +144,11 @@ class ChatActivity : Activity() {
         findViewById<View>(android.R.id.content).autoInsets { keyboardOpen ->
             val lp = composer.layoutParams as FrameLayout.LayoutParams
             val desiredBottom = if (keyboardOpen) 0 else dp(20)
-            if (lp.bottomMargin != desiredBottom) {
+            val desiredSide = if (keyboardOpen) 0 else dp(12)
+            if (lp.bottomMargin != desiredBottom || lp.leftMargin != desiredSide || lp.rightMargin != desiredSide) {
                 lp.bottomMargin = desiredBottom
+                lp.leftMargin = desiredSide
+                lp.rightMargin = desiredSide
                 composer.layoutParams = lp
             }
             composer.setBackgroundResource(
