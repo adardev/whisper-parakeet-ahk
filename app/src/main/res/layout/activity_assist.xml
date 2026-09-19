@@ -9,10 +9,10 @@
     <LinearLayout
         android:id="@+id/assistScreenshotPill"
         android:layout_width="220dp"
-        android:layout_height="46dp"
+        android:layout_height="52dp"
         android:layout_gravity="bottom|start"
         android:layout_marginLeft="24dp"
-        android:layout_marginBottom="166dp"
+        android:layout_marginBottom="124dp"
         android:background="@drawable/bg_assist_panel"
         android:elevation="28dp"
         android:gravity="center_vertical"
@@ -30,8 +30,10 @@
             android:tint="#8FC1FF" />
         <TextView
             android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:layout_marginLeft="8dp"
+            android:gravity="center_vertical"
+            android:includeFontPadding="true"
             android:text="Capturar pantalla"
             android:textColor="#E8F1FF"
             android:textSize="13sp" />
