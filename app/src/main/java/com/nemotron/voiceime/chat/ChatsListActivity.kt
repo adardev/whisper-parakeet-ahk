@@ -140,7 +140,11 @@ class ChatsListActivity : Activity() {
 
     private fun deleteConv(c: Conversation) {
         ConversationStore.delete(c.id)
-        refresh()
+        list.removeAll { it.id == c.id }
+        renderedSignature = ""
+        adapter.replaceItems(list)
+        emptyView.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
+        chat.deleteConversation(c.id, {}, {})
     }
 
     private fun togglePin(c: Conversation) {

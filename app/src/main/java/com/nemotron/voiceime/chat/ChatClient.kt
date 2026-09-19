@@ -41,6 +41,10 @@ class ChatClient(
         request("$baseUrl/api/conversations", "POST", JSONObject(), onComplete, onError)
     }
 
+    fun deleteConversation(id: String, onComplete: () -> Unit, onError: (Throwable) -> Unit) {
+        request("$baseUrl/api/conversations/$id", "DELETE", null, { onComplete() }, onError)
+    }
+
     fun stream(
         message: String,
         model: String,
@@ -146,7 +150,11 @@ class ChatClient(
 
     private fun request(url: String, method: String, payload: JSONObject?, ok: (JSONObject) -> Unit, fail: (Throwable) -> Unit) {
         val builder = Request.Builder().url(url)
-        if (method == "POST") builder.post((payload ?: JSONObject()).toString().toRequestBody(JSON_MT)) else builder.get()
+        when (method) {
+            "POST" -> builder.post((payload ?: JSONObject()).toString().toRequestBody(JSON_MT))
+            "DELETE" -> builder.delete()
+            else -> builder.get()
+        }
         Thread {
             try {
                 http.newCall(builder.build()).execute().use { response ->

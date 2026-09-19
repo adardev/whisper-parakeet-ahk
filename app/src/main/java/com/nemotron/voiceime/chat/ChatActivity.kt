@@ -209,9 +209,10 @@ class ChatActivity : Activity() {
 
         deleteBtn.setOnClickListener {
             haptic(it)
-            convId?.let { id -> ConversationStore.delete(id) }
-            Toast.makeText(this, "Conversacion eliminada", Toast.LENGTH_SHORT).show()
-            finish()
+            val id = convId
+            if (id.isNullOrBlank()) return@setOnClickListener
+            ConversationStore.delete(id)
+            chat.deleteConversation(id, { runOnUiThread { finish() } }, { runOnUiThread { finish() } })
         }
 
     }
