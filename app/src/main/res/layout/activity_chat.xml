@@ -11,20 +11,43 @@
 
     <FrameLayout
         android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recyclerMessages"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:clipToPadding="false"
+            android:paddingBottom="112dp" />
+        <TextView
+            android:id="@+id/welcomeView"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:gravity="center"
+            android:text="Hola, soy adarbot.\n¿En qué te ayudo?"
+            android:textColor="#F5F5F7"
+            android:textSize="27sp"
+            android:textStyle="bold" />
+    </FrameLayout>
+
+    </LinearLayout>
+
+    <!-- Header flotante: no reserva espacio ni pinta un fondo alrededor. -->
+    <FrameLayout
+        android:layout_width="match_parent"
         android:layout_height="56dp"
+        android:layout_gravity="top|center_horizontal"
         android:layout_marginLeft="12dp"
         android:layout_marginTop="8dp"
         android:layout_marginRight="12dp"
-        android:layout_marginBottom="8dp"
         android:background="@android:color/transparent"
-        android:foreground="@null"
-        android:elevation="0dp"
-        android:translationZ="0dp"
+        android:elevation="24dp"
+        android:translationZ="8dp"
         android:paddingLeft="8dp"
         android:paddingTop="4dp"
         android:paddingRight="8dp"
         android:paddingBottom="4dp">
-
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="40dp"
@@ -60,7 +83,6 @@
                 android:translationX="56dp"
                 android:background="@drawable/bg_connection_offline" />
         </LinearLayout>
-
         <TextView
             android:id="@+id/convTitle"
             android:layout_width="220dp"
@@ -74,7 +96,6 @@
             android:textColor="#EDEDF0"
             android:textSize="17sp"
             android:textStyle="bold" />
-
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="40dp"
@@ -102,30 +123,6 @@
                 android:visibility="gone" />
         </LinearLayout>
     </FrameLayout>
-
-    <FrameLayout
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1">
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/recyclerMessages"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:clipToPadding="false"
-            android:paddingBottom="112dp" />
-        <TextView
-            android:id="@+id/welcomeView"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:gravity="center"
-            android:text="Hola, soy adarbot.\n¿En qué te ayudo?"
-            android:textColor="#F5F5F7"
-            android:textSize="27sp"
-            android:textStyle="bold" />
-    </FrameLayout>
-
-    </LinearLayout>
 
     <FrameLayout
         android:id="@+id/chatAttachmentPreview"
