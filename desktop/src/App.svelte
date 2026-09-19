@@ -178,26 +178,41 @@
   }
 
   async function handlePaste(event: ClipboardEvent) {
-    const items = Array.from(event.clipboardData?.items || []);
+    const clipboardData = event.clipboardData;
+    const items = Array.from(clipboardData?.items || []);
     const fileItem = items.find((item) => item.kind === 'file');
-    const file = fileItem?.getAsFile() || event.clipboardData?.files?.[0];
+    const file = fileItem?.getAsFile() || clipboardData?.files?.[0];
     if (file) {
       event.preventDefault();
       readAttachment(file);
       return;
     }
+
+    // En algunos WebView la imagen no aparece en clipboardData, pero sí en
+    // la API asíncrona. PreventDefault debe ocurrir antes de leerla: después
+    // de un await el gesto de pegado ya no conserva sus permisos.
+    const target = event.target as HTMLInputElement;
+    const text = clipboardData?.getData('text/plain') || '';
+    event.preventDefault();
     try {
       const clipboardItems = await navigator.clipboard.read();
       for (const item of clipboardItems) {
         const type = item.types.find((value) => value.startsWith('image/'));
         if (!type) continue;
         const blob = await item.getType(type);
-        event.preventDefault();
         readAttachment(new File([blob], 'captura-portapapeles.png', { type: blob.type || type }));
         return;
       }
     } catch {
-      // Algunos WebView no conceden clipboard.read(); el pegado de texto sigue normal.
+      // El evento síncrono de abajo sigue cubriendo los pegados normales.
+    }
+
+    // No romper el pegado de texto cuando el portapapeles no contiene una imagen.
+    if (text) {
+      const start = target.selectionStart ?? input.length;
+      const end = target.selectionEnd ?? start;
+      input = `${input.slice(0, start)}${text}${input.slice(end)}`;
+      requestAnimationFrame(() => target.setSelectionRange(start + text.length, start + text.length));
     }
   }
 
