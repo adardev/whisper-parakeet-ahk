@@ -985,9 +985,14 @@ class ChatActivity : Activity() {
     private fun drawerConversationRow(c: Conversation, open: () -> Unit, pin: () -> Unit, rename: () -> Unit): View = LinearLayout(this).apply {
         gravity = Gravity.CENTER_VERTICAL; setPadding(dp(16), dp(8), dp(6), dp(8)); setBackgroundResource(R.drawable.bg_drawer_conversation)
         layoutParams = LinearLayout.LayoutParams(-1, -2).apply { setMargins(0, dp(4), 0, dp(4)) }
-        addView(TextView(context).apply { text = c.title; textSize = 18f; setTextColor(Color.WHITE); maxLines = 2; ellipsize = android.text.TextUtils.TruncateAt.END; gravity = Gravity.CENTER_VERTICAL; layoutParams = LinearLayout.LayoutParams(0, -2, 1f); setOnClickListener { haptic(this); open() } })
-        addView(ImageButton(context).apply { setImageResource(if (c.pinned) R.drawable.ic_pin_filled else R.drawable.ic_pin); setColorFilter(Color.parseColor("#8FC1FF")); background = ColorDrawable(Color.TRANSPARENT); contentDescription = "Fijar conversación"; setOnClickListener { haptic(this); pin() } }, LinearLayout.LayoutParams(dp(38), dp(38)))
+        val titleView = TextView(context).apply { text = c.title; textSize = 18f; setTextColor(Color.WHITE); maxLines = 2; ellipsize = android.text.TextUtils.TruncateAt.END; gravity = Gravity.CENTER_VERTICAL; layoutParams = LinearLayout.LayoutParams(0, -2, 1f); setOnClickListener { haptic(this); open() } }
+        addView(titleView)
+        if (c.pinned) {
+            addView(ImageView(context).apply { setImageResource(R.drawable.ic_pin_filled); setColorFilter(Color.parseColor("#8FC1FF")); layoutParams = LinearLayout.LayoutParams(dp(28), dp(28)).apply { marginEnd = dp(4) } })
+        }
         addView(ImageButton(context).apply { setImageResource(R.drawable.ic_rename); setColorFilter(Color.parseColor("#B9C9E8")); background = ColorDrawable(Color.TRANSPARENT); contentDescription = "Renombrar conversación"; setOnClickListener { haptic(this); rename() } }, LinearLayout.LayoutParams(dp(38), dp(38)))
+        isLongClickable = true
+        setOnLongClickListener { haptic(this); pin(); true }
     }
 
     private fun renameConversation(c: Conversation, done: () -> Unit) {
