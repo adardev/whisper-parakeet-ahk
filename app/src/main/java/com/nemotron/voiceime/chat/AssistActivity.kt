@@ -42,6 +42,7 @@ import android.widget.ImageView
 import java.io.ByteArrayOutputStream
 import com.nemotron.voiceime.R
 import com.nemotron.voiceime.dhizuku.ShizukuManager
+import rikka.shizuku.Shizuku
 
 class AssistActivity : Activity() {
     private lateinit var panel: View
@@ -183,14 +184,41 @@ class AssistActivity : Activity() {
     }
 
     private fun requestScreenCapture() {
-        if (!ShizukuManager.hasPermission()) {
-            status.text = "Activa Shizuku para capturar sin compartir pantalla"
+        if (!ShizukuManager.isAvailable()) {
+            status.visibility = View.VISIBLE
+            status.text = "Inicia Shizuku para capturar sin compartir pantalla"
             return
         }
+        if (!ShizukuManager.hasPermission()) {
+            status.visibility = View.VISIBLE
+            status.text = "Autoriza la captura en Shizuku..."
+            lateinit var listener: Shizuku.OnRequestPermissionResultListener
+            listener = Shizuku.OnRequestPermissionResultListener { _, result ->
+                Shizuku.removeRequestPermissionResultListener(listener)
+                runOnUiThread {
+                    if (result == PackageManager.PERMISSION_GRANTED) requestScreenCapture()
+                    else status.text = "Permiso de captura denegado"
+                }
+            }
+            Shizuku.addRequestPermissionResultListener(listener)
+            ShizukuManager.requestPermission()
+            return
+        }
+        status.visibility = View.VISIBLE
         val file = java.io.File(getExternalFilesDir(null), "adarbot_capture.png")
         Thread {
             try {
-                ShizukuManager.execShellCapture("screencap -p ${file.absolutePath}")
+                file.parentFile?.mkdirs()
+                file.delete()
+                // Un proceso nuevo evita que una cola vieja del shell
+                // persistente deje la captura sin escribir.
+                ShizukuManager.execShellFresh(
+                    arrayOf("screencap", "-p", file.absolutePath),
+                    10000L
+                )
+                if (!file.exists() || file.length() < 128L) {
+                    throw IllegalStateException("screencap no creó el archivo")
+                }
                 val bitmap = BitmapFactory.decodeFile(file.absolutePath)
                     ?: throw IllegalStateException("No se pudo capturar la pantalla")
                 val bytes = ByteArrayOutputStream()
@@ -205,7 +233,7 @@ class AssistActivity : Activity() {
                     findViewById<View>(R.id.assistPreviewWrap).visibility = View.VISIBLE
                 }
             } catch (e: Exception) {
-                runOnUiThread { status.text = "No se pudo capturar la pantalla" }
+                runOnUiThread { status.text = "No se pudo capturar: ${e.message ?: "permiso de Shizuku"}" }
             } finally {
                 file.delete()
             }
