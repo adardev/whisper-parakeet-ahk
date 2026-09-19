@@ -116,12 +116,14 @@ object MarkdownRenderer {
             return result
         }
 
-        val header = normalized.first().joinToString("<br>") { cell(it) }
+        val header = normalized.first().joinToString("&nbsp;&nbsp;│&nbsp;&nbsp;") { cell(it) }
         val body = normalized.drop(1).joinToString("<br>") { row ->
             val values = row.map { cell(it) }.filter { it.isNotBlank() }
             if (values.isEmpty()) "" else
                 "<font color='#8FC1FF'><b>${values.first()}</b></font>" +
-                    if (values.size > 1) "<br>${values.drop(1).joinToString("<br>")}" else ""
+                    if (values.size > 1) {
+                        "&nbsp;&nbsp;│&nbsp;&nbsp;${values.drop(1).joinToString("&nbsp;&nbsp;│&nbsp;&nbsp;")}"
+                    } else ""
         }
         return "<br><font color='#8FC1FF'><b>$header</b></font><br>" +
             "<font color='#526B92'>────────────────────────</font><br>" +
