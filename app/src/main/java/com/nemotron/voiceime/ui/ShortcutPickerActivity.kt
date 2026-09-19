@@ -38,7 +38,7 @@ class ShortcutPickerActivity : AppCompatActivity() {
         setContentView(R.layout.activity_shortcut_picker)
 
         if (!androidx.core.content.pm.ShortcutManagerCompat.isRequestPinShortcutSupported(this)) {
-            Toast.makeText(this, "Este launcher no soporta fijar atajos", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "This launcher does not support pinned shortcuts", Toast.LENGTH_SHORT).show()
             finish()
             return
         }
@@ -52,7 +52,7 @@ class ShortcutPickerActivity : AppCompatActivity() {
         val drawable = try {
             packageManager.getApplicationIcon(app.pkg)
         } catch (_: Throwable) {
-            Toast.makeText(this, "App no instalada: ${app.pkg}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "App not installed: ${app.pkg}", Toast.LENGTH_SHORT).show()
             return
         }
 

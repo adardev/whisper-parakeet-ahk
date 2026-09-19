@@ -52,7 +52,7 @@ class SetupActivity : AppCompatActivity() {
 
         b.btnShizukuPermission.setOnClickListener {
             if (!ShizukuManager.isAvailable()) {
-                Toast.makeText(this, "Shizuku no disponible: abre la app Shizuku y arranca el servidor", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "Shizuku unavailable: open the Shizuku app and start the server", Toast.LENGTH_LONG).show()
                 return@setOnClickListener
             }
             // Forzar diálogo siempre para que aparezca en lista de Authorized apps
@@ -61,7 +61,7 @@ class SetupActivity : AppCompatActivity() {
                     val granted = grantResult == PackageManager.PERMISSION_GRANTED
                     Toast.makeText(
                         this,
-                        if (granted) "Shizuku autorizado ✓ (ahora debería aparecer en la lista)" else "Shizuku denegado: freeze/doze no funcionarán",
+                        if (granted) "Shizuku authorized ✓ (it should now appear in the list)" else "Shizuku denied: freeze/doze will not work",
                         Toast.LENGTH_SHORT
                     ).show()
                     refreshShizukuStatus()
@@ -77,9 +77,9 @@ class SetupActivity : AppCompatActivity() {
         val granted = ShizukuManager.hasPermission()
         val icon = if (granted) "✓" else if (available) "○" else "✗"
         val text = when {
-            !available -> "Shizuku no corriendo: abre Shizuku y pulsa \"Start\""
-            !granted -> "Shizuku corriendo, sin permiso: pulsa \"Solicitar permiso\""
-            else -> "Shizuku autorizado ✓"
+            !available -> "Shizuku is not running: open Shizuku and tap \"Start\""
+            !granted -> "Shizuku is running without permission: tap \"Request permission\""
+            else -> "Shizuku authorized ✓"
         }
         b.tvShizukuIcon.text = icon
         b.tvShizukuIcon.setBackgroundColor(
@@ -87,7 +87,7 @@ class SetupActivity : AppCompatActivity() {
         )
         b.tvShizukuIcon.setTextColor(Color.WHITE)
         b.tvShizukuStatus.text = text
-        b.btnShizukuPermission.text = if (!granted) "Solicitar permiso Shizuku" else "Re-solicitar permiso Shizuku"
+        b.btnShizukuPermission.text = if (!granted) "Request Shizuku permission" else "Request Shizuku permission again"
         b.btnShizukuPermission.isEnabled = available
     }
 
@@ -190,9 +190,9 @@ class SetupActivity : AppCompatActivity() {
         val apps = SecureStore.getAutoFreezeApps(this)
         val stopApps = SecureStore.getStopOnUnlockApps(this)
         b.tvAutoFreezeStatus.text = when {
-            !enabled -> "Desactivado"
-            apps.isEmpty() && stopApps.isEmpty() -> "Activado, sin apps seleccionadas"
-            else -> "Activado: ${apps.size} congelan al apagar pantalla, ${stopApps.size} se detienen al desbloquear"
+            !enabled -> "Disabled"
+            apps.isEmpty() && stopApps.isEmpty() -> "Enabled, no apps selected"
+            else -> "Enabled: ${apps.size} freeze when the screen turns off, ${stopApps.size} stop when unlocked"
         }
     }
 
@@ -206,12 +206,12 @@ class SetupActivity : AppCompatActivity() {
     private fun refreshStatus() {
         val ok = hasMic()
 
-        setStepIcon(b.tvStep1Icon, ok, "Permiso")
+        setStepIcon(b.tvStep1Icon, ok, "Permission")
 
         val global = StringBuilder()
         when {
-            ok -> global.append("✓ TODO LISTO. Pulsa el boton lateral de Samsung para grabar.")
-            else -> global.append("✗ Faltan pasos: permiso de microfono obligatorio.")
+            ok -> global.append("✓ ALL SET. Press the Samsung side key to record.")
+            else -> global.append("✗ Missing steps: microphone permission is required.")
         }
         b.tvGlobalStatus.text = global.toString()
         b.tvGlobalStatus.setTextColor(
@@ -230,28 +230,28 @@ class SetupActivity : AppCompatActivity() {
 
     private fun testVoice() {
         if (!hasMic()) {
-            b.tvResult.text = "Concede permiso de microfono primero (paso 1)."
+            b.tvResult.text = "Grant microphone permission first (step 1)."
             return
         }
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
-            b.tvResult.text = "SpeechRecognizer base no disponible."
+            b.tvResult.text = "Speech recognition is not available on this device."
             return
         }
 
-        b.tvResult.text = "Escuchando… (habla ahora)"
+        b.tvResult.text = "Listening… (speak now)"
         b.btnTest.isEnabled = false
 
         val sr = SpeechRecognizer.createSpeechRecognizer(this)
         sr.setRecognitionListener(object : RecognitionListener {
             override fun onReadyForSpeech(p: Bundle?) {}
-            override fun onBeginningOfSpeech() { b.tvResult.text = "Escuchando…" }
+            override fun onBeginningOfSpeech() { b.tvResult.text = "Listening…" }
             override fun onRmsChanged(v: Float) {}
             override fun onBufferReceived(ba: ByteArray?) {}
-            override fun onEndOfSpeech() { b.tvResult.text = "Procesando…" }
+            override fun onEndOfSpeech() { b.tvResult.text = "Processing…" }
 
             override fun onError(errorCode: Int) {
                 try { sr.destroy() } catch (_: Throwable) {}
-                b.tvResult.text = "Error #$errorCode. ¿Hablaste? Intenta de nuevo."
+                b.tvResult.text = "Error #$errorCode. Did you speak? Try again."
                 b.btnTest.isEnabled = true
             }
 
@@ -261,11 +261,11 @@ class SetupActivity : AppCompatActivity() {
                     ?.firstOrNull().orEmpty()
                 try { sr.destroy() } catch (_: Throwable) {}
                 if (raw.isBlank()) {
-                    b.tvResult.text = "No te escuche. Intenta otra vez."
+                    b.tvResult.text = "I could not hear you. Try again."
                     b.btnTest.isEnabled = true
                     return
                 }
-                b.tvResult.text = "Resultado:\n\n$raw"
+                b.tvResult.text = "Result:\n\n$raw"
                 b.btnTest.isEnabled = true
             }
 
@@ -298,7 +298,7 @@ class SetupActivity : AppCompatActivity() {
         )
 
         if (!androidx.core.content.pm.ShortcutManagerCompat.isRequestPinShortcutSupported(this)) {
-            Toast.makeText(this, "Este launcher no soporta fijar atajos", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "This launcher does not support pinned shortcuts", Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -340,7 +340,7 @@ class SetupActivity : AppCompatActivity() {
 
         Toast.makeText(
             this,
-            "Confirmando $added atajos… Acepta cada diálogo en pantalla.",
+            "Confirming $added shortcuts… Accept each dialog on screen.",
             Toast.LENGTH_SHORT
         ).show()
     }
@@ -357,7 +357,7 @@ class SetupActivity : AppCompatActivity() {
             runOnUiThread {
                 Toast.makeText(
                     this,
-                    "Concede permiso Shizuku para abrir apps congeladas",
+                    "Grant Shizuku permission to open frozen apps",
                     Toast.LENGTH_SHORT
                 ).show()
             }

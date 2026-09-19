@@ -480,7 +480,7 @@ class ChatActivity : Activity() {
 
     private fun copyMessage(message: ChatMessage) {
         val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        clipboard.setPrimaryClip(ClipData.newPlainText("Mensaje de adarbot", message.content))
+        clipboard.setPrimaryClip(ClipData.newPlainText("adarbot message", message.content))
         Toast.makeText(this, "Mensaje copiado", Toast.LENGTH_SHORT).show()
     }
 
@@ -520,7 +520,7 @@ class ChatActivity : Activity() {
             popup.dismiss()
         })
         val modelLabel = TextView(this).apply {
-            text = message.model?.let { displayName(it) } ?: "Modelo no disponible"
+            text = message.model?.let { displayName(it) } ?: "Model unavailable"
             setTextColor(Color.parseColor("#A9C9FF"))
             textSize = 11f
             gravity = Gravity.CENTER
