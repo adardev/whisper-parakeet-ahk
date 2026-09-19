@@ -74,29 +74,32 @@
                 android:src="@drawable/ic_back"
                 android:tint="#EDEDF0"
                 android:visibility="gone" />
-            <View
-                android:id="@+id/connectionDot"
-                android:layout_width="8dp"
-                android:layout_height="8dp"
-                android:layout_gravity="center_vertical"
-                android:layout_marginLeft="8dp"
-                android:layout_marginRight="3dp"
-                android:translationX="56dp"
-                android:background="@drawable/bg_connection_offline" />
         </LinearLayout>
-        <TextView
-            android:id="@+id/convTitle"
-            android:layout_width="220dp"
+        <LinearLayout
+            android:layout_width="wrap_content"
             android:layout_height="match_parent"
             android:layout_gravity="center"
-            android:ellipsize="end"
             android:gravity="center"
-            android:translationX="10dp"
-            android:maxLines="1"
-            android:text="adarbot"
-            android:textColor="#EDEDF0"
-            android:textSize="17sp"
-            android:textStyle="bold" />
+            android:orientation="horizontal">
+            <View
+                android:id="@+id/connectionDot"
+                android:layout_width="9dp"
+                android:layout_height="9dp"
+                android:layout_marginRight="6dp"
+                android:background="@drawable/bg_connection_offline" />
+            <TextView
+                android:id="@+id/convTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:ellipsize="end"
+                android:gravity="center"
+                android:maxWidth="230dp"
+                android:maxLines="1"
+                android:text="adarbot"
+                android:textColor="#EDEDF0"
+                android:textSize="17sp"
+                android:textStyle="bold" />
+        </LinearLayout>
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="40dp"
