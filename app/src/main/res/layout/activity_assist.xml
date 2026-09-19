@@ -10,8 +10,8 @@
         android:id="@+id/assistScreenshotPill"
         android:layout_width="wrap_content"
         android:layout_height="46dp"
-        android:layout_gravity="bottom|end"
-        android:layout_marginRight="24dp"
+        android:layout_gravity="bottom|start"
+        android:layout_marginLeft="24dp"
         android:layout_marginBottom="166dp"
         android:background="@drawable/bg_assist_panel"
         android:elevation="28dp"
@@ -77,7 +77,7 @@
         android:focusable="true" android:focusableInTouchMode="true">
     <TextView android:id="@+id/assistStatus" android:layout_width="1dp" android:layout_height="1dp" android:visibility="gone" />
     <LinearLayout
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="end"
         android:layout_marginRight="8dp"
