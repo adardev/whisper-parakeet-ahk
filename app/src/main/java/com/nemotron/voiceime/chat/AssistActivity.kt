@@ -50,6 +50,7 @@ class AssistActivity : Activity() {
     private lateinit var status: TextView
     private lateinit var micButton: ImageButton
     private lateinit var modelChip: TextView
+    private lateinit var screenshotPill: View
     private lateinit var chat: ChatClient
     private var conversationId: String? = null
     private var speech: SpeechRecognizer? = null
@@ -88,6 +89,7 @@ class AssistActivity : Activity() {
         chat = ChatClient(base)
         input = findViewById(R.id.assistInput)
         modelChip = findViewById(R.id.assistModelChip)
+        screenshotPill = findViewById(R.id.assistScreenshotPill)
         val previewWrap = findViewById<View>(R.id.assistPreviewWrap)
         val preview = findViewById<ImageView>(R.id.assistPreview)
         preview.setOnClickListener { showScreenshotPreview() }
@@ -99,6 +101,7 @@ class AssistActivity : Activity() {
             pendingBitmap?.recycle()
             pendingBitmap = null
             status.text = ""
+            screenshotPill.visibility = View.VISIBLE
         }
         status = findViewById(R.id.assistStatus)
         panel = findViewById(R.id.assistPanel)
@@ -129,7 +132,6 @@ class AssistActivity : Activity() {
         updateModelChip()
         // La acción pertenece a toda la pastilla, no solo al icono. Así el
         // toque sobre el texto o el borde no cae en el listener del fondo.
-        val screenshotPill = findViewById<View>(R.id.assistScreenshotPill)
         screenshotPill.isClickable = true
         screenshotPill.isFocusable = true
         screenshotPill.setOnClickListener { haptic(it); requestScreenCapture() }
@@ -231,6 +233,7 @@ class AssistActivity : Activity() {
                     status.text = "Captura adjunta"
                     findViewById<ImageView>(R.id.assistPreview).setImageBitmap(bitmap)
                     findViewById<View>(R.id.assistPreviewWrap).visibility = View.VISIBLE
+                    screenshotPill.visibility = View.GONE
                 }
             } catch (e: Exception) {
                 runOnUiThread { status.text = "No se pudo capturar: ${e.message ?: "permiso de Shizuku"}" }
