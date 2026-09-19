@@ -181,7 +181,7 @@ class ChatActivity : Activity() {
         messages.clear()
         conversation?.let { messages.addAll(it.messages) }
         messages.removeAll { it.role == "assistant" && it.content in thinkingLabels }
-        titleV.text = if (incognitoMode) "adarbot" else conversation?.title ?: "Nuevo chat"
+        titleV.text = if (incognitoMode) "Nuevo chat (incógnito)" else conversation?.title ?: "Nuevo chat"
         updateIncognitoUi()
 
         adapter = MessageAdapter(messages, ::copyMessage, ::speakMessage, ::showMessageActions)
@@ -719,7 +719,7 @@ class ChatActivity : Activity() {
             Conversation("incognito_${System.currentTimeMillis()}", "Chat incógnito", System.currentTimeMillis())
         } else null
         convId = null
-        titleView().text = if (incognitoMode) "adarbot" else "Nuevo chat"
+        titleView().text = if (incognitoMode) "Nuevo chat (incógnito)" else "Nuevo chat"
         updateIncognitoUi()
         showWelcomeIfEmpty()
     }
@@ -993,18 +993,7 @@ class ChatActivity : Activity() {
         }
         row.addView(TextView(this).apply { text = c.title; textSize = 18f; setTextColor(Color.WHITE); maxLines = 2; ellipsize = android.text.TextUtils.TruncateAt.END; gravity = Gravity.CENTER_VERTICAL; layoutParams = LinearLayout.LayoutParams(0, -2, 1f) })
         row.addView(ImageButton(this).apply { setImageResource(R.drawable.ic_rename); setColorFilter(Color.parseColor("#B9C9E8")); background = ColorDrawable(Color.TRANSPARENT); contentDescription = "Renombrar conversación"; setOnClickListener { haptic(this); rename() } }, LinearLayout.LayoutParams(dp(38), dp(38)))
-        var downTime = 0L
-        row.setOnTouchListener { _, event ->
-            when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> { downTime = System.currentTimeMillis(); true }
-                MotionEvent.ACTION_UP -> {
-                    if (System.currentTimeMillis() - downTime < 350) { haptic(row); open() }
-                    true
-                }
-                MotionEvent.ACTION_CANCEL -> true
-                else -> false
-            }
-        }
+        row.setOnClickListener { haptic(it); open() }
         row.isLongClickable = true
         row.setOnLongClickListener { haptic(it); pin(); true }
         return row
