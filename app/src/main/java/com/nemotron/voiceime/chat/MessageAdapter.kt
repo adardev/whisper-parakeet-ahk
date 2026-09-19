@@ -46,7 +46,7 @@ class MessageAdapter(
         val msg = messages[position]
         holder.bubble.animate().cancel()
         if (msg.role == "assistant" && msg.content == "adarbot está pensando…") {
-            holder.bubble.text = "•  •  •    adarbot está pensando"
+            holder.bubble.text = "adarbot está pensando"
             holder.bubble.alpha = 0.55f
             holder.bubble.animate().alpha(1f).setDuration(620).withEndAction {
                 holder.bubble.animate().alpha(0.55f).setDuration(620).start()
