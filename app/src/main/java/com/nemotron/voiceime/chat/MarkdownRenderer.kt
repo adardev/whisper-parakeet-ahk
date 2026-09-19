@@ -67,7 +67,7 @@ object MarkdownRenderer {
         )
         commands.forEach { (key, replacement) -> value = value.replace(key, replacement) }
         value = value.replace("\\\\", "\n")
-        value = value.replace(Regex("\\\\(begin|end)\\s*\\{[^{}]*}"), "")
+        value = value.replace(Regex("""\\(begin|end)\s*\{[^{}]*\}"""), "")
         value = value.replace(Regex("&+"), " ")
         value = value.replace(Regex("""\\text\{([^{}]*)\}"""), "$1")
         value = value.replace(Regex("""\\mathrm\{([^{}]*)\}"""), "$1")
