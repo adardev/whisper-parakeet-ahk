@@ -810,7 +810,15 @@ class ChatActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(dp(9), dp(9)).apply { marginEnd = dp(8) }
         }
         top.addView(drawerConnectionDot)
-        top.addView(TextView(this).apply { text = "adarbot"; textSize = 26f; setTextColor(Color.parseColor("#E8F1FF")); setTypeface(null, android.graphics.Typeface.BOLD); layoutParams = LinearLayout.LayoutParams(0, -2, 1f) })
+        val drawerTitle = TextView(this).apply {
+            text = "adarbot"
+            textSize = 26f
+            setTextColor(Color.parseColor("#E8F1FF"))
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            isClickable = true
+            layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
+        }
+        top.addView(drawerTitle)
         val close = ImageButton(this).apply { setImageResource(R.drawable.ic_close); setColorFilter(Color.WHITE); background = ColorDrawable(Color.TRANSPARENT) }
         top.addView(close, LinearLayout.LayoutParams(dp(52), dp(52))); panel.addView(top)
         lateinit var drawer: Dialog
@@ -820,7 +828,6 @@ class ChatActivity : Activity() {
             drawer.dismiss()
             startActivity(Intent(this, com.nemotron.voiceime.ui.SetupActivity::class.java))
         })
-        panel.addView(drawerRow(R.drawable.ic_server, "adarbot y servidor") { drawer.dismiss(); showAdarbotInfo() })
         val chats = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, dp(12), 0, 0) }
         fun renderChats(items: List<Conversation>) {
             chats.removeAllViews()
@@ -871,6 +878,11 @@ class ChatActivity : Activity() {
                 .start()
         }
         close.setOnClickListener { haptic(it); closeDrawerAnimated() }
+        drawerTitle.setOnClickListener {
+            haptic(it)
+            closeDrawerAnimated()
+            it.postDelayed({ showAdarbotInfo() }, 220L)
+        }
         var downX = 0f
         val swipeToClose = View.OnTouchListener { view, event ->
             when (event.actionMasked) {
@@ -896,7 +908,6 @@ class ChatActivity : Activity() {
                 else -> false
             }
         }
-        top.setOnTouchListener(swipeToClose)
         panel.setOnTouchListener(swipeToClose)
         drawer.window?.apply {
             setBackgroundDrawable(ColorDrawable(Color.parseColor("#090E17")))
