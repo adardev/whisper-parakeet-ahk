@@ -275,27 +275,20 @@ class ChatActivity : Activity() {
 
     private fun mergeRemoteMessages(remote: List<ChatMessage>): List<ChatMessage> {
         val cleanRemote = remote.filterNot { it.role == "assistant" && it.content in thinkingLabels }
-        val stableLocal = messages.filterNot {
-            it.role == "assistant" && it.content in thinkingLabels && !sending
-        }
-        if (stableLocal.isEmpty()) return cleanRemote
+        // Fuera de un envío, el servidor es la fuente de verdad. No mezclar
+        // mensajes viejos del cache local: eso causaba usuarios duplicados y
+        // respuestas fuera de orden.
+        if (!sending) return cleanRemote
+
+        // Durante el envío sí conservamos temporalmente el mensaje local y el
+        // indicador de pensamiento hasta que el servidor confirme la respuesta.
         val merged = cleanRemote.toMutableList()
-        val remoteIsPartial = remote.size < messages.size || sending
-        stableLocal.filter { it.content.isNotBlank() && (it.role == "user" || remoteIsPartial) }.forEach { local ->
-            if (merged.none { it.role == local.role && it.content == local.content }) {
-                if (local.role == "user") {
-                    val firstAssistant = merged.indexOfFirst { it.role == "assistant" }
-                    if (firstAssistant >= 0) merged.add(firstAssistant, local) else merged.add(local)
-                } else {
-                    merged.add(local)
-                }
-            }
-        }
-        if (sending) {
-            stableLocal.filter { it.role == "assistant" && it.content in thinkingLabels }
-                .filter { pending -> merged.none { it.role == pending.role && it.content == pending.content } }
-                .forEach { merged.add(it) }
-        }
+        messages.filter { it.role == "user" && it.content.isNotBlank() }
+            .filter { local -> merged.none { it.role == local.role && it.content == local.content } }
+            .forEach { merged.add(it) }
+        messages.filter { it.role == "assistant" && it.content in thinkingLabels }
+            .filter { pending -> merged.none { it.role == pending.role && it.content == pending.content } }
+            .forEach { merged.add(it) }
         return merged
     }
 
