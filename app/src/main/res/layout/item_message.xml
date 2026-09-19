@@ -9,6 +9,11 @@
     android:paddingTop="8dp"
     android:paddingBottom="8dp">
 
+    <LinearLayout
+        android:id="@+id/msgColumn"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
     <TextView
         android:id="@+id/msgBubble"
         android:layout_width="wrap_content"
@@ -21,4 +26,28 @@
         android:paddingBottom="12dp"
         android:textColor="#EDEDF0"
         android:textSize="16sp" />
+    <LinearLayout
+        android:id="@+id/msgActions"
+        android:layout_width="match_parent"
+        android:layout_height="30dp"
+        android:gravity="start|center_vertical"
+        android:orientation="horizontal">
+        <ImageButton
+            android:id="@+id/msgCopy"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:background="@android:color/transparent"
+            android:contentDescription="Copiar mensaje"
+            android:padding="7dp"
+            android:src="@drawable/ic_copy" />
+        <ImageButton
+            android:id="@+id/msgSpeak"
+            android:layout_width="30dp"
+            android:layout_height="30dp"
+            android:background="@android:color/transparent"
+            android:contentDescription="Escuchar mensaje"
+            android:padding="7dp"
+            android:src="@drawable/ic_volume" />
+    </LinearLayout>
+    </LinearLayout>
 </LinearLayout>

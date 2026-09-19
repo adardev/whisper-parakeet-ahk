@@ -3,6 +3,8 @@ package com.nemotron.voiceime.chat
 import android.Manifest
 import android.app.Activity
 import android.app.Dialog
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -18,6 +20,7 @@ import android.os.Build
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
+import android.speech.tts.TextToSpeech
 import android.view.View
 import android.view.HapticFeedbackConstants
 import android.view.Window
@@ -37,6 +40,7 @@ import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
 import android.util.Base64
 import java.io.ByteArrayOutputStream
+import java.util.Locale
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.nemotron.voiceime.R
@@ -60,6 +64,7 @@ class ChatActivity : Activity() {
     private lateinit var incognitoHomeBtn: ImageButton
     private lateinit var chat: ChatClient
     private lateinit var connectionDot: View
+    private var textToSpeech: TextToSpeech? = null
 
     private val models = listOf("deepseek-flash", "mimo-v2.5", "nemotron")
     private var modelIndex = 0
@@ -164,7 +169,8 @@ class ChatActivity : Activity() {
         chat.conversations({ runOnUiThread { connectionDot.setBackgroundResource(R.drawable.bg_connection_online) } }, { runOnUiThread { connectionDot.setBackgroundResource(R.drawable.bg_connection_offline) } })
         updateIncognitoUi()
 
-        adapter = MessageAdapter(messages)
+        adapter = MessageAdapter(messages, ::copyMessage, ::speakMessage)
+        textToSpeech = TextToSpeech(this) { }
         recycler.layoutManager = LinearLayoutManager(this)
         recycler.adapter = adapter
         showWelcomeIfEmpty()
@@ -215,6 +221,8 @@ class ChatActivity : Activity() {
         thinkingHandler.removeCallbacks(thinkingRunnable)
         try {
             speech?.destroy()
+            textToSpeech?.stop()
+            textToSpeech?.shutdown()
         } catch (e: Exception) {
         }
     }
@@ -267,10 +275,15 @@ class ChatActivity : Activity() {
     private fun mergeRemoteMessages(remote: List<ChatMessage>): List<ChatMessage> {
         if (messages.isEmpty()) return remote
         val merged = remote.toMutableList()
-        messages.filter { it.role == "user" && it.content.isNotBlank() }.forEach { local ->
+        val remoteIsPartial = remote.size < messages.size || sending
+        messages.filter { it.content.isNotBlank() && (it.role == "user" || remoteIsPartial) }.forEach { local ->
             if (merged.none { it.role == local.role && it.content == local.content }) {
-                val firstAssistant = merged.indexOfFirst { it.role == "assistant" }
-                if (firstAssistant >= 0) merged.add(firstAssistant, local) else merged.add(local)
+                if (local.role == "user") {
+                    val firstAssistant = merged.indexOfFirst { it.role == "assistant" }
+                    if (firstAssistant >= 0) merged.add(firstAssistant, local) else merged.add(local)
+                } else {
+                    merged.add(local)
+                }
             }
         }
         if (sending) {
@@ -403,6 +416,18 @@ class ChatActivity : Activity() {
         messages.add(ChatMessage(role, content))
         adapter.notifyItemInserted(messages.size - 1)
         recycler.scrollToPosition(messages.size - 1)
+    }
+
+    private fun copyMessage(message: ChatMessage) {
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        clipboard.setPrimaryClip(ClipData.newPlainText("Mensaje de adarbot", message.content))
+        Toast.makeText(this, "Mensaje copiado", Toast.LENGTH_SHORT).show()
+    }
+
+    private fun speakMessage(message: ChatMessage) {
+        textToSpeech?.stop()
+        textToSpeech?.language = Locale("es", "MX")
+        textToSpeech?.speak(message.content, TextToSpeech.QUEUE_FLUSH, null, "adarbot-message")
     }
 
     private fun showWelcomeIfEmpty() {

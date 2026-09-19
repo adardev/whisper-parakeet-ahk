@@ -11,7 +11,9 @@ import androidx.recyclerview.widget.DiffUtil
 import com.nemotron.voiceime.R
 
 class MessageAdapter(
-    private val messages: MutableList<ChatMessage>
+    private val messages: MutableList<ChatMessage>,
+    private val onCopy: (ChatMessage) -> Unit,
+    private val onSpeak: (ChatMessage) -> Unit
 ) : RecyclerView.Adapter<MessageAdapter.MessageVH>() {
 
     fun replaceMessages(next: List<ChatMessage>) {
@@ -45,16 +47,23 @@ class MessageAdapter(
         if (msg.role == "user") {
             holder.wrap.gravity = Gravity.END
             holder.bubble.setBackgroundResource(R.drawable.bg_bubble_user)
+            holder.actions.gravity = Gravity.END
         } else {
             holder.wrap.gravity = Gravity.START
             holder.bubble.setBackgroundResource(R.drawable.bg_bubble_ai)
+            holder.actions.gravity = Gravity.START
         }
+        holder.copy.setOnClickListener { onCopy(msg) }
+        holder.speak.setOnClickListener { onSpeak(msg) }
     }
 
     override fun getItemCount(): Int = messages.size
 
     class MessageVH(item: View) : RecyclerView.ViewHolder(item) {
         val wrap: LinearLayout = item.findViewById(R.id.msgWrap)
+        val actions: LinearLayout = item.findViewById(R.id.msgActions)
         val bubble: TextView = item.findViewById(R.id.msgBubble)
+        val copy: View = item.findViewById(R.id.msgCopy)
+        val speak: View = item.findViewById(R.id.msgSpeak)
     }
 }
