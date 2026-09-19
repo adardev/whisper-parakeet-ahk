@@ -652,7 +652,7 @@ class ChatActivity : Activity() {
     private fun updateIncognitoUi() {
         val show = conversation == null || incognitoMode
         incognitoHomeBtn.visibility = if (show) View.VISIBLE else View.GONE
-        deleteBtn.visibility = View.GONE
+        deleteBtn.visibility = if (!show && !convId.isNullOrBlank()) View.VISIBLE else View.GONE
         incognitoHomeBtn.isEnabled = messages.isEmpty()
         incognitoHomeBtn.alpha = if (messages.isEmpty()) 1f else 0.78f
         if (incognitoMode) {

@@ -25,7 +25,6 @@ import android.widget.ImageView
 import android.widget.ScrollView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import androidx.recyclerview.widget.ItemTouchHelper
 import com.nemotron.voiceime.R
 import org.json.JSONArray
 import org.json.JSONObject
@@ -74,17 +73,6 @@ class ChatsListActivity : Activity() {
         adapter = ChatListAdapter(list, ::openConv, ::deleteConv, ::renameConv, ::togglePin, ::showChatActions)
         recycler.layoutManager = LinearLayoutManager(this)
         recycler.adapter = adapter
-        ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT) {
-            override fun onMove(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder, target: RecyclerView.ViewHolder) = false
-            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
-                val position = viewHolder.adapterPosition
-                if (position != RecyclerView.NO_POSITION && position < list.size) {
-                    showChatActions(viewHolder.itemView, list[position])
-                    adapter.notifyItemChanged(position)
-                }
-            }
-        }).attachToRecyclerView(recycler)
-
         incognitoBtn.setOnClickListener {
             haptic(it)
             startActivity(Intent(this, ChatActivity::class.java).putExtra("incognito", true))
@@ -256,23 +244,6 @@ class ChatsListActivity : Activity() {
             val row = drawerRow(R.drawable.ic_profile, c.title) {
                 (root.tag as? PopupWindow)?.dismiss()
                 openConv(c)
-            }
-            var downX = 0f
-            row.setOnTouchListener { view, event ->
-                when (event.actionMasked) {
-                    android.view.MotionEvent.ACTION_DOWN -> {
-                        downX = event.rawX
-                        false
-                    }
-                    android.view.MotionEvent.ACTION_UP -> {
-                        if (kotlin.math.abs(event.rawX - downX) > dp(56)) {
-                            showChatActions(view, c)
-                            view.performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
-                            true
-                        } else false
-                    }
-                    else -> false
-                }
             }
             row.setOnLongClickListener {
                 showChatActions(row, c)
