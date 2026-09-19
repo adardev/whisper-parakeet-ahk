@@ -40,6 +40,7 @@ import android.view.MotionEvent
 import android.view.Gravity
 import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
+import android.view.animation.AccelerateDecelerateInterpolator
 import android.view.animation.AnimationUtils
 import android.util.Base64
 import java.io.ByteArrayOutputStream
@@ -65,6 +66,8 @@ class ChatActivity : Activity() {
     private lateinit var sendBtn: ImageButton
     private lateinit var deleteBtn: ImageButton
     private lateinit var incognitoHomeBtn: ImageButton
+    private lateinit var composerView: View
+    private var composerHidden = false
     private lateinit var chat: ChatClient
     private var textToSpeech: TextToSpeech? = null
 
@@ -146,20 +149,20 @@ class ChatActivity : Activity() {
         window.statusBarColor = Color.parseColor("#090E17")
         window.navigationBarColor = Color.parseColor("#090E17")
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
-        val composer = findViewById<View>(R.id.chatComposer)
+        composerView = findViewById(R.id.chatComposer)
         findViewById<View>(android.R.id.content).autoInsets { keyboardOpen ->
-            val lp = composer.layoutParams as FrameLayout.LayoutParams
+            val lp = composerView.layoutParams as FrameLayout.LayoutParams
             val desiredBottom = if (keyboardOpen) 0 else dp(20)
             val desiredSide = if (keyboardOpen) 0 else dp(12)
             if (lp.bottomMargin != desiredBottom || lp.leftMargin != desiredSide || lp.rightMargin != desiredSide) {
                 lp.bottomMargin = desiredBottom
                 lp.leftMargin = desiredSide
                 lp.rightMargin = desiredSide
-                composer.layoutParams = lp
+                composerView.layoutParams = lp
             }
             // Keep the same floating pill shape above and below the keyboard.
-            composer.setBackgroundResource(R.drawable.bg_float_bar)
-            composer.elevation = if (keyboardOpen) 0f else dp(24).toFloat()
+            composerView.setBackgroundResource(R.drawable.bg_float_bar)
+            composerView.elevation = if (keyboardOpen) 0f else dp(24).toFloat()
         }
 
         val prefs = getSharedPreferences("hermes_chat", Context.MODE_PRIVATE)
@@ -193,6 +196,14 @@ class ChatActivity : Activity() {
         recycler.layoutManager = LinearLayoutManager(this)
         recycler.layoutAnimation = AnimationUtils.loadLayoutAnimation(this, R.anim.layout_message_enter)
         recycler.adapter = adapter
+        recycler.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+            override fun onScrolled(view: RecyclerView, dx: Int, dy: Int) {
+                when {
+                    dy > dp(4) -> hideComposer()
+                    dy < -dp(4) -> showComposer()
+                }
+            }
+        })
         showWelcomeIfEmpty()
         if (messages.isNotEmpty()) recycler.scrollToPosition(messages.size - 1)
 
@@ -881,6 +892,30 @@ class ChatActivity : Activity() {
     private fun hideKeyboard() {
         val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
         imm.hideSoftInputFromWindow(input.windowToken, 0)
+    }
+
+    private fun hideComposer() {
+        if (composerHidden) return
+        composerHidden = true
+        composerView.animate().cancel()
+        composerView.animate()
+            .translationY(dp(104).toFloat())
+            .alpha(0f)
+            .setDuration(240L)
+            .setInterpolator(AccelerateDecelerateInterpolator())
+            .start()
+    }
+
+    private fun showComposer() {
+        if (!composerHidden) return
+        composerHidden = false
+        composerView.animate().cancel()
+        composerView.animate()
+            .translationY(0f)
+            .alpha(1f)
+            .setDuration(240L)
+            .setInterpolator(AccelerateDecelerateInterpolator())
+            .start()
     }
 
     private fun haptic(view: View) {
