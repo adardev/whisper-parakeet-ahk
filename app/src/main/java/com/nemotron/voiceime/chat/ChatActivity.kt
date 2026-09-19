@@ -184,12 +184,13 @@ class ChatActivity : Activity() {
         sendBtn.setOnClickListener { haptic(it); doSend() }
         input.setOnEditorActionListener { _, _, _ -> doSend(); true }
 
-        modelChip.text = displayName(models[0])
+        updateModelChip()
         modelChip.setOnClickListener {
             haptic(it)
             modelIndex = (modelIndex + 1) % models.size
-            modelChip.text = displayName(models[modelIndex])
+            updateModelChip()
         }
+        sendBtn.setOnLongClickListener { haptic(it); showModelPicker(it); true }
 
         micBtn.setOnClickListener {
             haptic(it)
@@ -544,6 +545,50 @@ class ChatActivity : Activity() {
         "deepseek-flash" -> "DeepSeek"
         "mimo-v2.5" -> "MiMo"
         else -> "Nemotron"
+    }
+
+    private fun modelIcon(m: String): Int = when (m) {
+        "deepseek-flash" -> R.drawable.ic_model_deepseek
+        "mimo-v2.5" -> R.drawable.ic_model_mimo
+        else -> R.drawable.ic_model_nemotron
+    }
+
+    private fun updateModelChip() {
+        modelChip.text = displayName(models[modelIndex])
+        modelChip.setCompoundDrawablesWithIntrinsicBounds(modelIcon(models[modelIndex]), 0, 0, 0)
+        modelChip.compoundDrawablePadding = dp(5)
+    }
+
+    private fun showModelPicker(anchor: View) {
+        val menu = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(8), dp(8), dp(8), dp(8))
+            setBackgroundResource(R.drawable.bg_drawer_panel)
+        }
+        val popup = PopupWindow(menu, dp(230), ViewGroup.LayoutParams.WRAP_CONTENT, true).apply {
+            elevation = dp(20).toFloat()
+            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            isOutsideTouchable = true
+        }
+        models.forEachIndexed { index, model ->
+            val row = LinearLayout(this).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(10), dp(10), dp(10), dp(10))
+                background = if (index == modelIndex) getDrawable(R.drawable.bg_drawer_action) else ColorDrawable(Color.TRANSPARENT)
+                addView(ImageView(context).apply {
+                    setImageResource(modelIcon(model)); layoutParams = LinearLayout.LayoutParams(dp(24), dp(24))
+                })
+                addView(TextView(context).apply {
+                    text = when (model) { "mimo-v2.5" -> "MiMo · Xiaomi"; "deepseek-flash" -> "DeepSeek"; else -> "Nemotron · NVIDIA" }
+                    textSize = 14f; setTextColor(Color.WHITE); setPadding(dp(12), 0, 0, 0)
+                })
+            }
+            row.setOnClickListener {
+                haptic(it); modelIndex = index; updateModelChip(); popup.dismiss()
+            }
+            menu.addView(row, LinearLayout.LayoutParams(-1, dp(48)))
+        }
+        popup.showAsDropDown(anchor, -dp(185), -dp(190))
     }
 
     private fun hideKeyboard() {
