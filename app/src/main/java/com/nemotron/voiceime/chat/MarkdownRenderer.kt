@@ -29,22 +29,97 @@ object MarkdownRenderer {
         body = body.replace(Regex("""(?m)^\s*\$([^$\n]+)\$\s*$""")) { saveMath(it.groupValues[1], true) }
         body = body.replace(Regex("""\$([^$\n]+)\$""")) { saveMath(it.groupValues[1], false) }
 
+        val tables = mutableListOf<String>()
+        body = extractTables(body, tables)
+
         var html = escape(body)
-        html = html.replace(Regex("""(?m)^#{1,6}\s+(.+)$""")) { "<b>${it.groupValues[1]}</b>" }
-        html = html.replace(Regex("""(?m)^[-*]\s+"""), "• ")
+        html = html.replace(Regex("""(?m)^#{1}\s+(.+)$""")) { "<br><big><b>${it.groupValues[1]}</b></big>" }
+        html = html.replace(Regex("""(?m)^#{2}\s+(.+)$""")) { "<br><b>${it.groupValues[1]}</b>" }
+        html = html.replace(Regex("""(?m)^#{3,6}\s+(.+)$""")) { "<b>${it.groupValues[1]}</b>" }
+        html = html.replace(Regex("""(?m)^\s*[-*+]\s+\[ \]\s+"""), "☐ ")
+        html = html.replace(Regex("""(?m)^\s*[-*+]\s+\[[xX]\]\s+"""), "☑ ")
+        html = html.replace(Regex("""(?m)^\s*[-*+]\s+"""), "• ")
+        html = html.replace(Regex("""(?m)^\s*\d+[.)]\s+"""), "• ")
+        html = html.replace(Regex("""(?m)^\s*>\s?"""), "│ ")
+        html = html.replace(Regex("""(?m)^\s*(?:---+|___+|\*\*\*+)\s*$"""), "<br>────────────<br>")
         html = html.replace(Regex("```(?:[a-zA-Z0-9_+-]+)?\n?([\\s\\S]*?)```")) {
             "<br><tt><font color='#B8D5FF'>${it.groupValues[1]}</font></tt><br>"
         }
         html = html.replace(Regex("`([^`]+)`")) { "<tt><font color='#B8D5FF'>${it.groupValues[1]}</font></tt>" }
+        html = html.replace(Regex("\\[([^]]+)]\\(([^)]+)\\)")) { "<a href='${it.groupValues[2]}'>${it.groupValues[1]}</a>" }
         html = html.replace(Regex("\\*\\*([^*]+)\\*\\*|__([^_]+)__")) {
             "<b>${it.groupValues[1].ifEmpty { it.groupValues[2] }}</b>"
         }
         html = html.replace(Regex("(?<!\\*)\\*([^*]+)\\*(?!\\*)|(?<!_)_([^_]+)_(?!_)")) {
             "<i>${it.groupValues[1].ifEmpty { it.groupValues[2] }}</i>"
         }
+        html = html.replace(Regex("~~([^~]+)~~")) { "<strike>${it.groupValues[1]}</strike>" }
         html = html.replace("\n", "<br>")
+        // Tables must be expanded before math placeholders are restored so
+        // equations inside table cells are rendered too.
+        tables.forEachIndexed { index, value -> html = html.replace("@@TABLE$index@@", value) }
         math.forEachIndexed { index, value -> html = html.replace("@@MATH$index@@", value) }
         return HtmlCompat.fromHtml(html, HtmlCompat.FROM_HTML_MODE_LEGACY)
+    }
+
+    /** Turns GitHub-style pipe tables into readable, monospaced table blocks. */
+    private fun extractTables(source: String, tables: MutableList<String>): String {
+        val lines = source.split("\n")
+        val out = mutableListOf<String>()
+        var i = 0
+        while (i < lines.size) {
+            if (i + 1 < lines.size && isTableRow(lines[i]) && isSeparatorRow(lines[i + 1])) {
+                val rows = mutableListOf(parseCells(lines[i]))
+                i += 2 // header + separator
+                while (i < lines.size && isTableRow(lines[i])) {
+                    rows += parseCells(lines[i])
+                    i++
+                }
+                if (rows.first().isNotEmpty()) {
+                    tables += tableHtml(rows)
+                    out += "@@TABLE${tables.lastIndex}@@"
+                    continue
+                }
+            }
+            out += lines[i]
+            i++
+        }
+        return out.joinToString("\n")
+    }
+
+    private fun isTableRow(line: String): Boolean {
+        val value = line.trim()
+        return value.count { it == '|' } >= 1 && value.replace("|", "").trim().isNotEmpty()
+    }
+
+    private fun isSeparatorRow(line: String): Boolean =
+        isTableRow(line) && parseCells(line).isNotEmpty() &&
+            parseCells(line).all { it.replace(":", "").trim().matches(Regex("-{3,}")) }
+
+    private fun parseCells(line: String): List<String> =
+        line.trim().removePrefix("|").removeSuffix("|").split("|").map { it.trim() }
+
+    private fun tableHtml(rows: List<List<String>>): String {
+        val columns = rows.maxOf { it.size }
+        val normalized = rows.map { row -> (row + List(columns - row.size) { "" }).take(columns) }
+        val widths = (0 until columns).map { column ->
+            normalized.maxOf { it[column].length }.coerceIn(3, 24)
+        }
+        fun htmlCell(value: String, width: Int): String {
+            val clipped = value.take(width).padEnd(width, ' ')
+            return escape(clipped).replace(" ", "&nbsp;")
+        }
+        fun rowHtml(row: List<String>, bold: Boolean): String =
+            row.mapIndexed { index, cell ->
+                val value = htmlCell(cell, widths[index])
+                if (bold) "<b>$value</b>" else value
+            }.joinToString("&nbsp;│&nbsp;")
+
+        val divider = widths.joinToString("─┼─") { "─".repeat(it) }
+        return "<br><font face=\"monospace\" color=\"#B8D5FF\"><b>${rowHtml(normalized.first(), true)}</b><br>" +
+            "$divider<br>" +
+            normalized.drop(1).joinToString("<br>") { rowHtml(it, false) } +
+            "</font><br>"
     }
 
     private fun escape(value: String): String = value
