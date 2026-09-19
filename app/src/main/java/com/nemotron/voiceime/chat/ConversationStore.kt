@@ -114,9 +114,9 @@ object ConversationStore {
 
     fun replaceRemote(remote: List<Conversation>) {
         val old = load().associateBy { it.id }
-        persist(remote.mapNotNull { incoming ->
-            val previous = old[incoming.id] ?: return@mapNotNull null
-            incoming.copy(title = previous.title, pinned = previous.pinned, messages = previous.messages)
+        persist(remote.map { incoming ->
+            val previous = old[incoming.id]
+            if (previous == null) incoming else incoming.copy(title = previous.title, pinned = previous.pinned, messages = previous.messages)
         })
     }
 }

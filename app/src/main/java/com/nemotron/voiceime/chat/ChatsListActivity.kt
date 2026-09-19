@@ -31,7 +31,7 @@ import org.json.JSONObject
 
 class ChatsListActivity : Activity() {
     private val refreshHandler = Handler(Looper.getMainLooper())
-    private val refreshLoop = object : Runnable { override fun run() { refresh(); refreshHandler.postDelayed(this, 2000) } }
+    private val refreshLoop = object : Runnable { override fun run() { refresh(); refreshHandler.postDelayed(this, 1000) } }
 
     private val list = mutableListOf<Conversation>()
     private lateinit var adapter: ChatListAdapter
