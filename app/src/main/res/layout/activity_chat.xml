@@ -52,7 +52,8 @@
             android:layout_width="48dp"
             android:layout_height="40dp"
             android:gravity="center_vertical|start"
-            android:paddingLeft="8dp">
+            android:paddingLeft="8dp"
+            android:translationX="8dp">
             <ImageButton
                 android:id="@+id/btnMenuChat"
                 android:layout_width="40dp"
