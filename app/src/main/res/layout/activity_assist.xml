@@ -38,6 +38,46 @@
             android:textColor="#E8F1FF"
             android:textSize="13sp" />
     </LinearLayout>
+    <HorizontalScrollView
+        android:id="@+id/assistPreviewWrap"
+        android:layout_width="match_parent"
+        android:layout_height="72dp"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginLeft="22dp"
+        android:layout_marginRight="22dp"
+        android:layout_marginBottom="150dp"
+        android:clipToPadding="false"
+        android:padding="4dp"
+        android:scrollbars="none"
+        android:background="@android:color/transparent"
+        android:visibility="gone">
+        <FrameLayout
+            android:layout_width="150dp"
+            android:layout_height="56dp"
+            android:background="@drawable/bg_assist_preview"
+            android:padding="4dp">
+            <ImageView
+                android:id="@+id/assistPreview"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@drawable/bg_assist_preview"
+                android:clipToOutline="true"
+                android:contentDescription="Vista previa de captura"
+                android:outlineProvider="background"
+                android:scaleType="centerCrop" />
+            <ImageButton
+                android:id="@+id/assistPreviewRemove"
+                android:layout_width="32dp"
+                android:layout_height="32dp"
+                android:layout_gravity="top|end"
+                android:layout_margin="2dp"
+                android:background="@drawable/bg_assist_icon"
+                android:contentDescription="Quitar captura"
+                android:padding="7dp"
+                android:src="@drawable/ic_close"
+                android:tint="#FFFFFF" />
+        </FrameLayout>
+    </HorizontalScrollView>
     <LinearLayout
         android:id="@+id/assistPanel"
         android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -46,37 +86,6 @@
         android:paddingLeft="4dp" android:paddingTop="4dp" android:paddingRight="4dp" android:paddingBottom="18dp"
         android:background="@drawable/bg_assist_panel" android:elevation="24dp"
         android:focusable="true" android:focusableInTouchMode="true">
-    <!-- El adjunto vive dentro del compositor, como en Gemini. -->
-    <FrameLayout
-        android:id="@+id/assistPreviewWrap"
-        android:layout_width="150dp"
-        android:layout_height="56dp"
-        android:layout_marginLeft="10dp"
-        android:layout_marginTop="8dp"
-        android:padding="4dp"
-        android:background="@drawable/bg_assist_preview"
-        android:visibility="gone">
-        <ImageView
-            android:id="@+id/assistPreview"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:background="@drawable/bg_assist_preview"
-            android:clipToOutline="true"
-            android:contentDescription="Vista previa de captura"
-            android:outlineProvider="background"
-            android:scaleType="centerCrop" />
-        <ImageButton
-            android:id="@+id/assistPreviewRemove"
-            android:layout_width="32dp"
-            android:layout_height="32dp"
-            android:layout_gravity="top|end"
-            android:layout_margin="6dp"
-            android:background="@drawable/bg_assist_icon"
-            android:contentDescription="Quitar captura"
-            android:padding="7dp"
-            android:src="@drawable/ic_close"
-            android:tint="#FFFFFF" />
-    </FrameLayout>
     <TextView android:id="@+id/assistStatus" android:layout_width="1dp" android:layout_height="1dp" android:visibility="gone" />
     <LinearLayout
         android:layout_width="match_parent"
