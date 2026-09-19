@@ -118,11 +118,9 @@ class ChatsListActivity : Activity() {
         chat.conversations({ arr ->
             val remote = parseConversations(arr).sortedWith(compareByDescending<Conversation> { it.createdAt }.thenBy { it.id })
             runOnUiThread {
-                if (remote.isNotEmpty()) {
-                    ConversationStore.replaceRemote(remote)
-                    hasRemoteSnapshot = true
-                    renderChats(remote)
-                }
+                ConversationStore.replaceRemote(remote)
+                hasRemoteSnapshot = true
+                renderChats(remote)
             }
         }, {})
     }
@@ -131,9 +129,9 @@ class ChatsListActivity : Activity() {
         val signature = items.joinToString("|") { "${it.id}:${it.title}:${it.createdAt}:${it.source}:${it.displayName}:${it.pinned}" }
         if (signature == renderedSignature) return
         renderedSignature = signature
+        adapter.replaceItems(items)
         list.clear()
         list.addAll(items)
-        adapter.notifyDataSetChanged()
         emptyView.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
     }
 
@@ -287,7 +285,7 @@ class ChatsListActivity : Activity() {
 
     private fun parseConversation(o: JSONObject): Conversation = Conversation(
         o.optString("id"), o.optString("title", "Nuevo chat"),
-        o.optLong("created_at", System.currentTimeMillis()),
+        o.optLong("updated_at", o.optLong("created_at", System.currentTimeMillis())),
         mutableListOf(), o.optString("source"), o.optString("display_name"), o.optString("chat_id"), o.optBoolean("pinned", false)
     )
 }

@@ -6,6 +6,7 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
+import androidx.recyclerview.widget.DiffUtil
 import com.nemotron.voiceime.R
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -18,6 +19,22 @@ class ChatListAdapter(
     private val onRename: (Conversation) -> Unit,
     private val onPin: (Conversation) -> Unit
 ) : RecyclerView.Adapter<ChatListAdapter.VH>() {
+
+    fun replaceItems(next: List<Conversation>) {
+        val old = items.toList()
+        val diff = DiffUtil.calculateDiff(object : DiffUtil.Callback() {
+            override fun getOldListSize() = old.size
+            override fun getNewListSize() = next.size
+            override fun areItemsTheSame(oldPosition: Int, newPosition: Int) = old[oldPosition].id == next[newPosition].id
+            override fun areContentsTheSame(oldPosition: Int, newPosition: Int) =
+                old[oldPosition].title == next[newPosition].title &&
+                    old[oldPosition].createdAt == next[newPosition].createdAt &&
+                    old[oldPosition].pinned == next[newPosition].pinned
+        })
+        items.clear()
+        items.addAll(next)
+        diff.dispatchUpdatesTo(this)
+    }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
         val v = LayoutInflater.from(parent.context).inflate(R.layout.item_chat, parent, false)

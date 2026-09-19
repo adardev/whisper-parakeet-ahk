@@ -67,6 +67,16 @@ class ChatActivity : Activity() {
     private var speech: SpeechRecognizer? = null
     private var pendingImageData: String? = null
     private var pendingImageBitmap: Bitmap? = null
+    private var remoteRefreshInFlight = false
+    private var sending = false
+    private var lastRemoteSignature = ""
+    private val remoteRefreshHandler = Handler(Looper.getMainLooper())
+    private val remoteRefreshLoop = object : Runnable {
+        override fun run() {
+            refreshRemoteMessages()
+            remoteRefreshHandler.postDelayed(this, 1200L)
+        }
+    }
     private val thinkingLabels = listOf(
         "conectando con adarbot…",
         "adarbot está pensando…",
@@ -160,23 +170,7 @@ class ChatActivity : Activity() {
         showWelcomeIfEmpty()
         if (messages.isNotEmpty()) recycler.scrollToPosition(messages.size - 1)
 
-        if (!incognitoMode) convId?.let { id ->
-            chat.conversation(id, { remote ->
-                val remoteMessages = mutableListOf<ChatMessage>()
-                val arr = remote.optJSONArray("messages") ?: JSONArray()
-                for (i in 0 until arr.length()) {
-                    val m = arr.getJSONObject(i)
-                    remoteMessages.add(ChatMessage(m.optString("role"), m.optString("content"), m.optLong("created_at")))
-                }
-                runOnUiThread {
-                    messages.clear(); messages.addAll(remoteMessages)
-                    showWelcomeIfEmpty()
-                    adapter.notifyDataSetChanged()
-                    conversation?.messages?.clear(); conversation?.messages?.addAll(remoteMessages)
-                    if (messages.isNotEmpty()) recycler.scrollToPosition(messages.size - 1)
-                }
-            }, {})
-        }
+        refreshRemoteMessages()
 
         backBtn.setOnClickListener { haptic(it); goBack() }
         incognitoHomeBtn.setOnClickListener {
@@ -217,11 +211,74 @@ class ChatActivity : Activity() {
 
     override fun onDestroy() {
         super.onDestroy()
+        remoteRefreshHandler.removeCallbacks(remoteRefreshLoop)
         thinkingHandler.removeCallbacks(thinkingRunnable)
         try {
             speech?.destroy()
         } catch (e: Exception) {
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        remoteRefreshHandler.removeCallbacks(remoteRefreshLoop)
+        remoteRefreshHandler.post(remoteRefreshLoop)
+    }
+
+    override fun onPause() {
+        remoteRefreshHandler.removeCallbacks(remoteRefreshLoop)
+        super.onPause()
+    }
+
+    private fun refreshRemoteMessages() {
+        val id = convId ?: return
+        if (incognitoMode || remoteRefreshInFlight) return
+        remoteRefreshInFlight = true
+        chat.conversation(id, { remote ->
+            val remoteMessages = parseRemoteMessages(remote)
+            runOnUiThread {
+                remoteRefreshInFlight = false
+                val merged = mergeRemoteMessages(remoteMessages)
+                val signature = merged.joinToString("|") { "${it.role}:${it.ts}:${it.content}" }
+                if (signature == lastRemoteSignature) return@runOnUiThread
+                lastRemoteSignature = signature
+                val wasAtBottom = !recycler.canScrollVertically(1)
+                adapter.replaceMessages(merged)
+                conversation?.messages?.clear()
+                conversation?.messages?.addAll(merged)
+                showWelcomeIfEmpty()
+                if (wasAtBottom && merged.isNotEmpty()) recycler.smoothScrollToPosition(merged.lastIndex)
+            }
+        }, {
+            runOnUiThread { remoteRefreshInFlight = false }
+        })
+    }
+
+    private fun parseRemoteMessages(remote: JSONObject): List<ChatMessage> {
+        val result = mutableListOf<ChatMessage>()
+        val arr = remote.optJSONArray("messages") ?: JSONArray()
+        for (i in 0 until arr.length()) {
+            val m = arr.optJSONObject(i) ?: continue
+            result.add(ChatMessage(m.optString("role"), m.optString("content"), m.optLong("created_at", System.currentTimeMillis())))
+        }
+        return result
+    }
+
+    private fun mergeRemoteMessages(remote: List<ChatMessage>): List<ChatMessage> {
+        if (messages.isEmpty()) return remote
+        val merged = remote.toMutableList()
+        messages.filter { it.role == "user" && it.content.isNotBlank() }.forEach { local ->
+            if (merged.none { it.role == local.role && it.content == local.content }) {
+                val firstAssistant = merged.indexOfFirst { it.role == "assistant" }
+                if (firstAssistant >= 0) merged.add(firstAssistant, local) else merged.add(local)
+            }
+        }
+        if (sending) {
+            messages.filter { it.role == "assistant" && it.content in thinkingLabels }
+                .filter { pending -> merged.none { it.role == pending.role && it.content == pending.content } }
+                .forEach { merged.add(it) }
+        }
+        return merged
     }
 
     private fun goBack() {
@@ -254,6 +311,7 @@ class ChatActivity : Activity() {
             return
         }
         val conv = existing ?: conversation ?: return
+        sending = true
         input.setText("")
         hideKeyboard()
         welcomeView.visibility = View.GONE
@@ -315,6 +373,7 @@ class ChatActivity : Activity() {
                         recycler.scrollToPosition(bubbleIndex)
                     }
                     micBtn.isEnabled = true
+                    sending = false
                     if (!isIncognito()) {
                         conv.messages.add(ChatMessage("assistant", full))
                         ConversationStore.save(conv)
@@ -329,6 +388,7 @@ class ChatActivity : Activity() {
                         adapter.notifyItemChanged(bubbleIndex)
                     }
                     micBtn.isEnabled = true
+                    sending = false
                 }
             }
         )

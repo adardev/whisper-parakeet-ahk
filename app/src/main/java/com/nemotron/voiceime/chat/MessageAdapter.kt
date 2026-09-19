@@ -7,11 +7,26 @@ import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
+import androidx.recyclerview.widget.DiffUtil
 import com.nemotron.voiceime.R
 
 class MessageAdapter(
     private val messages: MutableList<ChatMessage>
 ) : RecyclerView.Adapter<MessageAdapter.MessageVH>() {
+
+    fun replaceMessages(next: List<ChatMessage>) {
+        val old = messages.toList()
+        val diff = DiffUtil.calculateDiff(object : DiffUtil.Callback() {
+            override fun getOldListSize() = old.size
+            override fun getNewListSize() = next.size
+            override fun areItemsTheSame(oldPosition: Int, newPosition: Int) =
+                old[oldPosition].role == next[newPosition].role && old[oldPosition].ts == next[newPosition].ts
+            override fun areContentsTheSame(oldPosition: Int, newPosition: Int) = old[oldPosition] == next[newPosition]
+        })
+        messages.clear()
+        messages.addAll(next)
+        diff.dispatchUpdatesTo(this)
+    }
 
     private val TYPE_AI = 0
     private val TYPE_USER = 1
