@@ -33,6 +33,7 @@
                 android:id="@+id/btnMenuChat"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
+                android:layout_marginRight="6dp"
                 android:background="@drawable/bg_chip"
                 android:contentDescription="Abrir menú de chats"
                 android:padding="8dp"
