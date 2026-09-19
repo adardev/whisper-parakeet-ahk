@@ -71,7 +71,7 @@ class ChatsListActivity : Activity() {
         homeInput.setOnEditorActionListener { _, _, _ -> sendHomeMessage(homeInput); true }
         findViewById<ImageButton>(R.id.menuBtn).setOnClickListener { haptic(it); showMenu() }
 
-        adapter = ChatListAdapter(list, ::openConv, ::deleteConv, ::renameConv, ::togglePin, ::showChatActions)
+        adapter = ChatListAdapter(list, ::openConv, ::deleteConv, ::renameConv, ::togglePin, { _, c -> togglePin(c) })
         recycler.layoutManager = LinearLayoutManager(this)
         recycler.adapter = adapter
         incognitoBtn.setOnClickListener {
