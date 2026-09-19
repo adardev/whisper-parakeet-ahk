@@ -25,6 +25,7 @@ import android.widget.ImageView
 import android.widget.ScrollView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.recyclerview.widget.ItemTouchHelper
 import com.nemotron.voiceime.R
 import org.json.JSONArray
 import org.json.JSONObject
@@ -70,9 +71,19 @@ class ChatsListActivity : Activity() {
         homeInput.setOnEditorActionListener { _, _, _ -> sendHomeMessage(homeInput); true }
         findViewById<ImageButton>(R.id.menuBtn).setOnClickListener { haptic(it); showMenu() }
 
-        adapter = ChatListAdapter(list, ::openConv, ::deleteConv, ::renameConv, ::togglePin)
+        adapter = ChatListAdapter(list, ::openConv, ::deleteConv, ::renameConv, ::togglePin, ::showChatActions)
         recycler.layoutManager = LinearLayoutManager(this)
         recycler.adapter = adapter
+        ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(0, ItemTouchHelper.LEFT or ItemTouchHelper.RIGHT) {
+            override fun onMove(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder, target: RecyclerView.ViewHolder) = false
+            override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
+                val position = viewHolder.adapterPosition
+                if (position != RecyclerView.NO_POSITION && position < list.size) {
+                    showChatActions(viewHolder.itemView, list[position])
+                    adapter.notifyItemChanged(position)
+                }
+            }
+        }).attachToRecyclerView(recycler)
 
         incognitoBtn.setOnClickListener {
             haptic(it)
@@ -160,6 +171,44 @@ class ChatsListActivity : Activity() {
                 val title = input.text.toString().trim()
                 if (title.isNotEmpty()) { c.title = title; ConversationStore.save(c); refresh() }
             }.show()
+    }
+
+    private fun showChatActions(anchor: View, conversation: Conversation) {
+        val menu = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(8), dp(8), dp(8), dp(8))
+            background = GradientDrawable().apply {
+                setColor(Color.parseColor("#111C2D"))
+                cornerRadius = dp(20).toFloat()
+                setStroke(dp(1), Color.parseColor("#34547E"))
+            }
+        }
+        lateinit var popup: PopupWindow
+        fun row(icon: Int, label: String, color: Int, action: () -> Unit): View = LinearLayout(this).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            isClickable = true
+            setPadding(dp(10), dp(9), dp(18), dp(9))
+            addView(ImageView(context).apply {
+                setImageResource(icon)
+                setColorFilter(color)
+                layoutParams = LinearLayout.LayoutParams(dp(24), dp(24))
+            })
+            addView(TextView(context).apply {
+                text = label
+                textSize = 15f
+                setTextColor(Color.WHITE)
+                setPadding(dp(12), 0, 0, 0)
+            })
+            setOnClickListener { haptic(this); action(); popup.dismiss() }
+        }
+        menu.addView(row(R.drawable.ic_rename, "Renombrar", Color.parseColor("#9BC4FF")) { renameConv(conversation) })
+        menu.addView(row(R.drawable.ic_trash, "Eliminar conversación", Color.parseColor("#FF9A9A")) { deleteConv(conversation) })
+        popup = PopupWindow(menu, dp(220), ViewGroup.LayoutParams.WRAP_CONTENT, true).apply {
+            elevation = dp(18).toFloat()
+            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            isOutsideTouchable = true
+        }
+        menu.post { popup.showAsDropDown(anchor, dp(18), -anchor.height - dp(92)) }
     }
 
     private fun prefs() = getSharedPreferences("hermes_chat", Context.MODE_PRIVATE)

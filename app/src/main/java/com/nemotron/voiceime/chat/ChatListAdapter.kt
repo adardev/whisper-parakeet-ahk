@@ -17,7 +17,8 @@ class ChatListAdapter(
     private val onClick: (Conversation) -> Unit,
     private val onDelete: (Conversation) -> Unit,
     private val onRename: (Conversation) -> Unit,
-    private val onPin: (Conversation) -> Unit
+    private val onPin: (Conversation) -> Unit,
+    private val onLongPress: (View, Conversation) -> Unit
 ) : RecyclerView.Adapter<ChatListAdapter.VH>() {
 
     fun replaceItems(next: List<Conversation>) {
@@ -49,7 +50,11 @@ class ChatListAdapter(
         val link = if (c.source.isNotBlank()) "${c.source} · ${c.displayName.ifBlank { c.chatId }}" else date
         holder.meta.text = if (c.source.isNotBlank()) "$link  ·  $date" else date
         holder.itemView.setOnClickListener { onClick(c) }
-        holder.itemView.setOnLongClickListener { onRename(c); true }
+        holder.itemView.setOnLongClickListener {
+            holder.itemView.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+            onLongPress(holder.itemView, c)
+            true
+        }
         holder.trash.setOnClickListener { onDelete(c) }
         holder.pin.setOnClickListener { onPin(c) }
     }
