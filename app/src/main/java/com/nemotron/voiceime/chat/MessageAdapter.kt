@@ -44,6 +44,7 @@ class MessageAdapter(
     override fun onBindViewHolder(holder: MessageVH, position: Int) {
         val msg = messages[position]
         holder.bubble.text = MarkdownRenderer.render(msg.content)
+        holder.actions.visibility = View.GONE
         if (msg.role == "user") {
             holder.wrap.gravity = Gravity.END
             holder.bubble.setBackgroundResource(R.drawable.bg_bubble_user)
@@ -55,6 +56,11 @@ class MessageAdapter(
         }
         holder.copy.setOnClickListener { onCopy(msg) }
         holder.speak.setOnClickListener { onSpeak(msg) }
+        holder.bubble.setOnLongClickListener {
+            holder.actions.visibility = if (holder.actions.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+            holder.bubble.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
+            true
+        }
     }
 
     override fun getItemCount(): Int = messages.size

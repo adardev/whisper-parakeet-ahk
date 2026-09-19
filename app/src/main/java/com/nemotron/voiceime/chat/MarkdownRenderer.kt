@@ -12,9 +12,11 @@ object MarkdownRenderer {
             val normalized = normalizeMath(value.trim())
             val escaped = escape(normalized).replace("\n", "<br>")
             val html = if (block) {
-                "<br><br><font color='#A9CBFF'><big><tt>$escaped</tt></big></font><br><br>"
+                // TextView understands the alignment on <p>; using a serif face here
+                // makes equations read like typeset math without changing prose.
+                "<br><p align=\"center\"><font face=\"serif\" color='#F1F3F7'><big>$escaped</big></font></p><br>"
             } else {
-                "<font color='#A9CBFF'><tt>$escaped</tt></font>"
+                "<font face=\"serif\" color='#E7ECF5'>$escaped</font>"
             }
             math.add(html)
             return "@@MATH${math.lastIndex}@@"
@@ -50,7 +52,7 @@ object MarkdownRenderer {
     private fun normalizeMath(source: String): String {
         var value = source
         repeat(3) {
-            value = value.replace(Regex("""\\frac\{([^{}]*)\}\{([^{}]*)\}"""), "($1 / $2)")
+            value = value.replace(Regex("""\\frac\{([^{}]*)\}\{([^{}]*)\}"""), "$1⁄$2")
             value = value.replace(Regex("""\\sqrt\{([^{}]*)\}"""), "√($1)")
         }
         val commands = mapOf(
@@ -60,14 +62,19 @@ object MarkdownRenderer {
             "\\neq" to "≠", "\\equiv" to "≡", "\\in" to "∈", "\\notin" to "∉",
             "\\pi" to "π", "\\theta" to "θ", "\\alpha" to "α", "\\beta" to "β",
             "\\gamma" to "γ", "\\Delta" to "Δ", "\\lambda" to "λ", "\\mu" to "μ",
-            "\\quad" to "    ", "\\qquad" to "        ", "\\," to " ", "\\;" to " ",
+            "\\quad" to " ", "\\qquad" to "  ", "\\," to " ", "\\;" to " ",
             "\\!" to "", "\\left" to "", "\\right" to ""
         )
         commands.forEach { (key, replacement) -> value = value.replace(key, replacement) }
+        value = value.replace("\\\\", "\n")
+        value = value.replace(Regex("\\\\(begin|end)\\s*\\{[^{}]*}"), "")
+        value = value.replace(Regex("&+"), " ")
         value = value.replace(Regex("""\\text\{([^{}]*)\}"""), "$1")
         value = value.replace(Regex("""\\mathrm\{([^{}]*)\}"""), "$1")
+        value = value.replace(Regex("""\^\{([^{}]*)\}""")) { toSuperscript(it.groupValues[1]) }
+        value = value.replace(Regex("""_\{([^{}]*)\}""")) { toSubscript(it.groupValues[1]) }
         value = value.replace(Regex("""\^([A-Za-z0-9]+)""")) { toSuperscript(it.groupValues[1]) }
-        value = value.replace(Regex("""_\{([^{}]*)\}"""), "_$1")
+        value = value.replace(Regex("""_([A-Za-z0-9]+)""")) { toSubscript(it.groupValues[1]) }
         value = value.replace("{", "").replace("}", "")
         value = value.replace(Regex("""\\[A-Za-z]+"""), "")
         return value.trim()
@@ -78,6 +85,22 @@ object MarkdownRenderer {
             '0' -> '⁰'; '1' -> '¹'; '2' -> '²'; '3' -> '³'; '4' -> '⁴'
             '5' -> '⁵'; '6' -> '⁶'; '7' -> '⁷'; '8' -> '⁸'; '9' -> '⁹'
             '+' -> '⁺'; '-' -> '⁻'; '=' -> '⁼'; '(' -> '⁽'; ')' -> '⁾'
+            'a' -> 'ᵃ'; 'b' -> 'ᵇ'; 'c' -> 'ᶜ'; 'd' -> 'ᵈ'; 'e' -> 'ᵉ'; 'f' -> 'ᶠ'
+            'g' -> 'ᵍ'; 'h' -> 'ʰ'; 'i' -> 'ⁱ'; 'j' -> 'ʲ'; 'k' -> 'ᵏ'; 'l' -> 'ˡ'
+            'm' -> 'ᵐ'; 'n' -> 'ⁿ'; 'o' -> 'ᵒ'; 'p' -> 'ᵖ'; 'r' -> 'ʳ'; 's' -> 'ˢ'
+            't' -> 'ᵗ'; 'u' -> 'ᵘ'; 'v' -> 'ᵛ'; 'w' -> 'ʷ'; 'x' -> 'ˣ'; 'y' -> 'ʸ'; 'z' -> 'ᶻ'
+            else -> it
+        }
+    }.joinToString("")
+
+    private fun toSubscript(value: String): String = value.map {
+        when (it) {
+            '0' -> '₀'; '1' -> '₁'; '2' -> '₂'; '3' -> '₃'; '4' -> '₄'
+            '5' -> '₅'; '6' -> '₆'; '7' -> '₇'; '8' -> '₈'; '9' -> '₉'
+            '+' -> '₊'; '-' -> '₋'; '=' -> '₌'; '(' -> '₍'; ')' -> '₎'
+            'a' -> 'ₐ'; 'e' -> 'ₑ'; 'h' -> 'ₕ'; 'i' -> 'ᵢ'; 'j' -> 'ⱼ'; 'k' -> 'ₖ'
+            'l' -> 'ₗ'; 'm' -> 'ₘ'; 'n' -> 'ₙ'; 'o' -> 'ₒ'; 'p' -> 'ₚ'; 'r' -> 'ᵣ'
+            's' -> 'ₛ'; 't' -> 'ₜ'; 'u' -> 'ᵤ'; 'v' -> 'ᵥ'; 'x' -> 'ₓ'
             else -> it
         }
     }.joinToString("")
