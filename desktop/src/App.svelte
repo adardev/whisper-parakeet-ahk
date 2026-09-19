@@ -177,13 +177,28 @@
     reader.readAsDataURL(file);
   }
 
-  function handlePaste(event: ClipboardEvent) {
+  async function handlePaste(event: ClipboardEvent) {
     const items = Array.from(event.clipboardData?.items || []);
     const fileItem = items.find((item) => item.kind === 'file');
     const file = fileItem?.getAsFile() || event.clipboardData?.files?.[0];
-    if (!file) return;
-    event.preventDefault();
-    readAttachment(file);
+    if (file) {
+      event.preventDefault();
+      readAttachment(file);
+      return;
+    }
+    try {
+      const clipboardItems = await navigator.clipboard.read();
+      for (const item of clipboardItems) {
+        const type = item.types.find((value) => value.startsWith('image/'));
+        if (!type) continue;
+        const blob = await item.getType(type);
+        event.preventDefault();
+        readAttachment(new File([blob], 'captura-portapapeles.png', { type: blob.type || type }));
+        return;
+      }
+    } catch {
+      // Algunos WebView no conceden clipboard.read(); el pegado de texto sigue normal.
+    }
   }
 
   function toggleRecording() {
