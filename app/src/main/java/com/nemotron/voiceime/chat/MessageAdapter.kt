@@ -26,7 +26,7 @@ class MessageAdapter(
 
     override fun onBindViewHolder(holder: MessageVH, position: Int) {
         val msg = messages[position]
-        holder.bubble.text = msg.content
+        holder.bubble.text = MarkdownRenderer.render(msg.content)
         if (msg.role == "user") {
             holder.wrap.gravity = Gravity.END
             holder.bubble.setBackgroundResource(R.drawable.bg_bubble_user)
