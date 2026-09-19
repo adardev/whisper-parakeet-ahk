@@ -51,6 +51,7 @@ class ChatsListActivity : Activity() {
         }
         setContentView(R.layout.activity_chats)
         ConversationStore.init(this)
+        ConversationStore.purgeEmpty()
         val prefs = getSharedPreferences("hermes_chat", Context.MODE_PRIVATE)
         val savedUrl = prefs.getString("server_url", null)
         val base = if (savedUrl.isNullOrBlank() || !savedUrl.startsWith("https://adarlpz-2.tail4988cb.ts.net")) {
@@ -113,6 +114,7 @@ class ChatsListActivity : Activity() {
     }
 
     private fun refresh() {
+        ConversationStore.purgeEmpty()
         if (!hasRemoteSnapshot) renderChats(ConversationStore.list())
         chat.conversations({ arr ->
             val remote = parseConversations(arr).sortedWith(compareByDescending<Conversation> { it.createdAt }.thenBy { it.id })
