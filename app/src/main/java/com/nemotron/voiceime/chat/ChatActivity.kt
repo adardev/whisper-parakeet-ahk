@@ -140,7 +140,19 @@ class ChatActivity : Activity() {
         window.statusBarColor = Color.parseColor("#090E17")
         window.navigationBarColor = Color.parseColor("#090E17")
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
-        findViewById<View>(android.R.id.content).autoInsets()
+        val composer = findViewById<View>(R.id.chatComposer)
+        findViewById<View>(android.R.id.content).autoInsets { keyboardOpen ->
+            val lp = composer.layoutParams as FrameLayout.LayoutParams
+            val desiredBottom = if (keyboardOpen) 0 else dp(20)
+            if (lp.bottomMargin != desiredBottom) {
+                lp.bottomMargin = desiredBottom
+                composer.layoutParams = lp
+            }
+            composer.setBackgroundResource(
+                if (keyboardOpen) R.drawable.bg_float_bar_keyboard else R.drawable.bg_float_bar
+            )
+            composer.elevation = if (keyboardOpen) 0f else dp(24).toFloat()
+        }
 
         val prefs = getSharedPreferences("hermes_chat", Context.MODE_PRIVATE)
         val savedUrl = prefs.getString("server_url", null)
@@ -212,7 +224,8 @@ class ChatActivity : Activity() {
             val id = convId
             if (id.isNullOrBlank()) return@setOnClickListener
             ConversationStore.delete(id)
-            chat.deleteConversation(id, { runOnUiThread { finish() } }, { runOnUiThread { finish() } })
+            resetToNewChat()
+            chat.deleteConversation(id, {}, {})
         }
 
     }
@@ -605,10 +618,18 @@ class ChatActivity : Activity() {
 
     private fun showAttachmentMenu(anchor: View) {
         val menu = AdarbotPopupSurface.menu(this)
-        menu.addView(attachmentRow(R.drawable.ic_camera, "Cámara") { launchAttachment("camera") })
-        menu.addView(attachmentRow(R.drawable.ic_gallery, "Fotos") { launchAttachment("gallery") })
-        menu.addView(attachmentRow(R.drawable.ic_file, "Archivos") { launchAttachment("file") })
-        AdarbotPopupSurface.popup(menu, dp(190)).showAsDropDown(anchor, -dp(12), -dp(170))
+        lateinit var popup: PopupWindow
+        fun addAction(icon: Int, label: String, kind: String) {
+            menu.addView(attachmentRow(icon, label) {
+                popup.dismiss()
+                launchAttachment(kind)
+            })
+        }
+        addAction(R.drawable.ic_camera, "Cámara", "camera")
+        addAction(R.drawable.ic_gallery, "Fotos", "gallery")
+        addAction(R.drawable.ic_file, "Archivos", "file")
+        popup = AdarbotPopupSurface.popup(menu, dp(190))
+        popup.showAsDropDown(anchor, -dp(12), -dp(170))
     }
 
     private fun attachmentRow(icon: Int, label: String, click: () -> Unit): View = LinearLayout(this).apply {
@@ -715,6 +736,20 @@ class ChatActivity : Activity() {
             incognitoHomeBtn.setColorFilter(Color.parseColor("#8FC1FF"))
             incognitoHomeBtn.contentDescription = "Activar modo incógnito"
         }
+    }
+
+    /** Leaves this same activity in its real empty-home state after deletion. */
+    private fun resetToNewChat() {
+        remoteRefreshHandler.removeCallbacks(remoteRefreshLoop)
+        convId = null
+        conversation = null
+        messages.clear()
+        lastRemoteSignature = ""
+        adapter.replaceMessages(emptyList())
+        titleView().text = "Nuevo chat"
+        updateIncognitoUi()
+        showWelcomeIfEmpty()
+        recycler.scrollToPosition(0)
     }
 
     private fun displayName(m: String): String = when (m) {

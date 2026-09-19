@@ -425,10 +425,18 @@ class AssistActivity : Activity() {
 
     private fun showAttachmentMenu(anchor: View) {
         val menu = AdarbotPopupSurface.menu(this)
-        menu.addView(attachmentRow(R.drawable.ic_camera, "Cámara") { launchAttachment("camera") })
-        menu.addView(attachmentRow(R.drawable.ic_gallery, "Fotos") { launchAttachment("gallery") })
-        menu.addView(attachmentRow(R.drawable.ic_file, "Archivos") { launchAttachment("file") })
-        AdarbotPopupSurface.popup(menu, dp(190)).showAsDropDown(anchor, -dp(12), -dp(170))
+        lateinit var popup: PopupWindow
+        fun addAction(icon: Int, label: String, kind: String) {
+            menu.addView(attachmentRow(icon, label) {
+                popup.dismiss()
+                launchAttachment(kind)
+            })
+        }
+        addAction(R.drawable.ic_camera, "Cámara", "camera")
+        addAction(R.drawable.ic_gallery, "Fotos", "gallery")
+        addAction(R.drawable.ic_file, "Archivos", "file")
+        popup = AdarbotPopupSurface.popup(menu, dp(190))
+        popup.showAsDropDown(anchor, -dp(12), -dp(170))
     }
 
     private fun attachmentRow(icon: Int, label: String, click: () -> Unit): View = LinearLayout(this).apply {
@@ -460,9 +468,27 @@ class AssistActivity : Activity() {
         super.onActivityResult(requestCode, resultCode, data)
         when {
             requestCode == 700 && resultCode == RESULT_OK -> {
-                val name = data?.data?.lastPathSegment ?: "archivo seleccionado"
-                input.setText("[Adjunto: $name] ")
-                input.setSelection(input.length())
+                val uri = data?.data
+                val type = uri?.let { contentResolver.getType(it) }.orEmpty()
+                val bitmap = when {
+                    uri != null && type.startsWith("image/") -> contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
+                    else -> data?.extras?.get("data") as? Bitmap
+                }
+                if (bitmap != null) {
+                    val bytes = ByteArrayOutputStream()
+                    bitmap.compress(Bitmap.CompressFormat.JPEG, 72, bytes)
+                    pendingBitmap?.recycle()
+                    pendingBitmap = bitmap
+                    pendingScreenshot = Base64.encodeToString(bytes.toByteArray(), Base64.NO_WRAP)
+                    findViewById<ImageView>(R.id.assistPreview).setImageBitmap(bitmap)
+                    findViewById<View>(R.id.assistPreviewWrap).visibility = View.VISIBLE
+                    screenshotPill.visibility = View.GONE
+                    input.setText("")
+                } else {
+                    val name = uri?.lastPathSegment ?: "archivo seleccionado"
+                    input.setText("[Adjunto: $name] ")
+                    input.setSelection(input.length())
+                }
                 input.requestFocus()
             }
             requestCode == 701 && resultCode == RESULT_OK && data != null -> captureScreen(resultCode, data)
