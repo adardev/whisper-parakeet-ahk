@@ -747,6 +747,11 @@ class ChatActivity : Activity() {
         convId = null
         conversation = null
         lastRemoteSignature = ""
+        pendingImageBitmap?.recycle()
+        pendingImageBitmap = null
+        pendingImageData = null
+        val preview = findViewById<View>(R.id.chatAttachmentPreview)
+        preview.visibility = View.GONE
         adapter.replaceMessages(emptyList())
         titleView().text = "Nuevo chat"
         updateIncognitoUi()
