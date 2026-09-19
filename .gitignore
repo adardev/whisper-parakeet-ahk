@@ -12,4 +12,5 @@ local.properties
 whisper_cpp/
 desktop/node_modules/
 desktop/dist/
+desktop/src-tauri/target/
 __pycache__/
