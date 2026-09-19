@@ -14,7 +14,8 @@ data class Conversation(
     val messages: MutableList<ChatMessage> = mutableListOf(),
     var source: String = "",
     var displayName: String = "",
-    var chatId: String = ""
+    var chatId: String = "",
+    var pinned: Boolean = false
 )
 
 object ConversationStore {
@@ -38,7 +39,7 @@ object ConversationStore {
                     val m = ma.getJSONObject(j)
                     msgs.add(ChatMessage(m.optString("role"), m.optString("content"), m.optLong("ts")))
                 }
-                list.add(Conversation(o.optString("id"), o.optString("title"), o.optLong("createdAt"), msgs, o.optString("source"), o.optString("displayName"), o.optString("chatId")))
+                list.add(Conversation(o.optString("id"), o.optString("title"), o.optLong("createdAt"), msgs, o.optString("source"), o.optString("displayName"), o.optString("chatId"), o.optBoolean("pinned", false)))
             }
             list
         } catch (e: Exception) {
@@ -57,6 +58,7 @@ object ConversationStore {
                     put("source", c.source)
                     put("displayName", c.displayName)
                     put("chatId", c.chatId)
+                    put("pinned", c.pinned)
                 }
                 val msgs = JSONArray()
                 for (m in c.messages) {
@@ -74,9 +76,16 @@ object ConversationStore {
         }
     }
 
-    fun list(): List<Conversation> = load().sortedByDescending { it.createdAt }
+    fun list(): List<Conversation> = load()
+        .sortedWith(compareByDescending<Conversation> { it.pinned }.thenByDescending { it.createdAt })
 
     fun get(id: String): Conversation? = load().find { it.id == id }
+
+    fun purgeEmpty() {
+        // Solo borra borradores creados por versiones previas de la app.
+        // Las conversaciones remotas se sincronizan inicialmente sin mensajes.
+        persist(load().filterNot { it.title == "Nuevo chat" && it.messages.isEmpty() && it.source.isBlank() })
+    }
 
     fun create(): Conversation {
         val c = Conversation(System.currentTimeMillis().toString(), "Nuevo chat", System.currentTimeMillis())
@@ -98,6 +107,10 @@ object ConversationStore {
     }
 
     fun replaceRemote(remote: List<Conversation>) {
-        persist(remote)
+        val old = load().associateBy { it.id }
+        persist(remote.map { incoming ->
+            val previous = old[incoming.id]
+            if (previous == null) incoming else incoming.copy(title = previous.title, pinned = previous.pinned, messages = previous.messages)
+        })
     }
 }

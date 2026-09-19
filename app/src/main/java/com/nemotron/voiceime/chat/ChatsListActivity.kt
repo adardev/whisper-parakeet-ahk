@@ -9,6 +9,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.View
+import android.view.ViewGroup
 import android.view.HapticFeedbackConstants
 import android.widget.ImageButton
 import android.widget.TextView
@@ -17,17 +18,20 @@ import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.PopupWindow
 import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.ColorDrawable
 import android.view.Gravity
+import android.widget.FrameLayout
+import android.widget.ImageView
+import android.widget.ScrollView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.nemotron.voiceime.R
 import org.json.JSONArray
 import org.json.JSONObject
 
 class ChatsListActivity : Activity() {
     private val refreshHandler = Handler(Looper.getMainLooper())
-    private val refreshLoop = object : Runnable { override fun run() { refresh(); refreshHandler.postDelayed(this, 5000) } }
+    private val refreshLoop = object : Runnable { override fun run() { refresh(); refreshHandler.postDelayed(this, 2000) } }
 
     private val list = mutableListOf<Conversation>()
     private lateinit var adapter: ChatListAdapter
@@ -40,22 +44,33 @@ class ChatsListActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (!intent.getBooleanExtra("openDrawer", false)) {
+            startActivity(Intent(this, ChatActivity::class.java))
+            finish()
+            return
+        }
         setContentView(R.layout.activity_chats)
         ConversationStore.init(this)
         val prefs = getSharedPreferences("hermes_chat", Context.MODE_PRIVATE)
         val savedUrl = prefs.getString("server_url", null)
-        val base = if (savedUrl.isNullOrBlank() || savedUrl.startsWith("http://100.115.113.28")) {
-            prefs.edit().putString("server_url", "http://192.168.0.2:8888").apply()
-            "http://192.168.0.2:8888"
+        val base = if (savedUrl.isNullOrBlank() || !savedUrl.startsWith("https://adarlpz-2.tail4988cb.ts.net")) {
+            prefs.edit().putString("server_url", "https://adarlpz-2.tail4988cb.ts.net").apply()
+            "https://adarlpz-2.tail4988cb.ts.net"
         } else savedUrl
         chat = ChatClient(base)
 
         recycler = findViewById(R.id.recyclerChats)
         emptyView = findViewById(R.id.emptyView)
         incognitoBtn = findViewById(R.id.incognitoBtn)
+        recycler.visibility = View.GONE
+        emptyView.visibility = View.GONE
+        findViewById<ImageButton>(R.id.fabNew).visibility = View.GONE
+        val homeInput = findViewById<EditText>(R.id.homeInput)
+        findViewById<ImageButton>(R.id.homeSend).setOnClickListener { haptic(it); sendHomeMessage(homeInput) }
+        homeInput.setOnEditorActionListener { _, _, _ -> sendHomeMessage(homeInput); true }
         findViewById<ImageButton>(R.id.menuBtn).setOnClickListener { haptic(it); showMenu() }
 
-        adapter = ChatListAdapter(list, ::openConv, ::deleteConv, ::renameConv)
+        adapter = ChatListAdapter(list, ::openConv, ::deleteConv, ::renameConv, ::togglePin)
         recycler.layoutManager = LinearLayoutManager(this)
         recycler.adapter = adapter
 
@@ -68,7 +83,7 @@ class ChatsListActivity : Activity() {
             true
         }
 
-        val fab: FloatingActionButton = findViewById(R.id.fabNew)
+        val fab: ImageButton = findViewById(R.id.fabNew)
         fab.setOnClickListener {
             haptic(it)
             chat.createConversation({ json ->
@@ -82,12 +97,15 @@ class ChatsListActivity : Activity() {
         applySystemUi()
         updateIncognitoUi()
         refresh()
+        if (intent.getBooleanExtra("openDrawer", false)) {
+            window.decorView.postDelayed({ showMenu() }, 50)
+        }
     }
 
     override fun onResume() {
         super.onResume()
         refresh()
-        refreshHandler.postDelayed(refreshLoop, 5000)
+        refreshHandler.postDelayed(refreshLoop, 2000)
     }
 
     override fun onPause() {
@@ -110,7 +128,7 @@ class ChatsListActivity : Activity() {
     }
 
     private fun renderChats(items: List<Conversation>) {
-        val signature = items.joinToString("|") { "${it.id}:${it.title}:${it.createdAt}:${it.source}:${it.displayName}" }
+        val signature = items.joinToString("|") { "${it.id}:${it.title}:${it.createdAt}:${it.source}:${it.displayName}:${it.pinned}" }
         if (signature == renderedSignature) return
         renderedSignature = signature
         list.clear()
@@ -126,6 +144,14 @@ class ChatsListActivity : Activity() {
     private fun deleteConv(c: Conversation) {
         ConversationStore.delete(c.id)
         refresh()
+    }
+
+    private fun togglePin(c: Conversation) {
+        haptic(recycler)
+        c.pinned = !c.pinned
+        ConversationStore.save(c)
+        renderedSignature = ""
+        renderChats(ConversationStore.list())
     }
 
     private fun renameConv(c: Conversation) {
@@ -162,22 +188,74 @@ class ChatsListActivity : Activity() {
     }
 
     private fun showMenu() {
-        val panel = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(18), dp(18), dp(18), dp(14))
-            background = GradientDrawable().apply { setColor(Color.parseColor("#171B24")); cornerRadius = dp(26).toFloat(); setStroke(dp(1), Color.parseColor("#30415E")) }
+        val root = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
+        val panel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(26), dp(30), dp(26), dp(24)) }
+        val top = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
+        top.addView(TextView(this).apply { text = "Adarbot"; textSize = 26f; setTextColor(Color.WHITE); setTypeface(null, android.graphics.Typeface.BOLD); layoutParams = LinearLayout.LayoutParams(0, -2, 1f) })
+        top.addView(ImageButton(this).apply {
+            setImageResource(R.drawable.ic_close); setColorFilter(Color.WHITE); background = ColorDrawable(Color.TRANSPARENT)
+            contentDescription = "Cerrar menú"
+        }, LinearLayout.LayoutParams(dp(52), dp(52)))
+        panel.addView(top)
+        panel.addView(drawerRow(R.drawable.ic_plus, "Nuevo chat") { (root.tag as? PopupWindow)?.dismiss(); createNewChat() })
+        panel.addView(drawerRow(R.drawable.ic_search, "Buscar chats") { (root.tag as? PopupWindow)?.dismiss(); searchChats() })
+        panel.addView(drawerRow(R.drawable.ic_ghost, "Chat incógnito") { (root.tag as? PopupWindow)?.dismiss(); startActivity(Intent(this, ChatActivity::class.java).putExtra("incognito", true)) })
+        panel.addView(TextView(this).apply { text = "Adarbot"; textSize = 14f; setTextColor(Color.parseColor("#777B8A")); setPadding(dp(14), dp(28), 0, dp(8)) })
+        panel.addView(drawerRow(R.drawable.ic_server, "Mi NAS y servidor") { Toast.makeText(this, "192.168.0.2 · conectado", Toast.LENGTH_SHORT).show() })
+        panel.addView(drawerRow(R.drawable.ic_profile, "Perfil y ajustes") { Toast.makeText(this, "Perfil de Adarbot", Toast.LENGTH_SHORT).show() })
+        val chats = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, dp(8), 0, 0) }
+        chats.addView(TextView(this).apply { text = "Conversaciones"; textSize = 14f; setTextColor(Color.parseColor("#777B8A")); setPadding(dp(14), dp(10), 0, dp(6)) })
+        list.forEach { c -> chats.addView(drawerRow(R.drawable.ic_profile, c.title) { (root.tag as? PopupWindow)?.dismiss(); openConv(c) }) }
+        val scroll = ScrollView(this).apply {
+            isFillViewport = true
+            addView(chats, ViewGroup.LayoutParams(-1, -2))
+            layoutParams = LinearLayout.LayoutParams(-1, 0, 1f)
         }
-        val title = TextView(this).apply { text = "Adarbot"; setTextColor(Color.WHITE); textSize = 21f; setTypeface(null, android.graphics.Typeface.BOLD); setPadding(dp(10), 0, 0, dp(12)) }
-        panel.addView(title)
-        panel.addView(menuItem(R.drawable.ic_search, "Buscar conversaciones", "Encuentra un chat por nombre") { searchChats() })
-        panel.addView(menuItem(R.drawable.ic_server, "Mi NAS y servidor", "192.168.0.2  ·  conectado") { Toast.makeText(this, "Servidor Adarbot conectado", Toast.LENGTH_SHORT).show() })
-        panel.addView(menuItem(R.drawable.ic_profile, "Perfil de Adarbot", "Versión 0.6  ·  agente personal") { Toast.makeText(this, "Adarbot · tu agente personal", Toast.LENGTH_SHORT).show() })
-        PopupWindow(panel, dp(326), android.view.ViewGroup.LayoutParams.WRAP_CONTENT, true).apply {
-            elevation = dp(20).toFloat()
-            setBackgroundDrawable(GradientDrawable().apply { setColor(Color.TRANSPARENT) })
-            isOutsideTouchable = true
-            showAtLocation(findViewById(android.R.id.content), Gravity.TOP or Gravity.START, dp(14), dp(92))
+        panel.addView(scroll)
+        root.addView(panel, FrameLayout.LayoutParams(-1, -1))
+        val popup = PopupWindow(root, -1, -1, true).apply {
+            setBackgroundDrawable(ColorDrawable(Color.BLACK)); isOutsideTouchable = true; elevation = dp(12).toFloat()
+            setOnDismissListener {
+                if (intent.getBooleanExtra("openDrawer", false) && !isFinishing) finish()
+            }
         }
+        root.tag = popup
+        top.getChildAt(1).setOnClickListener { popup.dismiss() }
+        popup.showAtLocation(findViewById(android.R.id.content), Gravity.FILL, 0, 0)
+        panel.post {
+            panel.translationX = -panel.width.toFloat()
+            panel.animate()
+                .translationX(0f)
+                .setDuration(260L)
+                .setInterpolator(android.view.animation.DecelerateInterpolator())
+                .start()
+        }
+    }
+
+    private fun drawerRow(icon: Int, label: String, click: () -> Unit): View = LinearLayout(this).apply {
+        gravity = Gravity.CENTER_VERTICAL; isClickable = true; setPadding(dp(14), dp(13), dp(14), dp(13))
+        addView(ImageView(context).apply { setImageResource(icon); setColorFilter(Color.parseColor("#E8EBF5")); layoutParams = LinearLayout.LayoutParams(dp(30), dp(30)) })
+        addView(TextView(context).apply { text = label; textSize = 18f; setTextColor(Color.WHITE); setPadding(dp(18), 0, 0, 0) })
+        setOnClickListener { haptic(this); click() }
+    }
+
+    private fun createNewChat() {
+        chat.createConversation({ json -> runOnUiThread { val c = parseConversation(json); ConversationStore.save(c); openConv(c) } }, { runOnUiThread { openConv(ConversationStore.create()) } })
+    }
+
+    private fun sendHomeMessage(input: EditText) {
+        val text = input.text.toString().trim()
+        if (text.isEmpty()) return
+        input.setText("")
+        chat.createConversation({ json ->
+            val c = parseConversation(json)
+            runOnUiThread {
+                ConversationStore.save(c)
+                startActivity(Intent(this, ChatActivity::class.java).putExtra("convId", c.id).putExtra("draft", text))
+            }
+        }, {
+            runOnUiThread { startActivity(Intent(this, ChatActivity::class.java).putExtra("draft", text)) }
+        })
     }
 
     private fun menuItem(icon: Int, label: String, detail: String, click: () -> Unit): View = LinearLayout(this).apply {
@@ -210,6 +288,6 @@ class ChatsListActivity : Activity() {
     private fun parseConversation(o: JSONObject): Conversation = Conversation(
         o.optString("id"), o.optString("title", "Nuevo chat"),
         o.optLong("created_at", System.currentTimeMillis()),
-        mutableListOf(), o.optString("source"), o.optString("display_name"), o.optString("chat_id")
+        mutableListOf(), o.optString("source"), o.optString("display_name"), o.optString("chat_id"), o.optBoolean("pinned", false)
     )
 }

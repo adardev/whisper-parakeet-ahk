@@ -105,16 +105,23 @@
             android:theme="@style/Theme.NemotronVoiceIME.Transparent"
             android:taskAffinity="" />
 
-        <!-- ============================================================== -->
-        <!--  SetupActivity: wizard de configuracion.                       -->
-        <!-- ============================================================== -->
+        <!-- Alias interno para compatibilidad; Nemotron se abre desde Adarbot. -->
         <activity-alias
             android:name=".SetupAliasV2"
             android:enabled="true"
             android:exported="true"
             android:icon="@mipmap/ic_launcher"
             android:label="Nemotron"
-            android:targetActivity=".ui.SetupActivity">
+            android:targetActivity=".ui.SetupActivity" />
+
+        <!-- Adarbot se conserva como app/entrada independiente. -->
+        <activity-alias
+            android:name=".AdarbotAlias"
+            android:enabled="true"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher"
+            android:label="Adarbot"
+            android:targetActivity=".chat.ChatActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -386,23 +393,10 @@
             android:value="Nemotron Health" />
 
 
-        <!-- ============================================================== -->
-        <!--  Hermes Chat (lista de conversaciones) - LAUNCHER.             -->
-        <!-- ============================================================== -->
-        <activity
-            android:name=".chat.ChatsListActivity"
-            android:exported="true"
-            android:label="Hermes">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-
-        <!-- Chat de una conversacion concreta (no lanzable desde el menu) -->
+        <!-- Chat principal. No hay una activity auxiliar de lista. -->
         <activity
             android:name=".chat.ChatActivity"
-            android:exported="false"
+            android:exported="true"
             android:label="Hermes Chat"
             android:theme="@style/Theme.NemotronVoiceIME"
             android:windowSoftInputMode="adjustResize" />

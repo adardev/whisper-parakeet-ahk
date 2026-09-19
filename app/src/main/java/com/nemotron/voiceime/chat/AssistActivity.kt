@@ -31,6 +31,7 @@ class AssistActivity : Activity() {
     private lateinit var panel: View
     private lateinit var input: EditText
     private lateinit var status: TextView
+    private lateinit var micButton: ImageButton
     private lateinit var chat: ChatClient
     private var conversationId: String? = null
     private var speech: SpeechRecognizer? = null
@@ -55,9 +56,9 @@ class AssistActivity : Activity() {
 
         val prefs = getSharedPreferences("hermes_chat", Context.MODE_PRIVATE)
         val savedUrl = prefs.getString("server_url", null)
-        val base = if (savedUrl.isNullOrBlank() || savedUrl.startsWith("http://100.115.113.28")) {
-            prefs.edit().putString("server_url", "http://192.168.0.2:8888").apply()
-            "http://192.168.0.2:8888"
+        val base = if (savedUrl.isNullOrBlank() || !savedUrl.startsWith("https://adarlpz-2.tail4988cb.ts.net")) {
+            prefs.edit().putString("server_url", "https://adarlpz-2.tail4988cb.ts.net").apply()
+            "https://adarlpz-2.tail4988cb.ts.net"
         } else savedUrl
         chat = ChatClient(base)
         input = findViewById(R.id.assistInput)
@@ -83,7 +84,8 @@ class AssistActivity : Activity() {
         }
         findViewById<ImageButton>(R.id.assistSend).setOnClickListener { haptic(it); send() }
         findViewById<ImageButton>(R.id.assistAttach).setOnClickListener { haptic(it); showAttachmentMenu(it) }
-        findViewById<ImageButton>(R.id.assistMic).setOnClickListener { haptic(it); listen() }
+        micButton = findViewById(R.id.assistMic)
+        micButton.setOnClickListener { haptic(it); if (speech != null) { speech?.stopListening(); speech = null; setMicListening(false) } else listen() }
         input.setOnEditorActionListener { _, _, _ -> send(); true }
         // El asistente de voz abre limpio: el teclado solo aparece cuando el usuario toca el campo.
         findViewById<android.view.View>(android.R.id.content).requestFocus()
@@ -96,6 +98,11 @@ class AssistActivity : Activity() {
                 window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE or WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
                 input.post { (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(input, InputMethodManager.SHOW_IMPLICIT) }
             }
+        }
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+            window.decorView.postDelayed({ listen() }, 280)
+        } else {
+            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 42)
         }
         window.decorView.setOnApplyWindowInsetsListener { view, insets ->
             val imeBottom = insets.getInsets(android.view.WindowInsets.Type.ime()).bottom
@@ -120,8 +127,9 @@ class AssistActivity : Activity() {
     }
 
     private fun openFullChat() {
-        val target = if (conversationId == null) Intent(this, ChatsListActivity::class.java)
-        else Intent(this, ChatActivity::class.java).putExtra("convId", conversationId)
+        val target = Intent(this, ChatActivity::class.java).apply {
+            conversationId?.let { putExtra("convId", it) }
+        }
         panel.animate()
             .translationY(-panel.height.toFloat())
             .scaleX(0.96f).scaleY(0.96f)
@@ -136,14 +144,15 @@ class AssistActivity : Activity() {
             requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 42); return
         }
         val recognizer = SpeechRecognizer.createSpeechRecognizer(this); speech = recognizer
+        setMicListening(true)
         recognizer.setRecognitionListener(object : RecognitionListener {
             override fun onReadyForSpeech(p: Bundle?) { runOnUiThread { status.text = "Te escucho..." } }
             override fun onBeginningOfSpeech() {}
             override fun onRmsChanged(v: Float) {}
             override fun onBufferReceived(b: ByteArray?) {}
             override fun onEndOfSpeech() {}
-            override fun onError(e: Int) { runOnUiThread { status.text = "No te escuché" } }
-            override fun onResults(b: Bundle?) { val r = b?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION); if (!r.isNullOrEmpty()) { input.setText(r[0]); send() } }
+            override fun onError(e: Int) { speech = null; runOnUiThread { setMicListening(false); status.text = "No te escuché" } }
+            override fun onResults(b: Bundle?) { speech = null; runOnUiThread { setMicListening(false) }; val r = b?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION); if (!r.isNullOrEmpty()) { input.setText(r[0]); send() } }
             override fun onPartialResults(b: Bundle?) {}
             override fun onEvent(t: Int, p: Bundle?) {}
         })
@@ -151,6 +160,23 @@ class AssistActivity : Activity() {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, "es-MX")
         })
+    }
+
+    private fun setMicListening(active: Boolean) {
+        micButton.background = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(if (active) Color.parseColor("#2F80FF") else Color.parseColor("#171B24"))
+            if (active) setStroke(dp(2), Color.parseColor("#9BC4FF"))
+        }
+        micButton.setColorFilter(if (active) Color.WHITE else Color.parseColor("#C9C9D6"))
+        micButton.contentDescription = if (active) "Detener grabación" else "Hablar con Adarbot"
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 42 && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
+            window.decorView.postDelayed({ listen() }, 250)
+        }
     }
 
     private fun showAttachmentMenu(anchor: View) {

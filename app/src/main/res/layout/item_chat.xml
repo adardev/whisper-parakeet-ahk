@@ -2,7 +2,7 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:background="#0B0C0F"
+    android:background="#090E17"
     android:clickable="true"
     android:focusable="true"
     android:orientation="horizontal"
@@ -34,6 +34,15 @@
             android:textColor="#8E8EA3"
             android:textSize="12sp" />
     </LinearLayout>
+
+    <ImageView
+        android:id="@+id/chatPin"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:contentDescription="Fijar chat"
+        android:padding="10dp"
+        android:src="@drawable/ic_pin"
+        android:tint="#8FC1FF" />
 
     <ImageView
         android:id="@+id/chatTrash"

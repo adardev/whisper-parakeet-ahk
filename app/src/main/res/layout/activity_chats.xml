@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#0B0C0F"
+    android:background="#090E17"
     android:orientation="vertical">
 
     <LinearLayout
@@ -33,8 +33,9 @@
             android:layout_weight="1"
             android:orientation="vertical">
 
-            <TextView
-                android:layout_width="wrap_content"
+        <TextView
+            android:id="@+id/homeGreeting"
+            android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Adarbot"
                 android:textColor="#F5F5F7"
@@ -60,6 +61,63 @@
         android:layout_height="0dp"
         android:layout_weight="1">
 
+        <LinearLayout
+            android:id="@+id/homeContent"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:orientation="vertical">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="¿Qué hacemos hoy?"
+                android:textColor="#F5F5F7"
+                android:textSize="28sp"
+                android:textStyle="bold" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Pregúntale a Adarbot"
+                android:textColor="#8E9DB5"
+                android:textSize="16sp" />
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginLeft="22dp"
+                android:layout_marginTop="28dp"
+                android:layout_marginRight="22dp"
+                android:background="@drawable/bg_float_bar"
+                android:gravity="center_vertical"
+                android:paddingLeft="12dp"
+                android:paddingTop="8dp"
+                android:paddingRight="8dp"
+                android:paddingBottom="8dp">
+                <EditText
+                    android:id="@+id/homeInput"
+                    android:layout_width="0dp"
+                    android:layout_height="44dp"
+                    android:layout_weight="1"
+                    android:background="@android:color/transparent"
+                    android:hint="Pregúntale a Adarbot..."
+                    android:imeOptions="actionSend"
+                    android:maxLines="1"
+                    android:paddingLeft="14dp"
+                    android:paddingRight="8dp"
+                    android:textColor="#EDEDF0"
+                    android:textColorHint="#8E9DB5" />
+                <ImageButton
+                    android:id="@+id/homeSend"
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:background="@android:color/transparent"
+                    android:contentDescription="Enviar"
+                    android:padding="10dp"
+                    android:src="@drawable/ic_send"
+                    android:tint="#2F80FF" />
+            </LinearLayout>
+        </LinearLayout>
+
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/recyclerChats"
             android:layout_width="match_parent"
@@ -78,15 +136,15 @@
             android:textColor="#5A5A6E"
             android:textSize="14sp" />
 
-        <com.google.android.material.floatingactionbutton.FloatingActionButton
+        <ImageButton
             android:id="@+id/fabNew"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="end|bottom"
             android:layout_margin="20dp"
+            android:background="@drawable/bg_chip"
             android:contentDescription="Nueva conversacion"
             android:src="@drawable/ic_plus"
-            app:backgroundTint="#2F80FF"
-            app:tint="#FFFFFF" />
+            android:tint="#FFFFFF" />
     </FrameLayout>
 </LinearLayout>
