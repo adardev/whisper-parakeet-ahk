@@ -135,6 +135,7 @@ class AssistActivity : Activity() {
                         val lp = panel.layoutParams
                         lp.height = newH
                         panel.layoutParams = lp
+                        screenshotPill.alpha = (1f - (dy.toFloat() / dp(200))).coerceIn(0f, 1f)
                     }
                     true
                 }
@@ -153,6 +154,7 @@ class AssistActivity : Activity() {
                                 panel.layoutParams = lp
                             }
                             anim.start()
+                            screenshotPill.animate().alpha(1f).setDuration(220).start()
                         }
                     } else {
                         val dy = dragStartY - event.rawY
