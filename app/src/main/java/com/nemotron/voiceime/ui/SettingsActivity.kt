@@ -47,7 +47,7 @@ class SettingsActivity : AppCompatActivity() {
                         ?: "http://192.168.0.2:9090/webhook"
                     com.nemotron.voiceime.health.HealthTransferService.setWebhookUrl(url)
                     com.nemotron.voiceime.health.HealthTransferService.start(ctx)
-                    android.widget.Toast.makeText(ctx, "Enviando datos de salud al NAS...", android.widget.Toast.LENGTH_LONG).show()
+                    android.widget.Toast.makeText(ctx, "Sending health data to NAS...", android.widget.Toast.LENGTH_LONG).show()
                     true
                 }
         }
@@ -95,9 +95,9 @@ class SettingsActivity : AppCompatActivity() {
                         android.widget.Toast.makeText(
                             ctx,
                             if (AddictionGuard.isA11yActive(ctx)) {
-                                "Guard activo (sin gasto de batería)"
+                                "Guard active (no battery drain)"
                             } else {
-                                "Concede acceso: Ajustes → Accesibilidad → Nemotron Guard"
+                                "Grant access: Settings → Accessibility → Nemotron Guard"
                             },
                             android.widget.Toast.LENGTH_LONG
                         ).show()
@@ -109,11 +109,11 @@ class SettingsActivity : AppCompatActivity() {
                     com.nemotron.voiceime.guard.DndKeepAliveService.update(ctx)
                     android.widget.Toast.makeText(
                         ctx,
-                        if (enabled) {
-                            "Se bloqueará la pantalla al activar No Molestar"
-                        } else {
-                            "No Molestar ya no bloqueará la pantalla"
-                        },
+                    if (enabled) {
+                        "Screen will lock when DND is enabled"
+                    } else {
+                        "DND will no longer lock the screen"
+                    },
                         android.widget.Toast.LENGTH_SHORT
                     ).show()
                 }
@@ -127,7 +127,7 @@ class SettingsActivity : AppCompatActivity() {
         private fun updateStatusSummary() {
             val ctx = context ?: return
             val status = preferenceScreen.findPreference<androidx.preference.Preference>("status")
-            status?.summary = "Transcripción directa de Google (sin IA). Lista para dictar."
+            status?.summary = "Direct Google transcription (no AI). Ready to dictate."
         }
     }
 }

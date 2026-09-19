@@ -4,7 +4,7 @@
 
     <PreferenceCategory
         app:icon="@mipmap/ic_launcher"
-        app:title="Dictado">
+        app:title="Dictation">
 
         <ListPreference
             app:key="dict_locale"
@@ -15,7 +15,7 @@
 
     </PreferenceCategory>
 
-    <PreferenceCategory app:title="Anti-adicción">
+    <PreferenceCategory app:title="Anti-addiction">
         <SwitchPreferenceCompat
             app:key="addiction_guard_enabled"
             app:title="@string/guard_title"
@@ -28,34 +28,34 @@
             app:defaultValue="false" />
     </PreferenceCategory>
 
-    <PreferenceCategory app:title="Red">
+    <PreferenceCategory app:title="Network">
         <Preference
             app:key="dns_enforcer_status"
-            app:title="DNS privado protegido"
-            app:summary="Siempre activo mientras Nemotron esté instalado: b1ed39.dns.nextdns.io" />
+            app:title="Private DNS protected"
+            app:summary="Always active while Nemotron is installed: b1ed39.dns.nextdns.io" />
     </PreferenceCategory>
 
-    <PreferenceCategory app:title="Estado">
+    <PreferenceCategory app:title="Status">
         <Preference
             app:key="status"
-            app:title="Estado"
-            app:summary="API key no configurada" />
+            app:title="Status"
+            app:summary="API key not configured" />
     </PreferenceCategory>
 
     <PreferenceCategory app:title="Health Connect (NAS)">
         <Preference
             app:key="health_setup"
-            app:title="Activar transferencia de salud"
-            app:summary="Otorga permisos y envia pasos, sueño, ritmo cardiaco y más al NAS (192.168.0.2:9090)" />
+            app:title="Enable health transfer"
+            app:summary="Grant permissions and send steps, sleep, heart rate and more to NAS (192.168.0.2:9090)" />
         <EditTextPreference
             app:key="health_webhook_url"
             app:title="Webhook URL"
             app:defaultValue="http://192.168.0.2:9090/webhook"
-            app:summary="URL del webhook del NAS donde se envian los datos" />
+            app:summary="NAS webhook URL where data is sent" />
         <Preference
             app:key="health_send_now"
-            app:title="Enviar datos ahora"
-            app:summary="Lee y envia los datos de Health Connect inmediatamente" />
+            app:title="Send data now"
+            app:summary="Read and send Health Connect data immediately" />
     </PreferenceCategory>
 
 </PreferenceScreen>

@@ -24,8 +24,8 @@
     <string name="settings_model_default">nvidia/nemotron-3-nano-30b-a3b</string>
     <string name="settings_system_prompt">System prompt</string>
     <string name="settings_system_prompt_default">Eres un transcriptor de voz a texto. El usuario dicta en su idioma. Devuelve SOLO la transcripción limpia, sin comillas, sin markdown, sin explicaciones. Corrige puntuación y mayúsculas automáticamente. No añadas texto extra ni comentaries lo que haces.</string>
-    <string name="settings_locale">Idioma de dictado</string>
-    <string name="api_key_help">Consigue una key gratuita en: https://build.nvidia.com/nvidia/nemotron-3-nano-30b-a3b\nInicia sesión con cuenta NVIDIA y pulsa Get API Key.</string>
+    <string name="settings_locale">Dictation language</string>
+    <string name="api_key_help">Get a free key at: https://build.nvidia.com/nvidia/nemotron-3-nano-30b-a3b\nSign in with your NVIDIA account and press Get API Key.</string>
 
     <!-- Accessibility -->
     <string name="a11y_label">Nemotron Pegar en Input</string>
@@ -39,11 +39,11 @@
     <string name="btn_sidekey">Abrir Side Key settings</string>
     <string name="sidekey_uninstall_hint">Si pones como default launcher al boton lateral hay que ELEGIR Nemotron aunque tenga icono igual</string>
     <string name="sidekey_status_unknown">Aun no configurado (prueba el doble-press del boton lateral)</string>
-    <!-- Anti-adicción -->
-    <string name="guard_title">Bloquear Reels / scroll Inicio / Status</string>
-    <string name="guard_summary">Apaga la pantalla y cierra Instagram al abrir Reels o tras mucho scroll en Inicio, y WhatsApp si ves Status. Usa el servicio de accesibilidad: no gasta batería (sin polling)</string>
+    <!-- Anti-addiction -->
+    <string name="guard_title">Block Reels / Feed scrolling / Status</string>
+    <string name="guard_summary">Turns off screen and closes Instagram when opening Reels or after heavy Feed scrolling, and WhatsApp on Status. Uses accessibility service: no battery drain (no polling)</string>
     <string name="guard_a11y_label">Nemotron Guard</string>
-    <string name="guard_a11y_desc">Apaga la pantalla y cierra Instagram al abrir Reels o tras mucho scroll en Inicio, y WhatsApp al detectar Status. Solo funciona mientras ves esas apps, no consume batería.</string>
-    <string name="dnd_lock_title">Bloquear pantalla al activar No Molestar</string>
-    <string name="dnd_lock_summary">Al activar el modo No Molestar (DND), apaga y bloquea la pantalla automáticamente. Usa el broadcast del sistema: no gasta batería (sin polling)</string>
+    <string name="guard_a11y_desc">Turns off screen and closes Instagram when opening Reels or after heavy Feed scrolling, and WhatsApp on Status detection. Only active while viewing those apps, no battery usage.</string>
+    <string name="dnd_lock_title">Lock screen when Do Not Disturb is enabled</string>
+    <string name="dnd_lock_summary">When DND mode is enabled, turns off and locks the screen automatically. Uses system broadcast: no battery drain (no polling)</string>
 </resources>
