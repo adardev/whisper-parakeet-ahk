@@ -102,24 +102,30 @@ object MarkdownRenderer {
     private fun tableHtml(rows: List<List<String>>): String {
         val columns = rows.maxOf { it.size }
         val normalized = rows.map { row -> (row + List(columns - row.size) { "" }).take(columns) }
-        val widths = (0 until columns).map { column ->
-            normalized.maxOf { it[column].length }.coerceIn(3, 24)
-        }
-        fun htmlCell(value: String, width: Int): String {
-            val clipped = value.take(width).padEnd(width, ' ')
-            return escape(clipped).replace(" ", "&nbsp;")
-        }
-        fun rowHtml(row: List<String>, bold: Boolean): String =
-            row.mapIndexed { index, cell ->
-                val value = htmlCell(cell, widths[index])
-                if (bold) "<b>$value</b>" else value
-            }.joinToString("&nbsp;│&nbsp;")
 
-        val divider = widths.joinToString("─┼─") { "─".repeat(it) }
-        return "<br><font face=\"monospace\" color=\"#B8D5FF\"><b>${rowHtml(normalized.first(), true)}</b><br>" +
-            "$divider<br>" +
-            normalized.drop(1).joinToString("<br>") { rowHtml(it, false) } +
-            "</font><br>"
+        fun cell(value: String): String {
+            // Keep Markdown inside cells (for example **Batería**) instead of
+            // displaying the asterisks literally.
+            var result = escape(value)
+            result = result.replace(Regex("\\*\\*([^*]+)\\*\\*|__([^_]+)__")) {
+                "<b>${it.groupValues[1].ifEmpty { it.groupValues[2] }}</b>"
+            }
+            result = result.replace(Regex("(?<!\\*)\\*([^*]+)\\*(?!\\*)")) {
+                "<i>${it.groupValues[1]}</i>"
+            }
+            return result
+        }
+
+        val header = normalized.first().joinToString("<br>") { cell(it) }
+        val body = normalized.drop(1).joinToString("<br>") { row ->
+            val values = row.map { cell(it) }.filter { it.isNotBlank() }
+            if (values.isEmpty()) "" else
+                "<font color='#8FC1FF'><b>${values.first()}</b></font>" +
+                    if (values.size > 1) "<br>${values.drop(1).joinToString("<br>")}" else ""
+        }
+        return "<br><font color='#8FC1FF'><b>$header</b></font><br>" +
+            "<font color='#526B92'>────────────────────────</font><br>" +
+            body + "<br>"
     }
 
     private fun escape(value: String): String = value
