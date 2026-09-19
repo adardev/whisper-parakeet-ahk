@@ -101,13 +101,10 @@ class AssistActivity : Activity() {
         }
         status = findViewById(R.id.assistStatus)
         panel = findViewById(R.id.assistPanel)
-        findViewById<View>(R.id.assistRoot).apply {
-            isClickable = true
-            setOnTouchListener { _, event ->
-                if (event.actionMasked == MotionEvent.ACTION_UP) finish()
-                true
-            }
-        }
+        // Cierra al tocar el fondo. Los hijos manejan sus propios clics; no
+        // usamos un OnTouchListener que intercepte el ACTION_UP del botón de
+        // captura y termine el overlay accidentalmente.
+        findViewById<View>(R.id.assistRoot).setOnClickListener { finish() }
         var downY = 0f
         panel.setOnTouchListener { view, event ->
             when (event.actionMasked) {
