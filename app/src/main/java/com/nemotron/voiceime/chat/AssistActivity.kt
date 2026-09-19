@@ -341,16 +341,8 @@ class AssistActivity : Activity() {
     }
 
     private fun showModelPicker(anchor: View) {
-        val menu = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(8), dp(8), dp(8), dp(8))
-            setBackgroundResource(R.drawable.bg_drawer_panel)
-        }
-        val popup = PopupWindow(menu, dp(230), ViewGroup.LayoutParams.WRAP_CONTENT, true).apply {
-            elevation = dp(20).toFloat()
-            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-            isOutsideTouchable = true
-        }
+        val menu = AdarbotPopupSurface.menu(this, 8, 8)
+        val popup = AdarbotPopupSurface.popup(menu, dp(230))
         models.forEachIndexed { index, model ->
             val row = LinearLayout(this).apply {
                 gravity = Gravity.CENTER_VERTICAL
@@ -432,23 +424,11 @@ class AssistActivity : Activity() {
     }
 
     private fun showAttachmentMenu(anchor: View) {
-        val menu = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(12), dp(8), dp(12), dp(8))
-            background = GradientDrawable().apply {
-                setColor(Color.parseColor("#171B24")); cornerRadius = dp(20).toFloat()
-                setStroke(dp(1), Color.parseColor("#294A78"))
-            }
-        }
+        val menu = AdarbotPopupSurface.menu(this)
         menu.addView(attachmentRow(R.drawable.ic_camera, "Cámara") { launchAttachment("camera") })
         menu.addView(attachmentRow(R.drawable.ic_gallery, "Fotos") { launchAttachment("gallery") })
         menu.addView(attachmentRow(R.drawable.ic_file, "Archivos") { launchAttachment("file") })
-        PopupWindow(menu, dp(190), ViewGroup.LayoutParams.WRAP_CONTENT, true).apply {
-            elevation = dp(18).toFloat()
-            setBackgroundDrawable(GradientDrawable().apply { setColor(Color.TRANSPARENT) })
-            isOutsideTouchable = true
-            showAsDropDown(anchor, -dp(12), -dp(170))
-        }
+        AdarbotPopupSurface.popup(menu, dp(190)).showAsDropDown(anchor, -dp(12), -dp(170))
     }
 
     private fun attachmentRow(icon: Int, label: String, click: () -> Unit): View = LinearLayout(this).apply {

@@ -604,24 +604,11 @@ class ChatActivity : Activity() {
     }
 
     private fun showAttachmentMenu(anchor: View) {
-        val menu = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(12), dp(8), dp(12), dp(8))
-            background = GradientDrawable().apply {
-                setColor(Color.parseColor("#111C2D"))
-                cornerRadius = dp(20).toFloat()
-                setStroke(dp(1), Color.parseColor("#34547E"))
-            }
-        }
+        val menu = AdarbotPopupSurface.menu(this)
         menu.addView(attachmentRow(R.drawable.ic_camera, "Cámara") { launchAttachment("camera") })
         menu.addView(attachmentRow(R.drawable.ic_gallery, "Fotos") { launchAttachment("gallery") })
         menu.addView(attachmentRow(R.drawable.ic_file, "Archivos") { launchAttachment("file") })
-        PopupWindow(menu, dp(190), ViewGroup.LayoutParams.WRAP_CONTENT, true).apply {
-            elevation = dp(18).toFloat()
-            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-            isOutsideTouchable = true
-            showAsDropDown(anchor, -dp(12), -dp(170))
-        }
+        AdarbotPopupSurface.popup(menu, dp(190)).showAsDropDown(anchor, -dp(12), -dp(170))
     }
 
     private fun attachmentRow(icon: Int, label: String, click: () -> Unit): View = LinearLayout(this).apply {
@@ -751,16 +738,8 @@ class ChatActivity : Activity() {
     }
 
     private fun showModelPicker(anchor: View) {
-        val menu = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(8), dp(8), dp(8), dp(8))
-            setBackgroundResource(R.drawable.bg_drawer_panel)
-        }
-        val popup = PopupWindow(menu, dp(230), ViewGroup.LayoutParams.WRAP_CONTENT, true).apply {
-            elevation = dp(20).toFloat()
-            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-            isOutsideTouchable = true
-        }
+        val menu = AdarbotPopupSurface.menu(this, 8, 8)
+        val popup = AdarbotPopupSurface.popup(menu, dp(230))
         models.forEachIndexed { index, model ->
             val row = LinearLayout(this).apply {
                 gravity = Gravity.CENTER_VERTICAL
@@ -805,11 +784,6 @@ class ChatActivity : Activity() {
             setBackgroundResource(R.drawable.bg_drawer_panel)
         }
         val top = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
-        val drawerConnectionDot = View(this).apply {
-            setBackgroundResource(R.drawable.bg_connection_offline)
-            layoutParams = LinearLayout.LayoutParams(dp(9), dp(9)).apply { marginEnd = dp(8) }
-        }
-        top.addView(drawerConnectionDot)
         val drawerTitle = TextView(this).apply {
             text = "adarbot"
             textSize = 26f
@@ -819,6 +793,11 @@ class ChatActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
         }
         top.addView(drawerTitle)
+        val drawerConnectionDot = View(this).apply {
+            setBackgroundResource(R.drawable.bg_connection_offline)
+            layoutParams = LinearLayout.LayoutParams(dp(9), dp(9)).apply { marginStart = dp(8); marginEnd = dp(8) }
+        }
+        top.addView(drawerConnectionDot)
         val close = ImageButton(this).apply { setImageResource(R.drawable.ic_close); setColorFilter(Color.WHITE); background = ColorDrawable(Color.TRANSPARENT) }
         top.addView(close, LinearLayout.LayoutParams(dp(52), dp(52))); panel.addView(top)
         lateinit var drawer: Dialog
@@ -1020,9 +999,6 @@ class ChatActivity : Activity() {
         card.addView(info("Servidor NAS", server))
         val sync = info("Sincronización", "Comprobando conexión…")
         card.addView(sync)
-        card.addView(info("Acceso remoto", "HTTPS público · sin VPN"))
-        val version = try { packageManager.getPackageInfo(packageName, 0).versionName } catch (_: Exception) { "1.0" }
-        card.addView(info("Versión", "adarbot $version"))
         val close = TextView(this).apply {
             text = "Cerrar"
             textSize = 16f
