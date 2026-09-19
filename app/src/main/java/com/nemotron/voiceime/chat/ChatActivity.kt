@@ -272,7 +272,12 @@ class ChatActivity : Activity() {
         val arr = remote.optJSONArray("messages") ?: JSONArray()
         for (i in 0 until arr.length()) {
             val m = arr.optJSONObject(i) ?: continue
-            result.add(ChatMessage(m.optString("role"), m.optString("content"), m.optLong("created_at", System.currentTimeMillis())))
+            result.add(ChatMessage(
+                m.optString("role"),
+                m.optString("content"),
+                m.optLong("created_at", System.currentTimeMillis()),
+                m.optString("model").ifBlank { remote.optString("model").ifBlank { null } }
+            ))
         }
         return result
     }
@@ -344,12 +349,14 @@ class ChatActivity : Activity() {
         }
 
         if (!isIncognito()) {
-            conv.messages.add(ChatMessage("user", text))
+            conv.messages.add(ChatMessage("user", text, model = models[modelIndex]))
             ConversationStore.save(conv)
         }
 
         appendUi("assistant", thinkingLabels[0])
         val bubbleIndex = messages.size - 1
+        messages[bubbleIndex] = messages[bubbleIndex].copy(model = models[modelIndex])
+        adapter.notifyItemChanged(bubbleIndex)
         thinkingIndex = bubbleIndex
         thinkingStep = 1
         thinkingHandler.removeCallbacks(thinkingRunnable)
@@ -383,14 +390,14 @@ class ChatActivity : Activity() {
                 runOnUiThread {
                     stopThinking()
                     if (bubbleIndex < messages.size) {
-                        messages[bubbleIndex] = messages[bubbleIndex].copy(content = full)
+                        messages[bubbleIndex] = messages[bubbleIndex].copy(content = full, model = models[modelIndex])
                         adapter.notifyItemChanged(bubbleIndex)
                         recycler.scrollToPosition(bubbleIndex)
                     }
                     micBtn.isEnabled = true
                     sending = false
                     if (!isIncognito()) {
-                        conv.messages.add(ChatMessage("assistant", full))
+                        conv.messages.add(ChatMessage("assistant", full, model = models[modelIndex]))
                         ConversationStore.save(conv)
                     }
                 }
@@ -461,13 +468,25 @@ class ChatActivity : Activity() {
             speakMessage(message)
             popup.dismiss()
         })
-        popup = PopupWindow(menu, dp(120), dp(58), true).apply {
+        val modelLabel = TextView(this).apply {
+            text = message.model?.let { displayName(it) } ?: "Modelo no disponible"
+            setTextColor(Color.parseColor("#A9C9FF"))
+            textSize = 11f
+            gravity = Gravity.CENTER
+            setPadding(dp(10), 0, dp(10), 0)
+            layoutParams = LinearLayout.LayoutParams(dp(118), dp(44))
+        }
+        menu.addView(modelLabel)
+        popup = PopupWindow(menu, dp(258), dp(58), true).apply {
             elevation = dp(18).toFloat()
             setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
             isOutsideTouchable = true
+            isFocusable = true
         }
         menu.post {
-            popup.showAsDropDown(anchor, -dp(12), -anchor.height - dp(66))
+            val location = IntArray(2)
+            anchor.getLocationOnScreen(location)
+            popup.showAtLocation(anchor, Gravity.TOP or Gravity.START, dp(12), (location[1] - dp(70)).coerceAtLeast(dp(70)))
         }
     }
 

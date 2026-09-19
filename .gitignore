@@ -10,3 +10,6 @@
 .cxx
 local.properties
 whisper_cpp/
+desktop/node_modules/
+desktop/dist/
+__pycache__/

@@ -84,7 +84,7 @@ def hermes_conversations(with_messages=False):
             item = {"id": row["id"], "title": row["title"] or row["display_name"] or "Hermes", "created_at": int((row["started_at"] or 0) * 1000), "updated_at": int((row["last_activity_at"] or row["started_at"] or 0) * 1000), "source": row["source"], "model": row["model"], "message_count": row["message_count"], "remote": True}
             if with_messages:
                 msgs = h.execute("SELECT role,content,timestamp FROM messages WHERE session_id=? AND active=1 AND role IN ('user','assistant') ORDER BY id", (row["id"],)).fetchall()
-                item["messages"] = [{"role": m["role"], "content": m["content"] or "", "created_at": int((m["timestamp"] or 0) * 1000)} for m in msgs if m["content"]]
+                item["messages"] = [{"role": m["role"], "content": m["content"] or "", "model": row["model"], "created_at": int((m["timestamp"] or 0) * 1000)} for m in msgs if m["content"]]
             result.append(item)
         h.close(); return result
     except Exception:

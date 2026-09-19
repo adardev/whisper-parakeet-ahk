@@ -5,7 +5,12 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 
-data class ChatMessage(val role: String, val content: String, val ts: Long = System.currentTimeMillis())
+data class ChatMessage(
+    val role: String,
+    val content: String,
+    val ts: Long = System.currentTimeMillis(),
+    val model: String? = null
+)
 
 data class Conversation(
     val id: String,
@@ -37,7 +42,7 @@ object ConversationStore {
                 val ma = o.optJSONArray("messages") ?: JSONArray()
                 for (j in 0 until ma.length()) {
                     val m = ma.getJSONObject(j)
-                    msgs.add(ChatMessage(m.optString("role"), m.optString("content"), m.optLong("ts")))
+                    msgs.add(ChatMessage(m.optString("role"), m.optString("content"), m.optLong("ts"), m.optString("model").ifBlank { null }))
                 }
                 list.add(Conversation(o.optString("id"), o.optString("title"), o.optLong("createdAt"), msgs, o.optString("source"), o.optString("displayName"), o.optString("chatId"), o.optBoolean("pinned", false)))
             }
@@ -66,6 +71,7 @@ object ConversationStore {
                         put("role", m.role)
                         put("content", m.content)
                         put("ts", m.ts)
+                        put("model", m.model ?: "")
                     })
                 }
                 o.put("messages", msgs)

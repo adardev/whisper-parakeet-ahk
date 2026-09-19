@@ -1,0 +1,33 @@
+:root { font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #eef4ff; background: #070b12; font-synthesis: none; }
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 820px; min-height: 100vh; background: #070b12; }
+button, input { font: inherit; }
+button { color: inherit; border: 0; cursor: pointer; }
+.shell { min-height: 100vh; display: flex; background: radial-gradient(circle at 70% 0%, #182847 0, #0a101b 36%, #070b12 72%); }
+.sidebar { width: 290px; padding: 28px 18px 20px; border-right: 1px solid #1c2c47; background: #0b1220; display: flex; flex-direction: column; gap: 10px; }
+.brand-row { display: flex; align-items: center; gap: 10px; padding: 4px 10px 24px; font-size: 20px; }
+.brand-mark { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 10px; color: #08111f; background: #69a7ff; font-weight: 900; }
+.brand-row .close { margin-left: auto; display: none; }
+.action, .chat-item { width: 100%; text-align: left; background: transparent; border-radius: 15px; padding: 13px 14px; color: #aebbd0; transition: .18s ease; }
+.action { display: flex; align-items: center; gap: 12px; font-weight: 650; }
+.action span { font-size: 23px; color: #8ebeff; }
+.action:hover, .chat-item:hover, .chat-item.active { background: #14233a; color: #f1f6ff; }
+.action.primary { background: #162941; border: 1px solid #345a8e; color: #eff6ff; }
+.section-label { margin: 26px 12px 4px; color: #72809a; font-size: 13px; text-transform: uppercase; letter-spacing: .12em; }
+.chat-list { overflow: auto; display: flex; flex-direction: column; gap: 3px; }
+.chat-item { display: flex; flex-direction: column; gap: 4px; }
+.chat-item span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.chat-item small, .muted { color: #7586a2; font-size: 12px; }
+.sidebar-footer { margin-top: auto; display: flex; align-items: center; gap: 8px; color: #71819a; font-size: 12px; padding: 10px; }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background: #707b8c; display: inline-block; box-shadow: 0 0 0 3px #1a2432; }
+.status-dot.online { background: #45d795; box-shadow: 0 0 0 3px #123529; }
+.workspace { min-width: 0; flex: 1; display: flex; flex-direction: column; }
+.topbar { height: 74px; display: flex; align-items: center; justify-content: space-between; padding: 0 30px; border-bottom: 1px solid #1b2a42; background: rgba(8, 13, 22, .74); backdrop-filter: blur(18px); }
+.icon { width: 40px; height: 40px; border-radius: 13px; background: #111d2f; color: #9bc5ff; font-size: 22px; }
+.menu { display: none; }
+.title { display: flex; align-items: center; gap: 10px; font-size: 19px; }
+.avatar { width: 38px; height: 38px; border-radius: 50%; background: #327ff2; font-weight: 800; }
+.conversation { flex: 1; display: grid; place-items: center; padding: 42px; overflow: auto; }
+.empty-state { text-align: center; color: #a8b7ce; }.empty-state h1 { margin: 16px 0 8px; color: #f3f7ff; font-size: clamp(30px, 4vw, 52px); letter-spacing: -.04em; }.empty-state p { font-size: 18px; }.empty-state.compact { text-align: left; width: min(700px, 100%); }.empty-state.compact h1 { font-size: 36px; }.eyebrow { color: #71aaff; font-size: 12px; letter-spacing: .16em; }.spark { color: #71aaff; font-size: 48px; }
+.composer { width: min(760px, calc(100% - 56px)); margin: 0 auto 28px; display: flex; align-items: center; gap: 7px; padding: 9px 12px; border: 1px solid #416fac; border-radius: 24px; background: #111e32; box-shadow: 0 10px 35px #02050a88; }.composer input { flex: 1; min-width: 0; border: 0; outline: 0; color: #eff5ff; background: transparent; padding: 12px 8px; }.composer input::placeholder { color: #8291aa; }.attach, .mic, .send { width: 40px; height: 40px; border-radius: 13px; background: transparent; color: #8fbfff; font-size: 23px; }.mic { color: #b5c2d5; }.send { color: #55a0ff; font-size: 27px; }
+@media (max-width: 900px) { .sidebar { position: fixed; z-index: 5; inset: 0 auto 0 0; transform: translateX(-100%); transition: transform .22s ease; }.sidebar.open { transform: translateX(0); }.brand-row .close { display: block; }.menu { display: block; }.topbar { padding: 0 16px; } }
