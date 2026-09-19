@@ -270,6 +270,9 @@ class ChatActivity : Activity() {
             val remoteMessages = parseRemoteMessages(remote)
             runOnUiThread {
                 remoteRefreshInFlight = false
+                // A delete/new-chat can happen while the previous request is in flight.
+                // Never let that stale response repopulate the cleared conversation.
+                if (id != convId || conversation == null || incognitoMode) return@runOnUiThread
                 val merged = mergeRemoteMessages(remoteMessages)
                 val signature = merged.joinToString("|") { "${it.role}:${it.ts}:${it.content}" }
                 if (signature == lastRemoteSignature) return@runOnUiThread
