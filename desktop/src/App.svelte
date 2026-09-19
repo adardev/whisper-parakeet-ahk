@@ -1,6 +1,7 @@
 <script lang="ts">
+  import { onMount, tick } from 'svelte';
   type Chat = { id: string; title: string; updated_at?: number; model?: string; remote?: boolean };
-  type Message = { id?: number | string; role: string; content: string; model?: string; created_at?: number };
+  type Message = { id?: number | string; role: string; content: string; model?: string; created_at?: number; pending?: boolean; failed?: boolean };
 
   const server = 'https://adarlpz-2.tail4988cb.ts.net';
   let chats: Chat[] = [];
@@ -35,6 +36,9 @@
     : chats;
   let selectedMessage: Message | null = null;
   let pressTimer: number | undefined;
+  let inputElement: HTMLInputElement;
+  let messageList: HTMLDivElement;
+  let sendStatus = '';
 
   function escapeHtml(value: string) {
     return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -118,7 +122,9 @@
       if (!response.ok) throw new Error('conversation');
       const conversation = await response.json();
       if (request === messageRequest) {
-        messages = Array.isArray(conversation.messages) ? conversation.messages : [];
+        // Mientras se envía conservamos el mensaje optimista y el indicador de
+        // respuesta: una recarga parcial del servidor no debe hacerlos parpadear.
+        if (!sending) messages = Array.isArray(conversation.messages) ? conversation.messages : [];
         connected = true;
       }
     } catch {
@@ -150,6 +156,7 @@
     menuOpen = false;
     input = '';
     attachment = null;
+    tick().then(() => inputElement?.focus());
   }
 
   function selectChat(chat: Chat) {
@@ -159,6 +166,12 @@
     messagesError = '';
     menuOpen = false;
     loadMessages(chat.id);
+  }
+
+  async function scrollToLatest(smooth = true) {
+    await tick();
+    if (!messageList) return;
+    messageList.scrollTo({ top: messageList.scrollHeight, behavior: smooth ? 'smooth' : 'auto' });
   }
 
   function chooseAttachment() {
@@ -255,6 +268,7 @@
     const text = input.trim();
     if (!text || sending) return;
     sending = true;
+    sendStatus = 'adarbot está pensando';
     input = '';
     messagesError = '';
     try {
@@ -271,7 +285,13 @@
       }
 
       const history = messages.map((message) => ({ role: message.role, content: message.content }));
-      messages = [...messages, { role: 'user', content: text, model }];
+      const pendingId = `pending-${Date.now()}`;
+      messages = [
+        ...messages,
+        { id: `local-${Date.now()}`, role: 'user', content: text, model },
+        { id: pendingId, role: 'assistant', content: '', model, pending: true }
+      ];
+      scrollToLatest();
       const response = await fetch(`${server}/api/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -287,22 +307,38 @@
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || `Error ${response.status}`);
       const answer = data.choices?.[0]?.message?.content || '';
-      messages = [...messages, { role: 'assistant', content: answer, model }];
+      messages = messages.map((message) => message.id === pendingId
+        ? { ...message, content: answer, pending: false }
+        : message);
+      scrollToLatest();
       if (!incognito) await loadChats();
       attachment = null;
     } catch (error) {
       messagesError = error instanceof Error ? error.message : 'No se pudo enviar el mensaje.';
-      messages = messages.filter((message) => message.content !== text || message.role !== 'user');
+      messages = messages.map((message) => message.pending
+        ? { ...message, content: 'No se pudo obtener una respuesta. Toca para intentar de nuevo.', pending: false, failed: true }
+        : message);
     } finally {
       sending = false;
+      sendStatus = '';
     }
   }
 
-  loadChats();
-  const refresh = window.setInterval(async () => {
-    await loadChats();
-    if (activeChat) await loadMessages(activeChat.id);
-  }, 5000);
+  onMount(() => {
+    loadChats();
+    const refresh = window.setInterval(async () => {
+      await loadChats();
+      if (activeChat && !sending) await loadMessages(activeChat.id);
+    }, 3500);
+    const keydown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault(); searchOpen = true; tick().then(() => document.querySelector<HTMLInputElement>('.chat-search')?.focus());
+      }
+      if (event.key === 'Escape') { selectedMessage = null; modelMenu = false; }
+    };
+    window.addEventListener('keydown', keydown);
+    return () => { window.clearInterval(refresh); window.removeEventListener('keydown', keydown); };
+  });
 </script>
 
 <svelte:head><title>adarbot</title></svelte:head>
@@ -336,21 +372,25 @@
       {#if activeChat}
         <div class="chat-view">
           {#if messagesLoading && messages.length === 0}
-            <div class="loading-state">Cargando mensajes…</div>
+            <div class="loading-state skeleton-stack" aria-label="Cargando conversación"><i></i><i></i><i></i></div>
           {:else if messagesError}
             <div class="loading-state error">{messagesError}</div>
           {:else if messages.length === 0}
             <div class="empty-state compact"><p>Los mensajes aparecerán aquí.</p></div>
           {:else}
-            <div class="message-list">
+            <div bind:this={messageList} class="message-list">
               {#each messages as message (message.id ?? `${message.role}-${message.created_at}-${message.content.slice(0, 12)}`)}
                 <article class:mine={message.role === 'user'} class="message-row"
                   on:pointerdown={() => startMessagePress(message)}
                   on:pointerup={stopMessagePress}
                   on:pointerleave={stopMessagePress}
                   on:contextmenu|preventDefault={() => openMessageActions(message)}>
-                  <div class="message-bubble">
-                    <div class="message-content">{@html renderMarkdown(message.content)}</div>
+                  <div class:pending={message.pending} class:failed={message.failed} class="message-bubble">
+                    {#if message.pending}
+                      <div class="typing" aria-label="adarbot está pensando"><span></span><span></span><span></span><em>{sendStatus}</em></div>
+                    {:else}
+                      <div class="message-content">{@html renderMarkdown(message.content)}</div>
+                    {/if}
                   </div>
                   {#if selectedMessage === message}
                     <div class="message-actions" on:click|stopPropagation>
@@ -365,7 +405,7 @@
           {/if}
         </div>
       {:else}
-        <div class="empty-state"><span class="spark">✦</span><h1>¿Qué hacemos hoy?</h1><p>Pregunta lo que quieras a adarbot.</p></div>
+        <div class="empty-state"><span class="spark">✦</span><h1>¿Qué hacemos hoy?</h1><p>Pregunta lo que quieras a adarbot.</p><div class="prompt-suggestions"><button on:click={() => input = 'Ayúdame a organizar mi día'}>Organizar mi día</button><button on:click={() => input = 'Explícame esto paso a paso'}>Explícame algo</button></div></div>
       {/if}
     </div>
 
@@ -373,7 +413,7 @@
       {#if attachment}<div class:attachment-image={attachment.type.startsWith('image/')} class="attachment-chip">{#if attachment.type.startsWith('image/') }<img src={attachment.data} alt="Vista previa del adjunto" />{:else}<span>{attachment.name}</span>{/if}<button type="button" on:click={() => attachment = null} aria-label="Quitar adjunto">×</button></div>{/if}
       <input bind:this={fileInput} class="hidden-file" type="file" accept="image/*,.pdf,.txt,.md" on:change={handleFile} />
       <button type="button" class="attach" aria-label="Adjuntar" on:click={chooseAttachment}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m20.5 11.5-8.7 8.7a5 5 0 0 1-7.1-7.1l9.2-9.2a3.5 3.5 0 0 1 5 5l-9.2 9.2a2 2 0 0 1-2.8-2.8l8.3-8.3"/></svg></button>
-      <input bind:value={input} on:paste={handlePaste} placeholder="Pregúntale a adarbot…" aria-label="Mensaje" />
+      <input bind:this={inputElement} bind:value={input} on:paste={handlePaste} placeholder="Pregúntale a adarbot…" aria-label="Mensaje" />
       <button type="button" class:recording class="mic" aria-label="Micrófono" on:click={toggleRecording}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M9 21h6"/></svg></button>
       {#if modelMenu}<div class="model-menu" on:click|stopPropagation>{#each models as option}<button class:chosen={model === option.id} type="button" on:click={() => chooseModel(option.id)}><span class={`model-dot ${option.id}`}></span><span>{option.label}</span><small>{option.provider}</small></button>{/each}</div>{/if}
       <button type="submit" class={`send ${model}`} disabled={sending} aria-label="Enviar" on:pointerdown={startSendPress} on:pointerup={stopSendPress} on:pointerleave={stopSendPress} on:contextmenu|preventDefault={() => modelMenu = true}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 4 18 8-18 8 3-8-3-8Z"/><path d="M6 12h15"/></svg><span class={`selected-model-dot ${model}`}></span></button>

@@ -1,0 +1,13 @@
+{
+  "name": "adarbot UI",
+  "version": 1,
+  "tokens": {
+    "canvas": "#090E17", "surface": "#111E32", "surfaceRaised": "#172943",
+    "stroke": "#416FAC", "accent": "#5B97F4", "text": "#EEF4FF",
+    "textMuted": "#94A9C9", "online": "#45D795", "deepseek": "#8B7CFF",
+    "mimo": "#FF965F", "nemotron": "#70D45C"
+  },
+  "shape": { "bubble": 24, "composer": 28, "action": 16, "floatingBar": 32 },
+  "motion": { "press": 120, "enter": 220, "surface": 180, "easing": "standard-decelerate" },
+  "components": ["Composer", "MessageBubble", "TypingState", "AttachmentPreview", "ModelPicker", "ConnectionStatus", "ConversationList"]
+}

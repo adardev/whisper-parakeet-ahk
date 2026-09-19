@@ -12,5 +12,17 @@
     <color name="status_ok">#2E7D32</color>
     <color name="status_bad">#C62828</color>
     <color name="status_pending">#F57C00</color>
-    
+
+    <!-- adarbot design-system tokens: mirrors design/adarbot-ui.json -->
+    <color name="adarbot_canvas">#090E17</color>
+    <color name="adarbot_surface">#111E32</color>
+    <color name="adarbot_surface_raised">#172943</color>
+    <color name="adarbot_stroke">#416FAC</color>
+    <color name="adarbot_accent">#5B97F4</color>
+    <color name="adarbot_text">#EEF4FF</color>
+    <color name="adarbot_text_muted">#94A9C9</color>
+    <color name="adarbot_online">#45D795</color>
+    <color name="adarbot_model_deepseek">#8B7CFF</color>
+    <color name="adarbot_model_mimo">#FF965F</color>
+    <color name="adarbot_model_nemotron">#70D45C</color>
 </resources>

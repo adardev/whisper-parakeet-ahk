@@ -38,6 +38,7 @@ import android.widget.PopupWindow
 import android.view.Gravity
 import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
+import android.view.animation.AnimationUtils
 import android.util.Base64
 import java.io.ByteArrayOutputStream
 import java.util.Locale
@@ -83,11 +84,8 @@ class ChatActivity : Activity() {
             remoteRefreshHandler.postDelayed(this, 1200L)
         }
     }
-    private val thinkingLabels = listOf(
-        "conectando con adarbot…",
-        "adarbot está pensando…",
-        "preparando respuesta…"
-    )
+    // Estado estable: alternar frases parecía un error de conexión.
+    private val thinkingLabels = listOf("adarbot está pensando…")
     private val thinkingHandler = Handler(Looper.getMainLooper())
     private var thinkingIndex = -1
     private var thinkingStep = 0
@@ -131,7 +129,11 @@ class ChatActivity : Activity() {
         attachmentImage.setOnClickListener { showImagePreview(pendingImageBitmap) }
         findViewById<ImageButton>(R.id.chatAttachmentRemove).setOnClickListener {
             haptic(it)
-            attachmentPreview.visibility = View.GONE
+            attachmentPreview.animate().alpha(0f).translationY(dp(10).toFloat()).setDuration(140).withEndAction {
+                attachmentPreview.visibility = View.GONE
+                attachmentPreview.alpha = 1f
+                attachmentPreview.translationY = 0f
+            }.start()
             attachmentImage.setImageDrawable(null)
             pendingImageData = null
             pendingImageBitmap?.recycle()
@@ -175,6 +177,7 @@ class ChatActivity : Activity() {
         adapter = MessageAdapter(messages, ::copyMessage, ::speakMessage, ::showMessageActions)
         textToSpeech = TextToSpeech(this) { }
         recycler.layoutManager = LinearLayoutManager(this)
+        recycler.layoutAnimation = AnimationUtils.loadLayoutAnimation(this, R.anim.layout_message_enter)
         recycler.adapter = adapter
         showWelcomeIfEmpty()
         if (messages.isNotEmpty()) recycler.scrollToPosition(messages.size - 1)
@@ -257,6 +260,7 @@ class ChatActivity : Activity() {
                 lastRemoteSignature = signature
                 val wasAtBottom = !recycler.canScrollVertically(1)
                 adapter.replaceMessages(merged)
+                recycler.scheduleLayoutAnimation()
                 conversation?.messages?.clear()
                 conversation?.messages?.addAll(merged)
                 if (!sending && !incognitoMode) conversation?.let { ConversationStore.save(it) }
@@ -333,6 +337,7 @@ class ChatActivity : Activity() {
         }
         val conv = existing ?: conversation ?: return
         sending = true
+        setSendingUi(true)
         input.setText("")
         hideKeyboard()
         welcomeView.visibility = View.GONE
@@ -366,7 +371,12 @@ class ChatActivity : Activity() {
         micBtn.isEnabled = false
         val imageData = pendingImageData
         pendingImageData = null
-        findViewById<View>(R.id.chatAttachmentPreview).visibility = View.GONE
+        val previewToHide = findViewById<View>(R.id.chatAttachmentPreview)
+        previewToHide.animate().alpha(0f).translationY(dp(10).toFloat()).setDuration(120).withEndAction {
+            previewToHide.visibility = View.GONE
+            previewToHide.alpha = 1f
+            previewToHide.translationY = 0f
+        }.start()
 
         chat.stream(
             text,
@@ -397,6 +407,8 @@ class ChatActivity : Activity() {
                     }
                     micBtn.isEnabled = true
                     sending = false
+                    setSendingUi(false)
+                    sendBtn.performHapticFeedback(HapticFeedbackConstants.VIRTUAL_KEY)
                     if (!isIncognito()) {
                         conv.messages.add(ChatMessage("assistant", full, model = models[modelIndex]))
                         ConversationStore.save(conv)
@@ -412,6 +424,7 @@ class ChatActivity : Activity() {
                     }
                     micBtn.isEnabled = true
                     sending = false
+                    setSendingUi(false)
                 }
             }
         )
@@ -422,9 +435,22 @@ class ChatActivity : Activity() {
         thinkingIndex = -1
     }
 
+    private fun setSendingUi(active: Boolean) {
+        sendBtn.isEnabled = !active
+        sendBtn.contentDescription = if (active) "adarbot está pensando" else "Enviar"
+        sendBtn.animate().cancel()
+        if (active) {
+            sendBtn.animate().scaleX(0.82f).scaleY(0.82f).alpha(0.7f).setDuration(140).start()
+        } else {
+            sendBtn.animate().scaleX(1f).scaleY(1f).alpha(1f)
+                .setInterpolator(DecelerateInterpolator()).setDuration(190).start()
+        }
+    }
+
     private fun appendUi(role: String, content: String) {
         messages.add(ChatMessage(role, content))
         adapter.notifyItemInserted(messages.size - 1)
+        recycler.scheduleLayoutAnimation()
         recycler.scrollToPosition(messages.size - 1)
     }
 
@@ -492,7 +518,17 @@ class ChatActivity : Activity() {
     }
 
     private fun showWelcomeIfEmpty() {
-        welcomeView.visibility = if (messages.isEmpty()) View.VISIBLE else View.GONE
+        val show = messages.isEmpty()
+        if (show && welcomeView.visibility != View.VISIBLE) {
+            welcomeView.alpha = 0f
+            welcomeView.visibility = View.VISIBLE
+            welcomeView.animate().alpha(1f).setDuration(220).start()
+        } else if (!show && welcomeView.visibility == View.VISIBLE) {
+            welcomeView.animate().alpha(0f).setDuration(140).withEndAction {
+                welcomeView.visibility = View.GONE
+                welcomeView.alpha = 1f
+            }.start()
+        }
     }
 
     private fun titleView(): TextView = findViewById(R.id.convTitle)
@@ -633,7 +669,12 @@ class ChatActivity : Activity() {
                     pendingImageBitmap = bitmap
                     pendingImageData = Base64.encodeToString(bytes.toByteArray(), Base64.NO_WRAP)
                     findViewById<ImageView>(R.id.chatAttachmentImage).setImageBitmap(bitmap)
-                    findViewById<View>(R.id.chatAttachmentPreview).visibility = View.VISIBLE
+                    findViewById<View>(R.id.chatAttachmentPreview).apply {
+                        alpha = 0f
+                        translationY = dp(12).toFloat()
+                        visibility = View.VISIBLE
+                        animate().alpha(1f).translationY(0f).setInterpolator(DecelerateInterpolator()).setDuration(190).start()
+                    }
                     input.setText("")
                 }
             } else {

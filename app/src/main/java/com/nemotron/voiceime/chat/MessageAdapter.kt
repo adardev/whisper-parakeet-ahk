@@ -44,7 +44,17 @@ class MessageAdapter(
 
     override fun onBindViewHolder(holder: MessageVH, position: Int) {
         val msg = messages[position]
-        holder.bubble.text = MarkdownRenderer.render(msg.content)
+        holder.bubble.animate().cancel()
+        if (msg.role == "assistant" && msg.content == "adarbot está pensando…") {
+            holder.bubble.text = "•  •  •    adarbot está pensando"
+            holder.bubble.alpha = 0.55f
+            holder.bubble.animate().alpha(1f).setDuration(620).withEndAction {
+                holder.bubble.animate().alpha(0.55f).setDuration(620).start()
+            }.start()
+        } else {
+            holder.bubble.alpha = 1f
+            holder.bubble.text = MarkdownRenderer.render(msg.content)
+        }
         holder.actions.visibility = View.GONE
         if (msg.role == "user") {
             holder.wrap.gravity = Gravity.END
