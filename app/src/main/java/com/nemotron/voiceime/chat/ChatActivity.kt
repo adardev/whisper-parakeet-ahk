@@ -153,7 +153,9 @@ class ChatActivity : Activity() {
         findViewById<View>(android.R.id.content).autoInsets { keyboardOpen ->
             val lp = composerView.layoutParams as FrameLayout.LayoutParams
             val desiredBottom = if (keyboardOpen) 0 else dp(20)
-            val desiredSide = if (keyboardOpen) 0 else dp(12)
+            // Keep the composer inset from the screen edges even when the IME is open.
+            // Only the bottom edge attaches to the keyboard.
+            val desiredSide = dp(12)
             if (lp.bottomMargin != desiredBottom || lp.leftMargin != desiredSide || lp.rightMargin != desiredSide) {
                 lp.bottomMargin = desiredBottom
                 lp.leftMargin = desiredSide
