@@ -187,6 +187,7 @@ class ChatActivity : Activity() {
         modelIndex = prefs.getInt("model_index", 0).coerceIn(0, models.lastIndex)
 
         convId = intent.getStringExtra("convId")
+        pendingImageData = intent.getStringExtra("pendingImageData")
         incognitoMode = intent.getBooleanExtra("incognito", false)
         conversation = if (incognitoMode) {
             Conversation("incognito_${System.currentTimeMillis()}", "Incognito chat", System.currentTimeMillis())

@@ -251,17 +251,7 @@ class AssistActivity : Activity() {
         val text = input.text.toString().trim().ifEmpty {
             if (pendingScreenshot != null) "Analyze this screenshot." else return
         }
-        input.setText(""); status.text = "Thinking..."
-        val id = conversationId
-        val done: (String) -> Unit = { answer -> runOnUiThread { status.text = answer.ifEmpty { "Done" }.take(72) } }
-        val fail: (Throwable) -> Unit = { e -> runOnUiThread { status.text = "No connection: ${e.message ?: "error"}" } }
-        val start: (String) -> Unit = { cid ->
-            conversationId = cid
-            val image = pendingScreenshot
-            pendingScreenshot = null
-            chat.stream(text, models[modelIndex], emptyList(), cid, false, image, {}, done, fail)
-        }
-        if (id != null) start(id) else chat.createConversation({ runOnUiThread { start(it.optString("id")) } }, fail)
+        openFullChat(text, pendingScreenshot)
     }
 
     private fun requestScreenCapture() {
@@ -445,12 +435,14 @@ class AssistActivity : Activity() {
         popup.showAsDropDown(anchor, -dp(185), -dp(190))
     }
 
-    private fun openFullChat() {
+    private fun openFullChat(draft: String? = null, screenshot: String? = null) {
         val target = Intent(this, ChatActivity::class.java).apply {
             conversationId?.let { putExtra("convId", it) }
+            draft?.takeIf { it.isNotBlank() }?.let { putExtra("draft", it) }
+            screenshot?.let { putExtra("pendingImageData", it) }
             // A swipe-up means the user explicitly expanded the assistant;
             // open the full chat ready for typing.
-            putExtra("focusInput", true)
+            putExtra("focusInput", draft.isNullOrBlank())
         }
         panel.animate()
             .translationY(-panel.height.toFloat())
