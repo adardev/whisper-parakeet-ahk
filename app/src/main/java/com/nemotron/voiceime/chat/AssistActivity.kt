@@ -182,8 +182,15 @@ class AssistActivity : Activity() {
             val detected = input.text.toString().trim()
             if (speech != null) {
                 if (detected.isNotEmpty() || pendingScreenshot != null) {
-                    // Preserve the partial transcript when Send is pressed.
-                    cancelListening(clearPartial = false)
+                    // Send finishes the active capture but must preserve and submit
+                    // the partial transcript. The microphone button is the cancel
+                    // action and is the only path that discards it.
+                    val recognizer = speech
+                    speech = null
+                    sendAfterSpeech = false
+                    recognizer?.stopListening()
+                    recognizer?.destroy()
+                    setMicListening(false)
                     send(detected)
                 } else {
                     // Ask the recognizer for its final transcript, then send it.
