@@ -75,6 +75,7 @@ class ChatActivity : Activity() {
     private var activeSpeakingMessage: ChatMessage? = null
     private lateinit var chat: ChatClient
     private var textToSpeech: TextToSpeech? = null
+    private var autoReadResponse = false
 
     private val models = listOf("deepseek-flash", "mimo-v2.5", "nemotron")
     private var modelIndex = 0
@@ -188,6 +189,7 @@ class ChatActivity : Activity() {
 
         convId = intent.getStringExtra("convId")
         pendingImageData = intent.getStringExtra("pendingImageData")
+        autoReadResponse = intent.getBooleanExtra("autoReadResponse", false)
         incognitoMode = intent.getBooleanExtra("incognito", false)
         conversation = if (incognitoMode) {
             Conversation("incognito_${System.currentTimeMillis()}", "Incognito chat", System.currentTimeMillis())
@@ -506,6 +508,11 @@ class ChatActivity : Activity() {
                     if (!isIncognito()) {
                         conv.messages.add(ChatMessage("assistant", full, model = models[modelIndex]))
                         ConversationStore.save(conv)
+                    }
+                    if (autoReadResponse && bubbleIndex < messages.size) {
+                        autoReadResponse = false
+                        val response = messages[bubbleIndex]
+                        window.decorView.postDelayed({ speakMessage(response) }, 180L)
                     }
                 }
             },

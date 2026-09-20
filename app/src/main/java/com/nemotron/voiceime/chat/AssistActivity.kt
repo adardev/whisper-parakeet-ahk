@@ -189,8 +189,11 @@ class AssistActivity : Activity() {
                 recognizer?.stopListening()
                 recognizer?.destroy()
                 setMicListening(false)
-                if (detected.isNotEmpty() || pendingScreenshot != null) send(detected)
-                else openFullChat(null, pendingScreenshot)
+                if (detected.isNotEmpty() || pendingScreenshot != null) {
+                    openFullChat(detected, pendingScreenshot, voiceInput = true)
+                } else {
+                    openFullChat(null, pendingScreenshot, voiceInput = true)
+                }
             } else if (detected.isNotEmpty() || pendingScreenshot != null) {
                 send()
             }
@@ -438,11 +441,16 @@ class AssistActivity : Activity() {
         popup.showAsDropDown(anchor, -dp(185), -dp(190))
     }
 
-    private fun openFullChat(draft: String? = null, screenshot: String? = null) {
+    private fun openFullChat(
+        draft: String? = null,
+        screenshot: String? = null,
+        voiceInput: Boolean = false
+    ) {
         val target = Intent(this, ChatActivity::class.java).apply {
             conversationId?.let { putExtra("convId", it) }
             draft?.takeIf { it.isNotBlank() }?.let { putExtra("draft", it) }
             screenshot?.let { putExtra("pendingImageData", it) }
+            putExtra("autoReadResponse", voiceInput)
             // A swipe-up means the user explicitly expanded the assistant;
             // open the full chat ready for typing.
             putExtra("focusInput", draft.isNullOrBlank())
