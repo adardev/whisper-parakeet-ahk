@@ -182,8 +182,9 @@ class AssistActivity : Activity() {
             val detected = input.text.toString().trim()
             if (speech != null) {
                 if (detected.isNotEmpty() || pendingScreenshot != null) {
-                    cancelListening()
-                    send()
+                    // Preserve the partial transcript when Send is pressed.
+                    cancelListening(clearPartial = false)
+                    send(detected)
                 } else {
                     // Ask the recognizer for its final transcript, then send it.
                     sendAfterSpeech = true
@@ -249,8 +250,8 @@ class AssistActivity : Activity() {
         }
     }
 
-    private fun send() {
-        val text = input.text.toString().trim().ifEmpty {
+    private fun send(overrideText: String? = null) {
+        val text = (overrideText ?: input.text.toString()).trim().ifEmpty {
             if (pendingScreenshot != null) "Analyze this screenshot." else return
         }
         openFullChat(text, pendingScreenshot)
@@ -520,14 +521,14 @@ class AssistActivity : Activity() {
         }, 120L)
     }
 
-    private fun cancelListening() {
+    private fun cancelListening(clearPartial: Boolean = true) {
         val recognizer = speech ?: return
         sendAfterSpeech = false
         speech = null
         recognizer.cancel()
         recognizer.destroy()
         // Tapping the microphone is a cancel action: discard partial speech.
-        input.setText("")
+        if (clearPartial) input.setText("")
         setMicListening(false)
     }
 
