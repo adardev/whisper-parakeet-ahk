@@ -57,6 +57,8 @@ class AssistActivity : Activity() {
     private var conversationId: String? = null
     private var speech: SpeechRecognizer? = null
     private var voiceTranscript = ""
+    private var committedVoiceTranscript = ""
+    private var lastVoiceSegment = ""
     private var sendAfterSpeech = false
     private var pendingScreenshot: String? = null
     private var pendingBitmap: Bitmap? = null
@@ -181,10 +183,10 @@ class AssistActivity : Activity() {
         sendButton.setOnClickListener {
             haptic(it)
             val wasVoice = speech != null || voiceTranscript.isNotBlank()
-            val detected = voiceTranscript.ifBlank { input.text.toString().trim() }
-            if (wasVoice && detected.isBlank() && pendingScreenshot == null && speech != null) {
-                // No partial result yet: ask Android for the final result instead
-                // of cancelling the recognizer before it can produce one.
+            if (wasVoice && speech != null) {
+                // Always request the final segment. Partial results are only a
+                // live preview; opening the chat here would lose the last words
+                // and could leave the overlay looking empty.
                 sendAfterSpeech = true
                 speech?.stopListening()
                 setMicListening(false)
@@ -195,12 +197,14 @@ class AssistActivity : Activity() {
                         speech = null
                         recognizer?.cancel()
                         recognizer?.destroy()
-                        openFullChat(voiceTranscript.ifBlank { null }, pendingScreenshot, voiceInput = true)
+                        val finalText = voiceTranscript.ifBlank { input.text.toString().trim() }
+                        openFullChat(finalText.ifBlank { null }, pendingScreenshot, voiceInput = true)
                     }
-                }, 1200L)
+                }, 1400L)
                 return@setOnClickListener
             }
 
+            val detected = voiceTranscript.ifBlank { input.text.toString().trim() }
             val recognizer = speech
             speech = null
             sendAfterSpeech = false
@@ -486,6 +490,8 @@ class AssistActivity : Activity() {
         }
         val recognizer = SpeechRecognizer.createSpeechRecognizer(this); speech = recognizer
         voiceTranscript = ""
+        committedVoiceTranscript = ""
+        lastVoiceSegment = ""
         setMicListening(true)
         recognizer.setRecognitionListener(object : RecognitionListener {
             override fun onReadyForSpeech(p: Bundle?) { runOnUiThread { status.text = "Listening..." } }
@@ -516,15 +522,19 @@ class AssistActivity : Activity() {
             override fun onResults(b: Bundle?) {
                 val r = b?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 val resultText = r?.firstOrNull()?.trim().orEmpty()
-                if (resultText.isNotEmpty()) voiceTranscript = resultText
-                if (resultText.isNotEmpty()) input.setText(resultText)
+                if (resultText.isNotEmpty() && resultText != lastVoiceSegment) {
+                    committedVoiceTranscript = joinVoiceText(committedVoiceTranscript, resultText)
+                    lastVoiceSegment = resultText
+                }
+                voiceTranscript = committedVoiceTranscript
+                if (voiceTranscript.isNotEmpty()) input.setText(voiceTranscript)
                 if (sendAfterSpeech) {
                     speech = null
                     sendAfterSpeech = false
                     recognizer.destroy()
                     runOnUiThread {
                         setMicListening(false)
-                        val finalText = resultText.ifBlank { voiceTranscript.ifBlank { input.text.toString().trim() } }
+                        val finalText = voiceTranscript.ifBlank { input.text.toString().trim() }
                         openFullChat(finalText.ifBlank { null }, pendingScreenshot, voiceInput = true)
                     }
                 } else {
@@ -534,7 +544,7 @@ class AssistActivity : Activity() {
             override fun onPartialResults(b: Bundle?) {
                 val r = b?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 if (!r.isNullOrEmpty()) {
-                    voiceTranscript = r[0].trim()
+                    voiceTranscript = joinVoiceText(committedVoiceTranscript, r[0].trim())
                     runOnUiThread { input.setText(voiceTranscript); input.setSelection(input.length()) }
                 }
             }
@@ -559,6 +569,13 @@ class AssistActivity : Activity() {
         }, 120L)
     }
 
+    private fun joinVoiceText(previous: String, next: String): String {
+        if (next.isBlank()) return previous
+        if (previous.isBlank()) return next
+        if (previous.endsWith(next)) return previous
+        return "$previous $next".replace(Regex("\\s+"), " ").trim()
+    }
+
     private fun cancelListening(clearPartial: Boolean = true) {
         val recognizer = speech ?: return
         sendAfterSpeech = false
@@ -567,6 +584,8 @@ class AssistActivity : Activity() {
         recognizer.destroy()
         // Tapping the microphone is a cancel action: discard partial speech.
         voiceTranscript = ""
+        committedVoiceTranscript = ""
+        lastVoiceSegment = ""
         if (clearPartial) input.setText("")
         setMicListening(false)
     }
