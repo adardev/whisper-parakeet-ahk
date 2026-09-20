@@ -174,7 +174,12 @@ class AssistActivity : Activity() {
             }
         }
         sendButton = findViewById(R.id.assistSend)
-        sendButton.setOnClickListener { haptic(it); send() }
+        sendButton.setOnClickListener {
+            haptic(it)
+            val detected = input.text.toString().trim()
+            if (speech != null) cancelListening()
+            if (detected.isNotEmpty() || pendingScreenshot != null) send()
+        }
         sendButton.setOnLongClickListener { haptic(it); showModelPicker(it); true }
         findViewById<ImageButton>(R.id.assistAttach).setOnClickListener { haptic(it); showAttachmentMenu(it) }
         micButton = findViewById(R.id.assistMic)
@@ -202,9 +207,16 @@ class AssistActivity : Activity() {
         )
         input.setOnFocusChangeListener { _, hasFocus ->
             if (hasFocus) {
+                // Typing takes over from voice: cancel silently so recognition
+                // cannot inject or send the partial transcript later.
+                cancelListening()
                 window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE or WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
                 input.post { (getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(input, InputMethodManager.SHOW_IMPLICIT) }
             }
+        }
+        input.setOnTouchListener { _, _ ->
+            cancelListening()
+            false
         }
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
             window.decorView.postDelayed({ listen() }, 280)
@@ -450,14 +462,31 @@ class AssistActivity : Activity() {
             override fun onBufferReceived(b: ByteArray?) {}
             override fun onEndOfSpeech() {}
             override fun onError(e: Int) { speech = null; runOnUiThread { setMicListening(false); status.text = "Couldn't hear you" } }
-            override fun onResults(b: Bundle?) { speech = null; runOnUiThread { setMicListening(false) }; val r = b?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION); if (!r.isNullOrEmpty()) { input.setText(r[0]); send() } }
-            override fun onPartialResults(b: Bundle?) {}
+            override fun onResults(b: Bundle?) {
+                speech = null
+                runOnUiThread { setMicListening(false) }
+                val r = b?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                if (!r.isNullOrEmpty()) input.setText(r[0])
+            }
+            override fun onPartialResults(b: Bundle?) {
+                val r = b?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                if (!r.isNullOrEmpty()) runOnUiThread { input.setText(r[0]); input.setSelection(input.length()) }
+            }
             override fun onEvent(t: Int, p: Bundle?) {}
         })
         recognizer.startListening(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, "es-MX")
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
         })
+    }
+
+    private fun cancelListening() {
+        val recognizer = speech ?: return
+        speech = null
+        recognizer.cancel()
+        recognizer.destroy()
+        setMicListening(false)
     }
 
     private fun setMicListening(active: Boolean) {
