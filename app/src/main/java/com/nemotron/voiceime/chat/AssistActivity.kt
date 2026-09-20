@@ -526,6 +526,8 @@ class AssistActivity : Activity() {
         speech = null
         recognizer.cancel()
         recognizer.destroy()
+        // Tapping the microphone is a cancel action: discard partial speech.
+        input.setText("")
         setMicListening(false)
     }
 
