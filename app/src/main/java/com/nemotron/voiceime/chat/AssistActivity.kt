@@ -51,6 +51,7 @@ class AssistActivity : Activity() {
     private lateinit var micButton: ImageButton
     private lateinit var sendButton: ImageButton
     private lateinit var modelChip: TextView
+    private lateinit var voiceBars: VoiceBarsView
     private lateinit var screenshotPill: View
     private lateinit var chat: ChatClient
     private var conversationId: String? = null
@@ -93,6 +94,7 @@ class AssistActivity : Activity() {
         chat = ChatClient(base)
         modelIndex = prefs.getInt("model_index", 0).coerceIn(0, models.lastIndex)
         input = findViewById(R.id.assistInput)
+        voiceBars = findViewById(R.id.assistVoiceBars)
         modelChip = findViewById(R.id.assistModelChip)
         screenshotPill = findViewById(R.id.assistScreenshotPill)
         val previewWrap = findViewById<View>(R.id.assistPreviewWrap)
@@ -462,7 +464,7 @@ class AssistActivity : Activity() {
         recognizer.setRecognitionListener(object : RecognitionListener {
             override fun onReadyForSpeech(p: Bundle?) { runOnUiThread { status.text = "Listening..." } }
             override fun onBeginningOfSpeech() {}
-            override fun onRmsChanged(v: Float) {}
+            override fun onRmsChanged(v: Float) { runOnUiThread { voiceBars.setLevel(v) } }
             override fun onBufferReceived(b: ByteArray?) {}
             override fun onEndOfSpeech() {}
             override fun onError(e: Int) {
@@ -507,6 +509,8 @@ class AssistActivity : Activity() {
     }
 
     private fun setMicListening(active: Boolean) {
+        voiceBars.visibility = if (active) View.VISIBLE else View.GONE
+        input.visibility = if (active) View.GONE else View.VISIBLE
         micButton.background = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
             setColor(if (active) Color.parseColor("#2F80FF") else Color.parseColor("#171B24"))
