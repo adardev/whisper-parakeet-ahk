@@ -501,6 +501,7 @@ class AssistActivity : Activity() {
             override fun onEndOfSpeech() {
                 // Android ends a recognition segment after silence. Keep the
                 // overlay recording until the user explicitly sends/cancels.
+                commitCurrentVoiceSegment()
                 restartRecognition(recognizer)
             }
             override fun onError(e: Int) {
@@ -574,6 +575,18 @@ class AssistActivity : Activity() {
         if (previous.isBlank()) return next
         if (previous.endsWith(next)) return previous
         return "$previous $next".replace(Regex("\\s+"), " ").trim()
+    }
+
+    private fun commitCurrentVoiceSegment() {
+        val current = voiceTranscript.trim()
+        val committed = committedVoiceTranscript.trim()
+        if (current.isBlank()) return
+        if (current == committed || committed.endsWith(current)) return
+        val addition = if (committed.isNotBlank() && current.startsWith(committed)) {
+            current.removePrefix(committed).trim()
+        } else current
+        committedVoiceTranscript = joinVoiceText(committedVoiceTranscript, addition)
+        voiceTranscript = committedVoiceTranscript
     }
 
     private fun cancelListening(clearPartial: Boolean = true) {
