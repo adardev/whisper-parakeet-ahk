@@ -180,34 +180,20 @@ class AssistActivity : Activity() {
         sendButton = findViewById(R.id.assistSend)
         sendButton.setOnClickListener {
             haptic(it)
+            val wasVoice = speech != null || voiceTranscript.isNotBlank()
             val detected = voiceTranscript.ifBlank { input.text.toString().trim() }
-            if (speech != null) {
-                if (detected.isNotBlank() || pendingScreenshot != null) {
-                    // Use the latest partial transcript immediately.
-                    val recognizer = speech
-                    speech = null
-                    sendAfterSpeech = false
-                    recognizer?.cancel()
-                    recognizer?.destroy()
-                    setMicListening(false)
-                    openFullChat(detected.ifBlank { null }, pendingScreenshot, voiceInput = true)
-                } else {
-                    // If speech has not produced a fragment yet, wait briefly for it.
-                    sendAfterSpeech = true
-                    speech?.stopListening()
-                    setMicListening(false)
-                    window.decorView.postDelayed({
-                        if (sendAfterSpeech) {
-                            sendAfterSpeech = false
-                            val recognizer = speech
-                            speech = null
-                            recognizer?.cancel()
-                            recognizer?.destroy()
-                            openFullChat(voiceTranscript.ifBlank { null }, pendingScreenshot, voiceInput = true)
-                        }
-                    }, 350L)
-                }
-            } else if (detected.isNotEmpty() || pendingScreenshot != null) {
+            val recognizer = speech
+            speech = null
+            sendAfterSpeech = false
+            recognizer?.cancel()
+            recognizer?.destroy()
+            setMicListening(false)
+
+            // Send is always an immediate escape to the full chat. Do not wait
+            // for SpeechRecognizer callbacks, which are unreliable on One UI.
+            if (detected.isNotBlank() || pendingScreenshot != null || wasVoice) {
+                openFullChat(detected.ifBlank { null }, pendingScreenshot, voiceInput = wasVoice)
+            } else {
                 send()
             }
         }
