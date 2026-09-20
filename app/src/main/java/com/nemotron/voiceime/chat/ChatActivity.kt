@@ -246,11 +246,14 @@ class ChatActivity : Activity() {
         // while the first prompt is silently dropped.
         pendingDraft?.let { draft ->
             window.decorView.postDelayed({
-                if (!isFinishing && input.text.isNullOrBlank()) {
+                if (!isFinishing && !sending) {
                     input.setText(draft)
-                    doSend()
+                    // Use the hand-off value directly. Reading it back from
+                    // the EditText can race with IME/insets initialization and
+                    // silently drop the first voice prompt.
+                    doSend(draft)
                 }
-            }, 320L)
+            }, 420L)
         }
 
         refreshRemoteMessages()
@@ -409,8 +412,8 @@ class ChatActivity : Activity() {
         finish()
     }
 
-    private fun doSend() {
-        val text = input.text.toString().trim().ifEmpty {
+    private fun doSend(overrideText: String? = null) {
+        val text = (overrideText ?: input.text.toString()).trim().ifEmpty {
             when {
                 pendingImageData != null -> "Analyze this image."
                 pendingFileName != null -> "Attachment: $pendingFileName"
