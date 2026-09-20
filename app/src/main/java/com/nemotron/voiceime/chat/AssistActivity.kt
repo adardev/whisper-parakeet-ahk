@@ -56,6 +56,7 @@ class AssistActivity : Activity() {
     private lateinit var chat: ChatClient
     private var conversationId: String? = null
     private var speech: SpeechRecognizer? = null
+    private var voiceTranscript = ""
     private var sendAfterSpeech = false
     private var pendingScreenshot: String? = null
     private var pendingBitmap: Bitmap? = null
@@ -179,24 +180,33 @@ class AssistActivity : Activity() {
         sendButton = findViewById(R.id.assistSend)
         sendButton.setOnClickListener {
             haptic(it)
-            val detected = input.text.toString().trim()
+            val detected = voiceTranscript.ifBlank { input.text.toString().trim() }
             if (speech != null) {
-                // Ask Android for the final transcript. The full chat opens only
-                // after that transcript is available, so it never opens empty.
-                sendAfterSpeech = true
-                speech?.stopListening()
-                setMicListening(false)
-                window.decorView.postDelayed({
-                    if (sendAfterSpeech) {
-                        sendAfterSpeech = false
-                        val recognizer = speech
-                        speech = null
-                        recognizer?.cancel()
-                        recognizer?.destroy()
-                        val finalText = input.text.toString().trim().ifBlank { detected }
-                        openFullChat(finalText.ifBlank { null }, pendingScreenshot, voiceInput = true)
-                    }
-                }, 900L)
+                if (detected.isNotBlank() || pendingScreenshot != null) {
+                    // Use the latest partial transcript immediately.
+                    val recognizer = speech
+                    speech = null
+                    sendAfterSpeech = false
+                    recognizer?.cancel()
+                    recognizer?.destroy()
+                    setMicListening(false)
+                    openFullChat(detected.ifBlank { null }, pendingScreenshot, voiceInput = true)
+                } else {
+                    // If speech has not produced a fragment yet, wait briefly for it.
+                    sendAfterSpeech = true
+                    speech?.stopListening()
+                    setMicListening(false)
+                    window.decorView.postDelayed({
+                        if (sendAfterSpeech) {
+                            sendAfterSpeech = false
+                            val recognizer = speech
+                            speech = null
+                            recognizer?.cancel()
+                            recognizer?.destroy()
+                            openFullChat(voiceTranscript.ifBlank { null }, pendingScreenshot, voiceInput = true)
+                        }
+                    }, 350L)
+                }
             } else if (detected.isNotEmpty() || pendingScreenshot != null) {
                 send()
             }
@@ -472,6 +482,7 @@ class AssistActivity : Activity() {
             requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 42); return
         }
         val recognizer = SpeechRecognizer.createSpeechRecognizer(this); speech = recognizer
+        voiceTranscript = ""
         setMicListening(true)
         recognizer.setRecognitionListener(object : RecognitionListener {
             override fun onReadyForSpeech(p: Bundle?) { runOnUiThread { status.text = "Listening..." } }
@@ -491,7 +502,7 @@ class AssistActivity : Activity() {
                     recognizer.destroy()
                     runOnUiThread {
                         setMicListening(false)
-                        val finalText = input.text.toString().trim()
+                        val finalText = voiceTranscript.ifBlank { input.text.toString().trim() }
                         openFullChat(finalText.ifBlank { null }, pendingScreenshot, voiceInput = true)
                     }
                 } else {
@@ -502,6 +513,7 @@ class AssistActivity : Activity() {
             override fun onResults(b: Bundle?) {
                 val r = b?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 val resultText = r?.firstOrNull()?.trim().orEmpty()
+                if (resultText.isNotEmpty()) voiceTranscript = resultText
                 if (resultText.isNotEmpty()) input.setText(resultText)
                 if (sendAfterSpeech) {
                     speech = null
@@ -509,7 +521,7 @@ class AssistActivity : Activity() {
                     recognizer.destroy()
                     runOnUiThread {
                         setMicListening(false)
-                        val finalText = resultText.ifBlank { input.text.toString().trim() }
+                        val finalText = resultText.ifBlank { voiceTranscript.ifBlank { input.text.toString().trim() } }
                         openFullChat(finalText.ifBlank { null }, pendingScreenshot, voiceInput = true)
                     }
                 } else {
@@ -518,7 +530,10 @@ class AssistActivity : Activity() {
             }
             override fun onPartialResults(b: Bundle?) {
                 val r = b?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                if (!r.isNullOrEmpty()) runOnUiThread { input.setText(r[0]); input.setSelection(input.length()) }
+                if (!r.isNullOrEmpty()) {
+                    voiceTranscript = r[0].trim()
+                    runOnUiThread { input.setText(voiceTranscript); input.setSelection(input.length()) }
+                }
             }
             override fun onEvent(t: Int, p: Bundle?) {}
         })
@@ -548,6 +563,7 @@ class AssistActivity : Activity() {
         recognizer.cancel()
         recognizer.destroy()
         // Tapping the microphone is a cancel action: discard partial speech.
+        voiceTranscript = ""
         if (clearPartial) input.setText("")
         setMicListening(false)
     }
