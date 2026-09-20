@@ -433,7 +433,7 @@ class ChatActivity : Activity() {
             )
             convId = localId
         }
-        val conv = existing ?: conversation ?: return
+        var conv = existing ?: conversation ?: return
         sending = true
         setSendingUi(true)
         input.setText("")
@@ -487,6 +487,16 @@ class ChatActivity : Activity() {
             conv.id.takeUnless { it.startsWith("pending_") },
             isIncognito(),
             imageData = imageData,
+            onConversationId = { remoteId ->
+                if (!isIncognito() && conv.id.startsWith("pending_") && remoteId.isNotBlank()) {
+                    val adopted = conv.copy(id = remoteId)
+                    ConversationStore.delete(conv.id)
+                    conv = adopted
+                    conversation = adopted
+                    convId = remoteId
+                    ConversationStore.save(adopted)
+                }
+            },
             onToken = { token ->
                 runOnUiThread {
                     stopThinking()

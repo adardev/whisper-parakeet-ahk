@@ -52,6 +52,7 @@ class ChatClient(
         conversationId: String? = null,
         incognito: Boolean = false,
         imageData: String? = null,
+        onConversationId: (String) -> Unit = {},
         onToken: (String) -> Unit,
         onComplete: (String) -> Unit,
         onError: (Throwable) -> Unit
@@ -90,6 +91,7 @@ class ChatClient(
                 http.newCall(req).execute().use { response ->
                     val obj = JSONObject(response.body?.string() ?: "{}")
                     if (!response.isSuccessful) throw RuntimeException(obj.optString("error", "HTTP ${response.code}"))
+                    obj.optString("conversation_id").takeIf { it.isNotBlank() }?.let(onConversationId)
                     val answer = obj.optJSONArray("choices")?.optJSONObject(0)
                         ?.optJSONObject("message")?.optString("content", "") ?: ""
                     if (answer.isNotEmpty()) onToken(answer)
