@@ -29,12 +29,15 @@ class VoiceBarsView @JvmOverloads constructor(
 
     override fun onDraw(canvas: Canvas) {
         val count = 9
-        val gap = width / (count + 1f)
+        // Keep the waveform compact instead of stretching it across the whole composer.
+        val clusterWidth = minOf(width - 16f * resources.displayMetrics.density, 148f * resources.displayMetrics.density)
+        val gap = clusterWidth / (count - 1f)
+        val start = (width - clusterWidth) / 2f
         val center = height / 2f
         for (i in 0 until count) {
             val wave = 0.45f + 0.55f * abs(sin(phase + i * 0.8f))
             val h = (height * 0.18f + height * 0.62f * level * wave).coerceAtMost(height * 0.88f)
-            val x = gap * (i + 1)
+            val x = start + gap * i
             canvas.drawLine(x, center - h / 2f, x, center + h / 2f, paint)
         }
     }
