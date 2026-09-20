@@ -419,22 +419,16 @@ class ChatActivity : Activity() {
         }
         val existing = conversation
         if (existing == null && !incognitoMode) {
-            chat.createConversation({ json ->
-                val id = json.optString("id").ifBlank { System.currentTimeMillis().toString() }
-                runOnUiThread {
-                    conversation = Conversation(id, if (text.length > 32) text.substring(0, 32) else text, System.currentTimeMillis())
-                    convId = id
-                    updateIncognitoUi()
-                    doSend()
-                }
-            }, {
-                runOnUiThread {
-                    conversation = Conversation(System.currentTimeMillis().toString(), "New chat", System.currentTimeMillis())
-                    updateIncognitoUi()
-                    doSend()
-                }
-            })
-            return
+            // Do not block the first prompt on the remote conversation-creation
+            // request. Paint and send optimistically; the server can create the
+            // remote thread while the response is already streaming.
+            val localId = "pending_${System.currentTimeMillis()}"
+            conversation = Conversation(
+                localId,
+                if (text.length > 32) text.substring(0, 32) else text,
+                System.currentTimeMillis()
+            )
+            convId = localId
         }
         val conv = existing ?: conversation ?: return
         sending = true
@@ -487,7 +481,7 @@ class ChatActivity : Activity() {
             text,
             models[modelIndex],
             history,
-            conv.id,
+            conv.id.takeUnless { it.startsWith("pending_") },
             isIncognito(),
             imageData = imageData,
             onToken = { token ->
