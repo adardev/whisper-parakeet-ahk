@@ -277,7 +277,7 @@
             android:textColorHint="#8E8EA3"
             android:textColorHighlight="@color/adarbot_selection"
             android:lineSpacingExtra="4dp"
-            android:textSize="14sp" />
+            android:textSize="16sp" />
 
         <ImageButton
             android:id="@+id/btnMic"
