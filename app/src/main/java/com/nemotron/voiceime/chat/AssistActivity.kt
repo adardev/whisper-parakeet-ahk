@@ -211,7 +211,7 @@ class AssistActivity : Activity() {
             isClickable = false
             isFocusable = false
         }
-        micButton.setOnClickListener { haptic(it); if (speech != null) { speech?.stopListening(); speech = null; setMicListening(false) } else listen() }
+        micButton.setOnClickListener { haptic(it); if (speech != null) cancelListening() else listen() }
         input.setOnEditorActionListener { _, _, _ -> send(); true }
         // El asistente de voz abre limpio: el teclado solo aparece cuando el usuario toca el campo.
         findViewById<android.view.View>(android.R.id.content).requestFocus()
@@ -466,24 +466,33 @@ class AssistActivity : Activity() {
             override fun onBeginningOfSpeech() {}
             override fun onRmsChanged(v: Float) { runOnUiThread { voiceBars.setLevel(v) } }
             override fun onBufferReceived(b: ByteArray?) {}
-            override fun onEndOfSpeech() {}
+            override fun onEndOfSpeech() {
+                // Android ends a recognition segment after silence. Keep the
+                // overlay recording until the user explicitly sends/cancels.
+                restartRecognition(recognizer)
+            }
             override fun onError(e: Int) {
-                speech = null
-                val shouldSend = sendAfterSpeech
-                sendAfterSpeech = false
-                runOnUiThread {
-                    setMicListening(false)
-                    if (shouldSend) status.text = "Couldn't hear you"
+                if (speech !== recognizer) return
+                if (sendAfterSpeech) {
+                    speech = null
+                    sendAfterSpeech = false
+                    recognizer.destroy()
+                    runOnUiThread { setMicListening(false); status.text = "Couldn't hear you" }
+                } else {
+                    runOnUiThread { status.text = "Listening..." }
+                    restartRecognition(recognizer)
                 }
             }
             override fun onResults(b: Bundle?) {
-                speech = null
-                runOnUiThread { setMicListening(false) }
                 val r = b?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 if (!r.isNullOrEmpty()) input.setText(r[0])
                 if (sendAfterSpeech) {
+                    speech = null
                     sendAfterSpeech = false
-                    runOnUiThread { send() }
+                    recognizer.destroy()
+                    runOnUiThread { setMicListening(false); send() }
+                } else {
+                    restartRecognition(recognizer)
                 }
             }
             override fun onPartialResults(b: Bundle?) {
@@ -492,11 +501,23 @@ class AssistActivity : Activity() {
             }
             override fun onEvent(t: Int, p: Bundle?) {}
         })
-        recognizer.startListening(Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, "es-MX")
-            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-        })
+        startRecognition(recognizer)
+    }
+
+    private fun recognitionIntent() = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+        putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+        putExtra(RecognizerIntent.EXTRA_LANGUAGE, "es-MX")
+        putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+    }
+
+    private fun startRecognition(recognizer: SpeechRecognizer) {
+        try { recognizer.startListening(recognitionIntent()) } catch (_: Exception) { }
+    }
+
+    private fun restartRecognition(recognizer: SpeechRecognizer) {
+        window.decorView.postDelayed({
+            if (speech === recognizer) startRecognition(recognizer)
+        }, 120L)
     }
 
     private fun cancelListening() {

@@ -28,7 +28,7 @@ class VoiceBarsView @JvmOverloads constructor(
     }
 
     override fun onDraw(canvas: Canvas) {
-        val count = 13
+        val count = 9
         val gap = width / (count + 1f)
         val center = height / 2f
         for (i in 0 until count) {
