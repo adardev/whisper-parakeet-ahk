@@ -181,23 +181,16 @@ class AssistActivity : Activity() {
             haptic(it)
             val detected = input.text.toString().trim()
             if (speech != null) {
-                if (detected.isNotEmpty() || pendingScreenshot != null) {
-                    // Send finishes the active capture but must preserve and submit
-                    // the partial transcript. The microphone button is the cancel
-                    // action and is the only path that discards it.
-                    val recognizer = speech
-                    speech = null
-                    sendAfterSpeech = false
-                    recognizer?.stopListening()
-                    recognizer?.destroy()
-                    setMicListening(false)
-                    send(detected)
-                } else {
-                    // Ask the recognizer for its final transcript, then send it.
-                    sendAfterSpeech = true
-                    speech?.stopListening()
-                    setMicListening(false)
-                }
+                // Send finishes voice capture and opens the full chat immediately.
+                // Never wait for a final SpeechRecognizer callback here.
+                val recognizer = speech
+                speech = null
+                sendAfterSpeech = false
+                recognizer?.stopListening()
+                recognizer?.destroy()
+                setMicListening(false)
+                if (detected.isNotEmpty() || pendingScreenshot != null) send(detected)
+                else openFullChat(null, pendingScreenshot)
             } else if (detected.isNotEmpty() || pendingScreenshot != null) {
                 send()
             }
