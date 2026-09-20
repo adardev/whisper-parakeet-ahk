@@ -261,6 +261,18 @@ class ChatActivity : Activity() {
         }
         input.setOnEditorActionListener { _, _, _ -> doSend(); true }
 
+        if (intent.getBooleanExtra("focusInput", false)) {
+            window.setSoftInputMode(
+                WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE or
+                    WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+            )
+            window.decorView.postDelayed({
+                input.requestFocus()
+                val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+                imm.showSoftInput(input, InputMethodManager.SHOW_IMPLICIT)
+            }, 260L)
+        }
+
         updateModelChip()
         modelChip.setOnClickListener {
             haptic(it)

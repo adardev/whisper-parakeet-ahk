@@ -424,6 +424,9 @@ class AssistActivity : Activity() {
     private fun openFullChat() {
         val target = Intent(this, ChatActivity::class.java).apply {
             conversationId?.let { putExtra("convId", it) }
+            // A swipe-up means the user explicitly expanded the assistant;
+            // open the full chat ready for typing.
+            putExtra("focusInput", true)
         }
         panel.animate()
             .translationY(-panel.height.toFloat())
