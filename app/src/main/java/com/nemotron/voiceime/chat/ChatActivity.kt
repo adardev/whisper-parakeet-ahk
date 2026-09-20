@@ -190,16 +190,13 @@ class ChatActivity : Activity() {
         convId = intent.getStringExtra("convId")
         pendingImageData = intent.getStringExtra("pendingImageData")
         autoReadResponse = intent.getBooleanExtra("autoReadResponse", false)
+        val pendingDraft = intent.getStringExtra("draft")?.takeIf { it.isNotBlank() }
         incognitoMode = intent.getBooleanExtra("incognito", false)
         conversation = if (incognitoMode) {
             Conversation("incognito_${System.currentTimeMillis()}", "Incognito chat", System.currentTimeMillis())
         } else convId?.let { ConversationStore.get(it) }
         // Un chat nuevo no se persiste hasta que el usuario envía el primer mensaje.
         if (intent.getStringExtra("convId").isNullOrBlank()) backBtn.visibility = View.GONE
-        intent.getStringExtra("draft")?.takeIf { it.isNotBlank() }?.let { draft ->
-            window.decorView.postDelayed({ input.setText(draft); doSend() }, 220)
-        }
-
         messages.clear()
         conversation?.let { messages.addAll(it.messages) }
         messages.removeAll { it.role == "assistant" && it.content in thinkingLabels }
@@ -243,6 +240,18 @@ class ChatActivity : Activity() {
         })
         showWelcomeIfEmpty()
         if (messages.isNotEmpty()) recycler.scrollToPosition(messages.size - 1)
+
+        // The overlay may hand us a voice draft. Submit only after the chat UI
+        // and adapter are fully initialized, otherwise the activity can open
+        // while the first prompt is silently dropped.
+        pendingDraft?.let { draft ->
+            window.decorView.postDelayed({
+                if (!isFinishing && input.text.isNullOrBlank()) {
+                    input.setText(draft)
+                    doSend()
+                }
+            }, 320L)
+        }
 
         refreshRemoteMessages()
 
