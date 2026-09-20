@@ -3,7 +3,7 @@ package com.nemotron.voiceime.ui
 import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
-import com.nemotron.voiceime.record.VoiceRecordService
+import com.nemotron.voiceime.chat.AssistActivity
 
 class MainActivity : Activity() {
 
@@ -21,16 +21,12 @@ class MainActivity : Activity() {
             return
         }
 
-        val action = if (VoiceRecordService.isRunning) VoiceRecordService.ACTION_STOP
-                     else VoiceRecordService.ACTION_START
-
-        val intent = Intent(this, VoiceRecordService::class.java).apply { this.action = action }
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            startForegroundService(intent)
-        } else {
-            startService(intent)
-        }
-
+        // Samsung's side-key route enters this invisible activity. Always
+        // forward it to the same assistant overlay, even when ChatActivity is
+        // already visible, instead of toggling the legacy recorder behind it.
+        startActivity(Intent(this, AssistActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        })
         finish()
         overridePendingTransition(0, 0)
     }

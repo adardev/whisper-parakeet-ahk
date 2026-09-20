@@ -70,6 +70,16 @@ class AssistActivity : Activity() {
     private val models = listOf("deepseek-flash", "mimo-v2.5", "nemotron")
     private var modelIndex = 0
 
+    override fun onNewIntent(intent: Intent?) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        // A repeated side-key press must reuse this overlay, not create a
+        // second activity. Start listening again if the previous session ended.
+        if (speech == null && checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+            window.decorView.post { listen() }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestWindowFeature(Window.FEATURE_NO_TITLE)

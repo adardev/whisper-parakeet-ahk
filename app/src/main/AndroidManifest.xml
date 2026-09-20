@@ -408,7 +408,7 @@
             android:name=".chat.AssistActivity"
             android:exported="true"
             android:label="adarbot"
-            android:launchMode="singleTop"
+            android:launchMode="singleTask"
             android:theme="@style/Theme.NemotronVoiceIME.Transparent"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
