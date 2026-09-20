@@ -30,7 +30,7 @@ class VoiceBarsView @JvmOverloads constructor(
     override fun onDraw(canvas: Canvas) {
         val count = 9
         // Keep the waveform compact instead of stretching it across the whole composer.
-        val clusterWidth = minOf(width - 16f * resources.displayMetrics.density, 148f * resources.displayMetrics.density)
+        val clusterWidth = minOf(width - 16f * resources.displayMetrics.density, 100f * resources.displayMetrics.density)
         val gap = clusterWidth / (count - 1f)
         val start = (width - clusterWidth) / 2f
         val center = height / 2f
