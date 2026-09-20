@@ -35,6 +35,36 @@
 
     </LinearLayout>
 
+    <LinearLayout
+        android:id="@+id/scrollControls"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="end|center_vertical"
+        android:layout_marginEnd="12dp"
+        android:orientation="vertical"
+        android:visibility="gone"
+        android:elevation="20dp">
+        <ImageButton
+            android:id="@+id/scrollTop"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:background="@drawable/bg_chip"
+            android:contentDescription="Go to top"
+            android:padding="8dp"
+            android:src="@drawable/ic_swipe_up"
+            android:tint="#8FC1FF" />
+        <ImageButton
+            android:id="@+id/scrollBottom"
+            android:layout_width="38dp"
+            android:layout_height="38dp"
+            android:layout_marginTop="6dp"
+            android:background="@drawable/bg_chip"
+            android:contentDescription="Go to bottom"
+            android:padding="8dp"
+            android:src="@drawable/ic_swipe_down"
+            android:tint="#8FC1FF" />
+    </LinearLayout>
+
     <!-- Header flotante: no reserva espacio ni pinta un fondo alrededor. -->
     <LinearLayout
         android:layout_width="match_parent"
@@ -53,7 +83,7 @@
             android:layout_height="40dp"
             android:gravity="center_vertical|start"
             android:paddingLeft="8dp"
-            android:translationX="4dp">
+            android:translationX="2dp">
             <ImageButton
                 android:id="@+id/btnMenuChat"
                 android:layout_width="40dp"
@@ -90,7 +120,8 @@
         <LinearLayout
             android:layout_width="48dp"
             android:layout_height="40dp"
-            android:gravity="center_vertical|end">
+            android:gravity="center_vertical|end"
+            android:translationX="-2dp">
             <ImageButton
                 android:id="@+id/btnIncognitoHome"
                 android:layout_width="40dp"

@@ -67,6 +67,9 @@ class ChatActivity : Activity() {
     private lateinit var deleteBtn: ImageButton
     private lateinit var incognitoHomeBtn: ImageButton
     private lateinit var composerView: View
+    private lateinit var scrollControls: View
+    private lateinit var scrollTop: ImageButton
+    private lateinit var scrollBottom: ImageButton
     private var composerHidden = false
     private lateinit var chat: ChatClient
     private var textToSpeech: TextToSpeech? = null
@@ -83,6 +86,8 @@ class ChatActivity : Activity() {
     private var sending = false
     private var lastRemoteSignature = ""
     private val remoteRefreshHandler = Handler(Looper.getMainLooper())
+    private val scrollControlsHandler = Handler(Looper.getMainLooper())
+    private val hideScrollControlsRunnable = Runnable { hideScrollControls() }
     private val remoteRefreshLoop = object : Runnable {
         override fun run() {
             refreshRemoteMessages()
@@ -116,6 +121,9 @@ class ChatActivity : Activity() {
         recycler = findViewById(R.id.recyclerMessages)
         input = findViewById(R.id.inputField)
         welcomeView = findViewById(R.id.welcomeView)
+        scrollControls = findViewById(R.id.scrollControls)
+        scrollTop = findViewById(R.id.scrollTop)
+        scrollBottom = findViewById(R.id.scrollBottom)
         modelChip = findViewById(R.id.modelChip)
         micBtn = findViewById(R.id.btnMic)
         incognitoHomeBtn = findViewById(R.id.btnIncognitoHome)
@@ -204,6 +212,8 @@ class ChatActivity : Activity() {
                     dy > dp(4) -> hideComposer()
                     dy < -dp(4) -> showComposer()
                 }
+                showScrollControls()
+                updateScrollControlState(view)
             }
         })
         showWelcomeIfEmpty()
@@ -217,6 +227,16 @@ class ChatActivity : Activity() {
             if (messages.isEmpty()) toggleIncognitoMode()
         }
         sendBtn.setOnClickListener { haptic(it); doSend() }
+        scrollTop.setOnClickListener {
+            haptic(it)
+            recycler.smoothScrollToPosition(0)
+            scheduleHideScrollControls()
+        }
+        scrollBottom.setOnClickListener {
+            haptic(it)
+            recycler.smoothScrollToPosition((adapter.itemCount - 1).coerceAtLeast(0))
+            scheduleHideScrollControls()
+        }
         input.setOnEditorActionListener { _, _, _ -> doSend(); true }
 
         updateModelChip()
@@ -918,6 +938,38 @@ class ChatActivity : Activity() {
             .setDuration(240L)
             .setInterpolator(AccelerateDecelerateInterpolator())
             .start()
+    }
+
+    private fun showScrollControls() {
+        scrollControlsHandler.removeCallbacks(hideScrollControlsRunnable)
+        if (scrollControls.visibility != View.VISIBLE) {
+            scrollControls.visibility = View.VISIBLE
+            scrollControls.alpha = 0f
+            scrollControls.translationX = dp(12).toFloat()
+            scrollControls.animate().alpha(1f).translationX(0f).setDuration(180L)
+                .setInterpolator(DecelerateInterpolator()).start()
+        }
+        scheduleHideScrollControls()
+    }
+
+    private fun scheduleHideScrollControls() {
+        scrollControlsHandler.removeCallbacks(hideScrollControlsRunnable)
+        scrollControlsHandler.postDelayed(hideScrollControlsRunnable, 2000L)
+    }
+
+    private fun hideScrollControls() {
+        if (scrollControls.visibility != View.VISIBLE) return
+        scrollControls.animate().alpha(0f).translationX(dp(12).toFloat()).setDuration(180L)
+            .setInterpolator(DecelerateInterpolator()).withEndAction {
+                scrollControls.visibility = View.GONE
+            }.start()
+    }
+
+    private fun updateScrollControlState(view: RecyclerView) {
+        scrollTop.isEnabled = view.canScrollVertically(-1)
+        scrollBottom.isEnabled = view.canScrollVertically(1)
+        scrollTop.alpha = if (scrollTop.isEnabled) 1f else 0.35f
+        scrollBottom.alpha = if (scrollBottom.isEnabled) 1f else 0.35f
     }
 
     private fun haptic(view: View) {
