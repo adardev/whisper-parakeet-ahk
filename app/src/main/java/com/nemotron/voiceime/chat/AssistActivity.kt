@@ -55,6 +55,7 @@ class AssistActivity : Activity() {
     private lateinit var chat: ChatClient
     private var conversationId: String? = null
     private var speech: SpeechRecognizer? = null
+    private var sendAfterSpeech = false
     private var pendingScreenshot: String? = null
     private var pendingBitmap: Bitmap? = null
     private var pendingFileUri: android.net.Uri? = null
@@ -177,8 +178,19 @@ class AssistActivity : Activity() {
         sendButton.setOnClickListener {
             haptic(it)
             val detected = input.text.toString().trim()
-            if (speech != null) cancelListening()
-            if (detected.isNotEmpty() || pendingScreenshot != null) send()
+            if (speech != null) {
+                if (detected.isNotEmpty() || pendingScreenshot != null) {
+                    cancelListening()
+                    send()
+                } else {
+                    // Ask the recognizer for its final transcript, then send it.
+                    sendAfterSpeech = true
+                    speech?.stopListening()
+                    setMicListening(false)
+                }
+            } else if (detected.isNotEmpty() || pendingScreenshot != null) {
+                send()
+            }
         }
         sendButton.setOnLongClickListener { haptic(it); showModelPicker(it); true }
         findViewById<ImageButton>(R.id.assistAttach).setOnClickListener { haptic(it); showAttachmentMenu(it) }
@@ -461,12 +473,24 @@ class AssistActivity : Activity() {
             override fun onRmsChanged(v: Float) {}
             override fun onBufferReceived(b: ByteArray?) {}
             override fun onEndOfSpeech() {}
-            override fun onError(e: Int) { speech = null; runOnUiThread { setMicListening(false); status.text = "Couldn't hear you" } }
+            override fun onError(e: Int) {
+                speech = null
+                val shouldSend = sendAfterSpeech
+                sendAfterSpeech = false
+                runOnUiThread {
+                    setMicListening(false)
+                    if (shouldSend) status.text = "Couldn't hear you"
+                }
+            }
             override fun onResults(b: Bundle?) {
                 speech = null
                 runOnUiThread { setMicListening(false) }
                 val r = b?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 if (!r.isNullOrEmpty()) input.setText(r[0])
+                if (sendAfterSpeech) {
+                    sendAfterSpeech = false
+                    runOnUiThread { send() }
+                }
             }
             override fun onPartialResults(b: Bundle?) {
                 val r = b?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
@@ -483,6 +507,7 @@ class AssistActivity : Activity() {
 
     private fun cancelListening() {
         val recognizer = speech ?: return
+        sendAfterSpeech = false
         speech = null
         recognizer.cancel()
         recognizer.destroy()
