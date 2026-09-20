@@ -197,6 +197,10 @@ class AssistActivity : Activity() {
                 // Always request the final segment. Partial results are only a
                 // live preview; opening the chat here would lose the last words
                 // and could leave the overlay looking empty.
+                // Freeze the latest partial transcript before asking Android for
+                // the final segment. The old 1.4s timeout destroyed the
+                // recognizer too early, which dropped the last words.
+                commitCurrentVoiceSegment()
                 sendAfterSpeech = true
                 speech?.stopListening()
                 setMicListening(false)
@@ -210,7 +214,7 @@ class AssistActivity : Activity() {
                         val finalText = voiceTranscript.ifBlank { input.text.toString().trim() }
                         openFullChat(finalText.ifBlank { null }, pendingScreenshot, voiceInput = true)
                     }
-                }, 1400L)
+                }, 3000L)
                 return@setOnClickListener
             }
 
@@ -511,8 +515,7 @@ class AssistActivity : Activity() {
             override fun onEndOfSpeech() {
                 // Android ends a recognition segment after silence. Keep the
                 // overlay recording until the user explicitly sends/cancels.
-                commitCurrentVoiceSegment()
-                restartRecognition(recognizer)
+                if (!sendAfterSpeech) restartRecognition(recognizer)
             }
             override fun onError(e: Int) {
                 if (speech !== recognizer) return
@@ -533,8 +536,11 @@ class AssistActivity : Activity() {
             override fun onResults(b: Bundle?) {
                 val r = b?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                 val resultText = r?.firstOrNull()?.trim().orEmpty()
-                if (resultText.isNotEmpty() && resultText != lastVoiceSegment) {
-                    committedVoiceTranscript = joinVoiceText(committedVoiceTranscript, resultText)
+                if (resultText.isNotEmpty()) {
+                    // Commit only final segments. Partial results are previews;
+                    // committing them here caused the overlay to lose or
+                    // duplicate words when Android rotated recognition sessions.
+                    committedVoiceTranscript = appendFinalSegment(committedVoiceTranscript, resultText)
                     lastVoiceSegment = resultText
                 }
                 voiceTranscript = committedVoiceTranscript
@@ -585,6 +591,21 @@ class AssistActivity : Activity() {
         if (previous.isBlank()) return next
         if (previous.endsWith(next)) return previous
         return "$previous $next".replace(Regex("\\s+"), " ").trim()
+    }
+
+    /** Merge a final recognizer segment without dropping overlap from its live preview. */
+    private fun appendFinalSegment(previous: String, next: String): String {
+        val a = previous.trim()
+        val b = next.trim()
+        if (a.isBlank()) return b
+        if (b.isBlank() || a == b || a.endsWith(b)) return a
+        val max = minOf(a.length, b.length, 120)
+        for (size in max downTo 8) {
+            if (a.takeLast(size).equals(b.take(size), ignoreCase = true)) {
+                return (a + b.drop(size)).replace(Regex("\\s+"), " ").trim()
+            }
+        }
+        return joinVoiceText(a, b)
     }
 
     private fun commitCurrentVoiceSegment() {

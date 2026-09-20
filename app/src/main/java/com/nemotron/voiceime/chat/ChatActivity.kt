@@ -87,6 +87,7 @@ class ChatActivity : Activity() {
     private var pendingFileName: String? = null
     private var remoteRefreshInFlight = false
     private var sending = false
+    private var initialLayoutComplete = false
     private var lastRemoteSignature = ""
     private val remoteRefreshHandler = Handler(Looper.getMainLooper())
     private val scrollControlsHandler = Handler(Looper.getMainLooper())
@@ -230,6 +231,10 @@ class ChatActivity : Activity() {
         recycler.adapter = adapter
         recycler.addOnScrollListener(object : RecyclerView.OnScrollListener() {
             override fun onScrolled(view: RecyclerView, dx: Int, dy: Int) {
+                // RecyclerView emits a layout scroll when the conversation is
+                // initially positioned at the newest message. That is not a
+                // user scroll, so the jump controls must stay hidden.
+                if (!initialLayoutComplete) return
                 when {
                     dy > dp(4) -> hideComposer()
                     dy < -dp(4) -> showComposer()
@@ -240,6 +245,7 @@ class ChatActivity : Activity() {
         })
         showWelcomeIfEmpty()
         if (messages.isNotEmpty()) recycler.scrollToPosition(messages.size - 1)
+        recycler.post { initialLayoutComplete = true }
 
         // The overlay may hand us a voice draft. Submit only after the chat UI
         // and adapter are fully initialized, otherwise the activity can open
