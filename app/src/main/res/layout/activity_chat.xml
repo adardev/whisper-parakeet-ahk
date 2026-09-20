@@ -83,7 +83,8 @@
             android:layout_height="40dp"
             android:gravity="center_vertical|start"
             android:paddingLeft="8dp"
-            android:translationX="2dp">
+            android:translationX="2dp"
+            android:translationY="2dp">
             <ImageButton
                 android:id="@+id/btnMenuChat"
                 android:layout_width="40dp"
@@ -121,7 +122,8 @@
             android:layout_width="48dp"
             android:layout_height="40dp"
             android:gravity="center_vertical|end"
-            android:translationX="-2dp">
+            android:translationX="-2dp"
+            android:translationY="2dp">
             <ImageButton
                 android:id="@+id/btnIncognitoHome"
                 android:layout_width="40dp"
@@ -264,9 +266,11 @@
             android:hint="Ask adarbot..."
             android:imeOptions="actionSend|flagNoFullscreen"
             android:importantForAutofill="no"
-            android:inputType="text|textNoSuggestions"
-            android:maxLines="1"
-            android:singleLine="true"
+            android:inputType="text|textCapSentences|textMultiLine"
+            android:maxLines="5"
+            android:maxHeight="132dp"
+            android:minHeight="44dp"
+            android:singleLine="false"
             android:paddingLeft="6dp"
             android:paddingRight="6dp"
             android:textColor="#EDEDF0"

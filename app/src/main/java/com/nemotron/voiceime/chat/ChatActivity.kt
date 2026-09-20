@@ -22,6 +22,7 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import android.view.View
 import android.view.HapticFeedbackConstants
 import android.view.Window
@@ -71,6 +72,7 @@ class ChatActivity : Activity() {
     private lateinit var scrollTop: ImageButton
     private lateinit var scrollBottom: ImageButton
     private var composerHidden = false
+    private var activeSpeakingMessage: ChatMessage? = null
     private lateinit var chat: ChatClient
     private var textToSpeech: TextToSpeech? = null
 
@@ -202,7 +204,27 @@ class ChatActivity : Activity() {
         updateIncognitoUi()
 
         adapter = MessageAdapter(messages, ::copyMessage, ::speakMessage, ::showMessageActions)
-        textToSpeech = TextToSpeech(this) { }
+        textToSpeech = TextToSpeech(this) { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                textToSpeech?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                    override fun onStart(utteranceId: String?) {
+                        runOnUiThread { adapter.notifyDataSetChanged() }
+                    }
+                    override fun onDone(utteranceId: String?) {
+                        runOnUiThread {
+                            adapter.setSpeaking(activeSpeakingMessage ?: return@runOnUiThread, false)
+                            activeSpeakingMessage = null
+                        }
+                    }
+                    override fun onError(utteranceId: String?) {
+                        runOnUiThread {
+                            adapter.setSpeaking(activeSpeakingMessage ?: return@runOnUiThread, false)
+                            activeSpeakingMessage = null
+                        }
+                    }
+                })
+            }
+        }
         recycler.layoutManager = LinearLayoutManager(this)
         recycler.layoutAnimation = AnimationUtils.loadLayoutAnimation(this, R.anim.layout_message_enter)
         recycler.adapter = adapter
@@ -520,8 +542,16 @@ class ChatActivity : Activity() {
     }
 
     private fun speakMessage(message: ChatMessage) {
+        if (activeSpeakingMessage?.ts == message.ts) {
+            textToSpeech?.stop()
+            adapter.setSpeaking(message, false)
+            activeSpeakingMessage = null
+            return
+        }
         textToSpeech?.stop()
         textToSpeech?.language = Locale("es", "MX")
+        activeSpeakingMessage = message
+        adapter.setSpeaking(message, true)
         textToSpeech?.speak(message.content, TextToSpeech.QUEUE_FLUSH, null, "adarbot-message")
     }
 

@@ -5,6 +5,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.LinearLayout
+import android.widget.ImageButton
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.DiffUtil
@@ -16,6 +17,13 @@ class MessageAdapter(
     private val onSpeak: (ChatMessage) -> Unit,
     private val onLongPress: (View, ChatMessage) -> Unit
 ) : RecyclerView.Adapter<MessageAdapter.MessageVH>() {
+
+    private var speakingKey: String? = null
+
+    fun setSpeaking(message: ChatMessage, speaking: Boolean) {
+        speakingKey = if (speaking) key(message) else null
+        notifyDataSetChanged()
+    }
 
     fun replaceMessages(next: List<ChatMessage>) {
         val old = messages.toList()
@@ -73,6 +81,9 @@ class MessageAdapter(
         }
         holder.copy.setOnClickListener { onCopy(msg) }
         holder.speak.setOnClickListener { onSpeak(msg) }
+        val isSpeaking = speakingKey == key(msg)
+        holder.speak.setImageResource(if (isSpeaking) R.drawable.ic_stop else R.drawable.ic_volume)
+        holder.speak.contentDescription = if (isSpeaking) "Stop listening" else "Listen to message"
         val openActions: (View) -> Boolean = { anchor ->
             anchor.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
             onLongPress(anchor, msg)
@@ -88,12 +99,13 @@ class MessageAdapter(
     override fun getItemCount(): Int = messages.size
 
     private fun dp(v: Int): Int = (v * 3f).toInt()
+    private fun key(message: ChatMessage): String = "${message.role}:${message.ts}"
 
     class MessageVH(item: View) : RecyclerView.ViewHolder(item) {
         val wrap: LinearLayout = item.findViewById(R.id.msgWrap)
         val actions: LinearLayout = item.findViewById(R.id.msgActions)
         val bubble: TextView = item.findViewById(R.id.msgBubble)
         val copy: View = item.findViewById(R.id.msgCopy)
-        val speak: View = item.findViewById(R.id.msgSpeak)
+        val speak: ImageButton = item.findViewById(R.id.msgSpeak)
     }
 }
