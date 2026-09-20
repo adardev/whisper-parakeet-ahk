@@ -182,6 +182,25 @@ class AssistActivity : Activity() {
             haptic(it)
             val wasVoice = speech != null || voiceTranscript.isNotBlank()
             val detected = voiceTranscript.ifBlank { input.text.toString().trim() }
+            if (wasVoice && detected.isBlank() && pendingScreenshot == null && speech != null) {
+                // No partial result yet: ask Android for the final result instead
+                // of cancelling the recognizer before it can produce one.
+                sendAfterSpeech = true
+                speech?.stopListening()
+                setMicListening(false)
+                window.decorView.postDelayed({
+                    if (sendAfterSpeech) {
+                        sendAfterSpeech = false
+                        val recognizer = speech
+                        speech = null
+                        recognizer?.cancel()
+                        recognizer?.destroy()
+                        openFullChat(voiceTranscript.ifBlank { null }, pendingScreenshot, voiceInput = true)
+                    }
+                }, 1200L)
+                return@setOnClickListener
+            }
+
             val recognizer = speech
             speech = null
             sendAfterSpeech = false
@@ -189,8 +208,6 @@ class AssistActivity : Activity() {
             recognizer?.destroy()
             setMicListening(false)
 
-            // Send is always an immediate escape to the full chat. Do not wait
-            // for SpeechRecognizer callbacks, which are unreliable on One UI.
             if (detected.isNotBlank() || pendingScreenshot != null || wasVoice) {
                 openFullChat(detected.ifBlank { null }, pendingScreenshot, voiceInput = wasVoice)
             } else {
