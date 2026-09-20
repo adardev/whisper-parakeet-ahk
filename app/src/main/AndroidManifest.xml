@@ -115,20 +115,6 @@
             android:label="Nemotron"
             android:targetActivity=".ui.SetupActivity" />
 
-        <!-- Adarbot se conserva como app/entrada independiente. -->
-        <activity-alias
-            android:name=".AdarbotAlias"
-            android:enabled="true"
-            android:exported="true"
-            android:icon="@mipmap/ic_launcher"
-            android:label="adarbot"
-            android:targetActivity=".chat.ChatActivity">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity-alias>
-
         <activity
             android:name=".ui.SetupActivity"
             android:exported="false"
@@ -394,28 +380,6 @@
             android:value="Nemotron Health" />
 
 
-        <!-- Chat principal. No hay una activity auxiliar de lista. -->
-        <activity
-            android:name=".chat.ChatActivity"
-            android:exported="true"
-            android:label="adarbot"
-            android:theme="@style/Theme.NemotronVoiceIME"
-            android:windowSoftInputMode="adjustResize" />
-
-        <!-- Asistente digital: permite elegir Hermes como herramienta
-             de voz por defecto en Ajustes > Aplicaciones > Elegir apps -->
-        <activity
-            android:name=".chat.AssistActivity"
-            android:exported="true"
-            android:label="adarbot"
-            android:launchMode="singleTask"
-            android:theme="@style/Theme.NemotronVoiceIME.Transparent"
-            android:windowSoftInputMode="adjustResize">
-            <intent-filter>
-                <action android:name="android.intent.action.ASSIST" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-        </activity>
     </application>
 
 </manifest>
