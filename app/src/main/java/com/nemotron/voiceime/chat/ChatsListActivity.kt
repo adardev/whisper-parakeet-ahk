@@ -245,7 +245,7 @@ class ChatsListActivity : Activity() {
         panel.addView(drawerRow(R.drawable.ic_server, "My NAS and server") { Toast.makeText(this, "192.168.0.2 · connected", Toast.LENGTH_SHORT).show() })
         panel.addView(drawerRow(R.drawable.ic_profile, "Profile and settings") { Toast.makeText(this, "adarbot profile", Toast.LENGTH_SHORT).show() })
         val chats = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, dp(8), 0, 0) }
-        chats.addView(TextView(this).apply { text = "Conversations"; textSize = 14f; setTextColor(Color.parseColor("#777B8A")); setPadding(dp(14), dp(10), 0, dp(6)) })
+        chats.addView(TextView(this).apply { text = "Chats"; textSize = 14f; setTextColor(Color.parseColor("#777B8A")); setPadding(dp(14), dp(10), 0, dp(6)) })
         list.forEach { c ->
             val row = drawerRow(R.drawable.ic_profile, c.title) {
                 (root.tag as? PopupWindow)?.dismiss()

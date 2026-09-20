@@ -1035,7 +1035,7 @@ class ChatActivity : Activity() {
         val chats = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(0, dp(12), 0, 0) }
         fun renderChats(items: List<Conversation>) {
             chats.removeAllViews()
-            chats.addView(TextView(this).apply { text = "Conversations"; textSize = 14f; setTextColor(Color.parseColor("#777B8A")); setPadding(dp(14), dp(10), 0, dp(6)) })
+            chats.addView(TextView(this).apply { text = "Chats"; textSize = 14f; setTextColor(Color.parseColor("#777B8A")); setPadding(dp(14), dp(10), 0, dp(6)) })
             items.forEach { c ->
                 chats.addView(drawerConversationRow(c,
                     open = { drawer.dismiss(); startActivity(Intent(this, ChatActivity::class.java).putExtra("convId", c.id)) },
