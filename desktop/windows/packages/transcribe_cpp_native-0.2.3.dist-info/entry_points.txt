@@ -1,0 +1,3 @@
+[transcribe_cpp.native]
+default = transcribe_cpp_native:descriptor
+

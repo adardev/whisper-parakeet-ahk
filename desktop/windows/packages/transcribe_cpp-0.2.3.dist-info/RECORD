@@ -1,0 +1,17 @@
+transcribe_cpp-0.2.3.dist-info/INSTALLER,sha256=zuuue4knoyJ-UwPPXg8fezS7VCrXJQrAP7zeNuwvFQg,4
+transcribe_cpp-0.2.3.dist-info/METADATA,sha256=wZTO7b9EeE1lRxgW2Wcd3LIOIHitL9VT5ZDbaK5ITw8,5574
+transcribe_cpp-0.2.3.dist-info/RECORD,,
+transcribe_cpp-0.2.3.dist-info/REQUESTED,sha256=47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU,0
+transcribe_cpp-0.2.3.dist-info/WHEEL,sha256=zOwg4jB6zX2kU910N-cMawjivD6tO8NEWvE12je1bVk,87
+transcribe_cpp-0.2.3.dist-info/licenses/LICENSE,sha256=hqU2M7VvawKdPLQhWLzHqsDN_4mKzrE-g7k-Nou8SsY,1083
+transcribe_cpp/__init__.py,sha256=lC6RwWqKDUnnFKzct9AKYDkixeXtkDoBq1e95TZQCLU,60935
+transcribe_cpp/__pycache__/__init__.cpython-312.pyc,,
+transcribe_cpp/__pycache__/_abi.cpython-312.pyc,,
+transcribe_cpp/__pycache__/_generated.cpython-312.pyc,,
+transcribe_cpp/__pycache__/_library.cpython-312.pyc,,
+transcribe_cpp/__pycache__/errors.cpython-312.pyc,,
+transcribe_cpp/_abi.py,sha256=j5j2AVNTtoUdW2AD_jpXkl7psaOTykiFUtlFJU0DyLA,3236
+transcribe_cpp/_generated.py,sha256=JbEe5lzEVb0-QA55IW9y3QkCD-cLUw8s6FAYVZgA3Wc,28388
+transcribe_cpp/_library.py,sha256=zOcCHEzTwqJ_35YlZG0uDbmsL2RCqKxXIvl6lNHT57E,15629
+transcribe_cpp/errors.py,sha256=NAC97idI3kEVQ4lv4ayU4masrqKXRyuwF9R7Aegs9DY,5071
+transcribe_cpp/py.typed,sha256=47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU,0
