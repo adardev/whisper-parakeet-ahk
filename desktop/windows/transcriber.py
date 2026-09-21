@@ -7,6 +7,7 @@ import os
 import queue
 import threading
 import time
+import gc
 from pathlib import Path
 
 import numpy as np
@@ -26,13 +27,8 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 
 class Engine:
     def __init__(self) -> None:
-        if not MODEL.exists():
-            raise FileNotFoundError(f"Falta el modelo: {MODEL}")
-        transcribe_cpp.set_log_callback(lambda level, msg: logging.info("native[%s] %s", level, msg))
-        logging.info("Cargando modelo %s", MODEL.name)
-        self.model = transcribe_cpp.Model(str(MODEL), backend="auto")
-        logging.info("Modelo listo: %s / %s / backend=%s", self.model.arch, self.model.variant, self.model.backend)
         self.lock = threading.RLock()
+        self.model = None
         self.audio: queue.Queue[np.ndarray | None] = queue.Queue()
         self.input_stream: sd.InputStream | None = None
         self.stream = None
@@ -42,10 +38,22 @@ class Engine:
         self.latest = ""
         self.error = ""
 
+    def load(self) -> None:
+        with self.lock:
+            if self.model is not None:
+                return
+            if not MODEL.exists():
+                raise FileNotFoundError(f"Falta el modelo: {MODEL}")
+            transcribe_cpp.set_log_callback(lambda level, msg: logging.info("native[%s] %s", level, msg))
+            logging.info("Cargando modelo bajo demanda: %s", MODEL.name)
+            self.model = transcribe_cpp.Model(str(MODEL), backend="auto")
+            logging.info("Modelo listo: %s / %s / backend=%s", self.model.arch, self.model.variant, self.model.backend)
+
     def start(self) -> None:
         with self.lock:
             if self.recording or self.processing:
                 return
+            self.load()
             self.audio = queue.Queue()
             self.latest = ""
             self.error = ""
@@ -122,12 +130,23 @@ class Engine:
         logging.info("Transcripción final: %r", text)
         return text
 
+    def close(self) -> None:
+        with self.lock:
+            if self.recording or self.processing:
+                return
+            if self.model is None:
+                return
+            logging.info("Descargando modelo por inactividad")
+            self.model = None
+            gc.collect()
+
     def status(self) -> dict:
         with self.lock:
-            return {"recording": self.recording, "processing": self.processing, "text": self.latest, "error": self.error}
+            return {"loaded": self.model is not None, "recording": self.recording, "processing": self.processing, "text": self.latest, "error": self.error}
 
 
 ENGINE = Engine()
+HTTP_SERVER = None
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -150,6 +169,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
                 self._reply(200, ENGINE.stop()); return
             if self.path == "/status":
                 self._reply(200, json.dumps(ENGINE.status(), ensure_ascii=False), "application/json; charset=utf-8"); return
+            if self.path == "/shutdown":
+                ENGINE.close()
+                self._reply(200, "OK")
+                threading.Thread(target=HTTP_SERVER.shutdown, daemon=True).start()
+                return
             self._reply(404, "Not found")
         except Exception as exc:
             logging.exception("request failed")
@@ -157,4 +181,5 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    http.server.ThreadingHTTPServer((HOST, PORT), Handler).serve_forever()
+    HTTP_SERVER = http.server.ThreadingHTTPServer((HOST, PORT), Handler)
+    HTTP_SERVER.serve_forever()

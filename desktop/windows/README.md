@@ -2,6 +2,8 @@
 
 Este componente no usa la interfaz ni el proceso de Handy. Mantiene un único modelo Nemotron 3.5 ASR Streaming en memoria, recibe audio del micrófono, hace streaming y devuelve la transcripción a AutoHotkey por `127.0.0.1:17841`.
 
+El modelo ahora se carga bajo demanda al iniciar el primer dictado. Después de que AutoHotkey lo cierre por inactividad, el endpoint `/shutdown` libera el modelo y detiene el servidor para no mantener memoria ocupada.
+
 `Ctrl+Space` inicia/detiene. `Escape` detiene sin pegar. El modelo configurado es `es-ES`; se puede cambiar con `HANDY_LANGUAGE=en-US`.
 
 Archivos principales:
