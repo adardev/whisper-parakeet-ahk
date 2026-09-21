@@ -24,6 +24,10 @@ SAMPLE_RATE = 16_000
 # Feed frequently so the native cache can emit partial hypotheses promptly.
 CHUNK_SAMPLES = 16_000 // 10
 IDLE_TIMEOUT_SECONDS = 300
+# Favor recognition accuracy over the lowest possible live latency.  The full
+# right context lets the streaming model disambiguate Spanish words before it
+# commits them; override only when ultra-low latency is required.
+RIGHT_CONTEXT = int(os.environ.get("HANDY_RIGHT_CONTEXT", "13"))
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 
@@ -63,12 +67,12 @@ class Engine:
             self.error = ""
             session = self.model.session()
             # Nemotron supports cache-aware streaming; Spanish is explicit.
-            # R=3 adds about 240 ms of right context: a good accuracy/latency
-            # balance for Spanish without the full R=13 delay.
+            # R=13 is the full right context and produces the highest-quality
+            # final transcription, at the cost of some live-update latency.
             self.stream = session.stream(
                 language=LANGUAGE,
                 commit_policy="auto",
-                family=transcribe_cpp.ParakeetStreamOptions(att_context_right=3),
+                family=transcribe_cpp.ParakeetStreamOptions(att_context_right=RIGHT_CONTEXT),
             )
             self._session = session
             self.recording = True
