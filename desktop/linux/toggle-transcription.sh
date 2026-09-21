@@ -34,12 +34,17 @@ if [[ "$status" =~ $recording_pattern ]]; then
   text="$(curl -fsS "$BASE/stop")"
   sound "$SOUND_DIR/marimba_stop.wav"
   if [[ -n "$text" ]]; then
-    if command -v ydotool >/dev/null; then
-      # This is the same virtual keyboard that KWin already receives for the
-      # Super+S shortcut.  Type directly instead of relying on an app's paste
-      # shortcut (terminals often reserve Ctrl+V).
+    if command -v wl-copy >/dev/null && command -v ydotool >/dev/null; then
+      # Paste the complete result at once.  ydotool is the verified virtual
+      # keyboard KWin receives for Super+S, so this also works without
+      # plasma-desktop.
+      printf '%s' "$text" | wl-copy
+      sleep 0.12
       YDOTOOL_SOCKET="${YDOTOOL_SOCKET:-$RUNTIME_DIR/ydotool.socket}" \
-        ydotool type --key-delay=8 --escape=0 "$text"
+        ydotool key --key-delay 20 29:1 47:1 47:0 29:0
+    elif command -v ydotool >/dev/null; then
+      YDOTOOL_SOCKET="${YDOTOOL_SOCKET:-$RUNTIME_DIR/ydotool.socket}" \
+        ydotool type --key-delay=0 --escape=0 "$text"
     elif [[ -n "${WAYLAND_DISPLAY:-}" ]] && command -v wtype >/dev/null; then
       wtype -- "$text"
     elif [[ -n "${WAYLAND_DISPLAY:-}" ]] && command -v wl-copy >/dev/null && command -v ydotool >/dev/null; then
