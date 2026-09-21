@@ -4,6 +4,8 @@ Este componente no usa la interfaz ni el proceso de Handy. Mantiene un único mo
 
 El modelo ahora se carga bajo demanda al iniciar el primer dictado. Después de que AutoHotkey lo cierre por inactividad, el endpoint `/shutdown` libera el modelo y detiene el servidor para no mantener memoria ocupada.
 
+El paquete incluye `handy-native.exe`, un helper nativo Rust que captura audio y llama directamente a la API C de `transcribe.dll`; el proceso Python queda como fallback para instalaciones antiguas.
+
 `Ctrl+Space` inicia/detiene. `Escape` detiene sin pegar. El modelo configurado es `es-ES`; se puede cambiar con `HANDY_LANGUAGE=en-US`.
 
 Archivos principales:
