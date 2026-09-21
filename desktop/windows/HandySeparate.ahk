@@ -4,12 +4,13 @@ Persistent
 
 global BaseUrl := "http://127.0.0.1:17841"
 global Busy := false
+global SoundRoot := A_ScriptDir "\\sounds"
 
 ^Space::ToggleTranscription()
 Escape::CancelTranscription()
 
 ToggleTranscription() {
-    global Busy, BaseUrl
+    global Busy, BaseUrl, SoundRoot
     if Busy
         return
     Busy := true
@@ -17,15 +18,22 @@ ToggleTranscription() {
         status := HttpGet(BaseUrl "/status")
         if RegExMatch(status, '"recording"\s*:\s*true') {
             text := HttpGet(BaseUrl "/stop")
+            PlayFeedback("marimba_stop.wav")
             if (text != "")
                 PasteText(text)
         } else {
             HttpGet(BaseUrl "/start")
+            PlayFeedback("marimba_start.wav")
         }
     } catch Error as e {
         TrayTip("Handy separado", e.Message, 3)
     }
     Busy := false
+}
+
+PlayFeedback(name) {
+    global SoundRoot
+    try SoundPlay(SoundRoot "\\" name)
 }
 
 CancelTranscription() {
