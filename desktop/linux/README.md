@@ -34,9 +34,9 @@ En otra terminal o como atajo global:
 ./desktop/linux/toggle-transcription.sh
 ```
 
-La primera ejecución inicia la captura; la siguiente la detiene y escribe el resultado en la aplicación activa.
+La primera ejecución del atajo inicia automáticamente el servidor y la captura; la siguiente la detiene y escribe el resultado en la aplicación activa. El servidor descarga el modelo y se cierra después de cinco minutos sin uso.
 
-Puedes asignar `toggle-transcription.sh` a `Ctrl+Space` desde los atajos de tu entorno de escritorio. Para iniciar automáticamente:
+Puedes asignar `toggle-transcription.sh` a `Ctrl+Space` desde los atajos de tu entorno de escritorio. Si prefieres mantener el servidor siempre disponible al iniciar sesión:
 
 ```bash
 mkdir -p ~/.config/systemd/user
