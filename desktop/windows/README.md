@@ -6,6 +6,8 @@ El modelo ahora se carga bajo demanda al iniciar el primer dictado. Después de 
 
 El paquete incluye `handy-native.exe`, un helper nativo Rust que captura audio y llama directamente a la API C de `transcribe.dll`; el proceso Python queda como fallback para instalaciones antiguas.
 
+El servidor Python también acepta ambas distribuciones de archivos: el modelo junto al servidor o en la carpeta `desktop/models` del repositorio.
+
 `Ctrl+Space` inicia/detiene. `Escape` detiene sin pegar. El modelo configurado es `es-ES`; se puede cambiar con `HANDY_LANGUAGE=en-US`.
 
 Archivos principales:

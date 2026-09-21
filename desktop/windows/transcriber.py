@@ -15,7 +15,9 @@ import sounddevice as sd
 import transcribe_cpp
 
 ROOT = Path(__file__).resolve().parent
-MODEL = ROOT.parent / "models" / "nemotron-3.5-asr-streaming-0.6b-Q4_K_M.gguf"
+MODEL = ROOT / "models" / "nemotron-3.5-asr-streaming-0.6b-Q4_K_M.gguf"
+if not MODEL.exists():
+    MODEL = ROOT.parent / "models" / "nemotron-3.5-asr-streaming-0.6b-Q4_K_M.gguf"
 HOST, PORT = "127.0.0.1", 17841
 LANGUAGE = os.environ.get("HANDY_LANGUAGE", "es-ES")
 SAMPLE_RATE = 16_000
