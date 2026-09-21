@@ -6,8 +6,8 @@ RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 SOUND_DIR="$ROOT/desktop/linux/sounds"
 
 sound() {
-  command -v canberra-gtk-play >/dev/null || return 0
-  canberra-gtk-play --volume=-12 -f "$1" >/dev/null 2>&1 &
+  command -v paplay >/dev/null || return 0
+  nohup paplay --volume=32768 "$1" >/dev/null 2>&1 &
 }
 
 if ! status="$(curl -fsS "$BASE/status" 2>/dev/null)"; then
