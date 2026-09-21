@@ -43,7 +43,7 @@ if [[ "$status" =~ $recording_pattern ]]; then
       printf '%s' "$text" | wl-copy
       sleep 0.12
       YDOTOOL_SOCKET="${YDOTOOL_SOCKET:-$RUNTIME_DIR/ydotool.socket}" \
-        ydotool key --key-delay 20 29:1 47:1 47:0 29:0
+        ydotool key --key-delay 20 29:1 42:1 47:1 47:0 42:0 29:0
     elif command -v ydotool >/dev/null; then
       YDOTOOL_SOCKET="${YDOTOOL_SOCKET:-$RUNTIME_DIR/ydotool.socket}" \
         ydotool type --key-delay=0 --escape=0 "$text"
