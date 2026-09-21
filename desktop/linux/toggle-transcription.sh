@@ -28,7 +28,12 @@ if [[ "$status" =~ $recording_pattern ]]; then
   text="$(curl -fsS "$BASE/stop")"
   sound "$SOUND_DIR/marimba_stop.wav"
   if [[ -n "$text" ]]; then
-    if [[ -n "${WAYLAND_DISPLAY:-}" ]] && command -v wl-copy >/dev/null && command -v ydotool >/dev/null; then
+    if [[ -n "${WAYLAND_DISPLAY:-}" ]] && command -v wtype >/dev/null; then
+      # KWin exposes the Wayland virtual-keyboard protocol even without
+      # plasma-desktop.  Typing directly avoids an unreliable Ctrl+V route in
+      # native Wayland apps and terminals.
+      wtype -- "$text"
+    elif [[ -n "${WAYLAND_DISPLAY:-}" ]] && command -v wl-copy >/dev/null && command -v ydotool >/dev/null; then
       printf '%s' "$text" | wl-copy
       # Give the Wayland clipboard owner time to publish the selection before
       # emitting Ctrl+V. Windows follows the same clipboard-then-paste flow.
