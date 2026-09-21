@@ -1,12 +1,17 @@
 [Unit]
 Description=Handy Separate local streaming transcription
 After=graphical-session.target sound.target
+Wants=pipewire-pulse.service wireplumber.service
 
 [Service]
 Type=simple
 WorkingDirectory=%h/whisper-parakeet-ahk
 ExecStart=%h/whisper-parakeet-ahk/desktop/linux/start-server.sh
-Restart=no
+# transcriber.py intentionally exits after its idle timeout to release the
+# model from memory.  Keep the user service alive so the next Win+S always has
+# a supervised local server ready to start, including after login.
+Restart=always
+RestartSec=1
 Environment=HANDY_LANGUAGE=es-ES
 
 [Install]
