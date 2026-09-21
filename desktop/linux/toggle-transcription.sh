@@ -13,7 +13,9 @@ printf '%s toggle invoked\n' "$(date -Is)"
 
 sound() {
   command -v paplay >/dev/null || return 0
-  nohup paplay --volume=32768 "$1" >/dev/null 2>&1 &
+  # Use the normal 100% sample volume.  The system's active sink (for example
+  # the HDMI device currently used by YouTube) receives the same feedback.
+  nohup paplay --volume=65536 "$1" >/dev/null 2>&1 &
 }
 
 if ! status="$(curl -fsS "$BASE/status" 2>/dev/null)"; then
