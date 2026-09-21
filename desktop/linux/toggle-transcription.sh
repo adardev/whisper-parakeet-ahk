@@ -18,6 +18,21 @@ sound() {
   nohup paplay --volume=65536 "$1" >/dev/null 2>&1 &
 }
 
+paste_clipboard() {
+  local window_class="" sequence
+  if command -v xdotool >/dev/null; then
+    window_class="$(xdotool getactivewindow getwindowclassname 2>/dev/null || true)"
+  fi
+  if [[ "$window_class" =~ (konsole|kitty|alacritty|wezterm|foot|xterm|terminal|warp) ]]; then
+    # Terminals reserve Ctrl+V for quoting the next character.
+    sequence=(29:1 42:1 47:1 47:0 42:0 29:0)
+  else
+    sequence=(29:1 47:1 47:0 29:0)
+  fi
+  YDOTOOL_SOCKET="${YDOTOOL_SOCKET:-$RUNTIME_DIR/ydotool.socket}" \
+    ydotool key --key-delay 20 "${sequence[@]}"
+}
+
 if ! status="$(curl -fsS "$BASE/status" 2>/dev/null)"; then
   nohup "$ROOT/desktop/linux/start-server.sh" >"${XDG_RUNTIME_DIR:-/tmp}/handy-separate.log" 2>&1 &
   for _ in $(seq 1 100); do
@@ -42,8 +57,7 @@ if [[ "$status" =~ $recording_pattern ]]; then
       # plasma-desktop.
       printf '%s' "$text" | wl-copy
       sleep 0.12
-      YDOTOOL_SOCKET="${YDOTOOL_SOCKET:-$RUNTIME_DIR/ydotool.socket}" \
-        ydotool key --key-delay 20 29:1 42:1 47:1 47:0 42:0 29:0
+      paste_clipboard
     elif command -v ydotool >/dev/null; then
       YDOTOOL_SOCKET="${YDOTOOL_SOCKET:-$RUNTIME_DIR/ydotool.socket}" \
         ydotool type --key-delay=0 --escape=0 "$text"
