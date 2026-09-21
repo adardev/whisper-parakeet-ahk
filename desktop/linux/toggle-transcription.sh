@@ -19,18 +19,8 @@ sound() {
 }
 
 paste_clipboard() {
-  local window_class="" sequence
-  if command -v xdotool >/dev/null; then
-    window_class="$(xdotool getactivewindow getwindowclassname 2>/dev/null || true)"
-  fi
-  if [[ "$window_class" =~ (konsole|kitty|alacritty|wezterm|foot|xterm|terminal|warp) ]]; then
-    # Terminals reserve Ctrl+V for quoting the next character.
-    sequence=(29:1 42:1 47:1 47:0 42:0 29:0)
-  else
-    sequence=(29:1 47:1 47:0 29:0)
-  fi
   YDOTOOL_SOCKET="${YDOTOOL_SOCKET:-$RUNTIME_DIR/ydotool.socket}" \
-    ydotool key --key-delay 20 "${sequence[@]}"
+    ydotool key --key-delay 20 29:1 47:1 47:0 29:0
 }
 
 if ! status="$(curl -fsS "$BASE/status" 2>/dev/null)"; then
