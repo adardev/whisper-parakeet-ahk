@@ -1,0 +1,14 @@
+[Unit]
+Description=Handy Separate local streaming transcription
+After=graphical-session.target sound.target
+
+[Service]
+Type=simple
+WorkingDirectory=%h/whisper-parakeet-ahk
+ExecStart=%h/whisper-parakeet-ahk/desktop/linux/start-server.sh
+Restart=on-failure
+RestartSec=2
+Environment=HANDY_LANGUAGE=es-ES
+
+[Install]
+WantedBy=default.target
