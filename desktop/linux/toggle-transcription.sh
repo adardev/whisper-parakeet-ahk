@@ -4,6 +4,12 @@ BASE='http://127.0.0.1:17841'
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
 SOUND_DIR="$ROOT/desktop/linux/sounds"
+LOG_FILE="$RUNTIME_DIR/handy-separate-toggle.log"
+
+# KGlobalAccel launches desktop actions without a terminal.  Preserve errors
+# from the actual typing/audio commands so a failed delivery is diagnosable.
+exec >>"$LOG_FILE" 2>&1
+printf '%s toggle invoked\n' "$(date -Is)"
 
 sound() {
   command -v paplay >/dev/null || return 0
@@ -28,10 +34,13 @@ if [[ "$status" =~ $recording_pattern ]]; then
   text="$(curl -fsS "$BASE/stop")"
   sound "$SOUND_DIR/marimba_stop.wav"
   if [[ -n "$text" ]]; then
-    if [[ -n "${WAYLAND_DISPLAY:-}" ]] && command -v wtype >/dev/null; then
-      # KWin exposes the Wayland virtual-keyboard protocol even without
-      # plasma-desktop.  Typing directly avoids an unreliable Ctrl+V route in
-      # native Wayland apps and terminals.
+    if command -v ydotool >/dev/null; then
+      # This is the same virtual keyboard that KWin already receives for the
+      # Super+S shortcut.  Type directly instead of relying on an app's paste
+      # shortcut (terminals often reserve Ctrl+V).
+      YDOTOOL_SOCKET="${YDOTOOL_SOCKET:-$RUNTIME_DIR/ydotool.socket}" \
+        ydotool type --key-delay=8 --escape=0 "$text"
+    elif [[ -n "${WAYLAND_DISPLAY:-}" ]] && command -v wtype >/dev/null; then
       wtype -- "$text"
     elif [[ -n "${WAYLAND_DISPLAY:-}" ]] && command -v wl-copy >/dev/null && command -v ydotool >/dev/null; then
       printf '%s' "$text" | wl-copy
