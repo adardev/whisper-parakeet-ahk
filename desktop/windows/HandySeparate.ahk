@@ -4,7 +4,7 @@ Persistent
 
 global BaseUrl := "http://127.0.0.1:17841"
 global Busy := false
-global SoundRoot := A_ScriptDir "\\sounds"
+global SoundRoot := A_ScriptDir "\sounds"
 
 ^Space::ToggleTranscription()
 Escape::CancelTranscription()
@@ -33,7 +33,7 @@ ToggleTranscription() {
 
 PlayFeedback(name) {
     global SoundRoot
-    try SoundPlay(SoundRoot "\\" name)
+    try SoundPlay(SoundRoot "\" name)
 }
 
 CancelTranscription() {
