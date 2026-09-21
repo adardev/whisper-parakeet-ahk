@@ -59,12 +59,12 @@ class Engine:
             self.error = ""
             session = self.model.session()
             # Nemotron supports cache-aware streaming; Spanish is explicit.
-            # R=0 is the low-latency Nemotron profile. The default R=13 waits
-            # for about 1.12 s of right context before committing audio.
+            # R=3 adds about 240 ms of right context: a good accuracy/latency
+            # balance for Spanish without the full R=13 delay.
             self.stream = session.stream(
                 language=LANGUAGE,
                 commit_policy="auto",
-                family=transcribe_cpp.ParakeetStreamOptions(att_context_right=0),
+                family=transcribe_cpp.ParakeetStreamOptions(att_context_right=3),
             )
             self._session = session
             self.recording = True
@@ -157,9 +157,17 @@ class Handler(http.server.BaseHTTPRequestHandler):
         data = body.encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", content_type)
+        # AdarBot Desktop runs in a Tauri WebView and talks to this local
+        # service from a different origin.
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
+
+    def do_OPTIONS(self):
+        self._reply(204, "")
 
     def do_GET(self):
         try:
