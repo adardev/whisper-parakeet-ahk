@@ -16,8 +16,6 @@ import transcribe_cpp
 
 ROOT = Path(__file__).resolve().parent
 MODEL = ROOT / "models" / "nemotron-3.5-asr-streaming-0.6b-Q4_K_M.gguf"
-if not MODEL.exists():
-    MODEL = ROOT.parent / "models" / "nemotron-3.5-asr-streaming-0.6b-Q4_K_M.gguf"
 HOST, PORT = "127.0.0.1", 17841
 LANGUAGE = os.environ.get("HANDY_LANGUAGE", "es-ES")
 SAMPLE_RATE = 16_000
@@ -128,7 +126,7 @@ class Engine:
                 self.worker = None
                 self.stream = None
                 self.processing = False
-                self.latest = text if "text" in locals() else self.latest
+            self.latest = text if "text" in locals() else self.latest
         logging.info("Transcripción final: %r", text)
         return text
 
@@ -159,17 +157,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
         data = body.encode("utf-8")
         self.send_response(code)
         self.send_header("Content-Type", content_type)
-        # AdarBot Desktop runs in a Tauri WebView and talks to this local
-        # service from a different origin.
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
-
-    def do_OPTIONS(self):
-        self._reply(204, "")
 
     def do_GET(self):
         try:
@@ -182,6 +172,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             if self.path == "/shutdown":
                 ENGINE.close()
                 self._reply(200, "OK")
+                # Let the response finish before stopping serve_forever().
                 threading.Thread(target=HTTP_SERVER.shutdown, daemon=True).start()
                 return
             self._reply(404, "Not found")

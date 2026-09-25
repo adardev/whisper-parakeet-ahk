@@ -1,7 +1,7 @@
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $tmp = Join-Path $env:TEMP 'handy-separate-downloads'
-New-Item -ItemType Directory -Force $tmp, (Join-Path $root 'native'), (Join-Path $root '..\models'), (Join-Path $root 'packages') | Out-Null
+New-Item -ItemType Directory -Force $tmp, (Join-Path $root 'native'), (Join-Path $root 'models'), (Join-Path $root 'packages') | Out-Null
 
 Write-Host 'Descargando Python portable...'
 $pyZip = Join-Path $tmp 'python-3.12.10-embed-amd64.zip'
@@ -30,7 +30,7 @@ tar -xzf $tar -C $nativeTmp
 Copy-Item (Join-Path $nativeTmp 'transcribe-native-windows-x86_64-cpu-vulkan\*') (Join-Path $root 'native') -Recurse -Force
 
 Write-Host 'Descargando modelo multilingual streaming (~473 MB)...'
-$model = Join-Path $root '..\models\nemotron-3.5-asr-streaming-0.6b-Q4_K_M.gguf'
+$model = Join-Path $root 'models\nemotron-3.5-asr-streaming-0.6b-Q4_K_M.gguf'
 if (!(Test-Path $model)) {
   Invoke-WebRequest 'https://huggingface.co/handy-computer/nemotron-3.5-asr-streaming-0.6b-gguf/resolve/main/nemotron-3.5-asr-streaming-0.6b-Q4_K_M.gguf?download=true' -OutFile $model
 }

@@ -1,12 +1,8 @@
 # Handy separado para AutoHotkey
 
-Este componente no usa la interfaz ni el proceso de Handy. Mantiene un único modelo Nemotron 3.5 ASR Streaming en memoria, recibe audio del micrófono, hace streaming y devuelve la transcripción a AutoHotkey por `127.0.0.1:17841`.
+Este componente no usa la interfaz ni el proceso de Handy. Usa un modelo Nemotron 3.5 ASR Streaming local, recibe audio del micrófono, hace streaming y devuelve la transcripción a AutoHotkey por `127.0.0.1:17841`.
 
-El modelo ahora se carga bajo demanda al iniciar el primer dictado. Después de que AutoHotkey lo cierre por inactividad, el endpoint `/shutdown` libera el modelo y detiene el servidor para no mantener memoria ocupada.
-
-El paquete incluye `handy-native.exe`, un helper nativo Rust que captura audio y llama directamente a la API C de `transcribe.dll`; el proceso Python queda como fallback para instalaciones antiguas.
-
-El servidor Python también acepta ambas distribuciones de archivos: el modelo junto al servidor o en la carpeta `desktop/models` del repositorio.
+El servidor se inicia bajo demanda al usar la transcripción por primera vez. El modelo no se carga al arrancar AutoHotkey: se carga en el primer dictado y se descarga después de cinco minutos sin uso. Al descargarse el modelo también se cierra el servidor, por lo que no mantiene ocupada la memoria cuando no se está dictando.
 
 `Ctrl+Space` inicia/detiene. `Escape` detiene sin pegar. El modelo configurado es `es-ES`; se puede cambiar con `HANDY_LANGUAGE=en-US`.
 
