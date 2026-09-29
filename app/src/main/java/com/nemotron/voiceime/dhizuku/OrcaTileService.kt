@@ -8,8 +8,8 @@ import android.service.quicksettings.TileService
 import android.widget.Toast
 import com.nemotron.voiceime.R
 
-/** Quick Settings tile que abre Termux y ejecuta la conexión SSH del relay. */
-class SshTileService : TileService() {
+/** Quick Settings tile que abre Termux y ejecuta la conexión SSH de Orca. */
+class OrcaTileService : TileService() {
 
     override fun onStartListening() {
         super.onStartListening()
@@ -45,8 +45,8 @@ class SshTileService : TileService() {
 
     private fun updateTile() {
         qsTile?.apply {
-            label = "SSH"
-            icon = Icon.createWithResource(this@SshTileService, R.drawable.ic_ssh_tile)
+            label = "Orca"
+            icon = Icon.createWithResource(this@OrcaTileService, R.drawable.ic_orca_qs_tile)
             state = Tile.STATE_INACTIVE
             updateTile()
         }
