@@ -3,7 +3,7 @@
 El tile `Orca` abre Termux y ejecuta:
 
 ```bash
-ssh -J serveo.net adaredu@adardev-orca-20260928
+ssh -J serveo.net adaredu@adardev-orca-20260928-2
 ```
 
 ## Configuración de Termux

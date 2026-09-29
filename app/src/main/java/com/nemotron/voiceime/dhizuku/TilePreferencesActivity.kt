@@ -92,7 +92,7 @@ class TilePreferencesActivity : Activity() {
                 putExtra("com.termux.RUN_COMMAND_PATH", "/data/data/com.termux/files/usr/bin/bash")
                 putExtra(
                     "com.termux.RUN_COMMAND_ARGUMENTS",
-                    arrayOf("-lc", "exec ssh -J serveo.net adaredu@adardev-orca-20260928")
+                    arrayOf("-lc", "exec ssh -J serveo.net adaredu@adardev-orca-20260928-2")
                 )
                 putExtra("com.termux.RUN_COMMAND_WORKDIR", "/data/data/com.termux/files/home")
                 putExtra("com.termux.RUN_COMMAND_BACKGROUND", false)
