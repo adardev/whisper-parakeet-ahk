@@ -41,7 +41,8 @@ class TelegramTileService : TileService() {
                     "/data/data/com.termux/files/home"
                 )
                 putExtra("com.termux.RUN_COMMAND_BACKGROUND", false)
-                putExtra("com.termux.RUN_COMMAND_SESSION_ACTION", 0)
+                // Termux espera este extra como String, no como Int.
+                putExtra("com.termux.RUN_COMMAND_SESSION_ACTION", "0")
             }
             startService(intent)
         } catch (error: Throwable) {
