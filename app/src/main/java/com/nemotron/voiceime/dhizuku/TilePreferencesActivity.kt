@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.widget.Toast
 
 /**
  * Activity que se abre al hacer long-press en un tile.
@@ -30,8 +31,10 @@ class TilePreferencesActivity : Activity() {
             when (tileComponent?.className) {
                 "com.nemotron.voiceime.dhizuku.AndroidAutoTileService" ->
                     listOf("com.google.android.projection.gearhead" to null)
-                "com.nemotron.voiceime.dhizuku.TelegramTileService" ->
-                    listOf("com.stably.orca.mobile" to "com.stably.orca.mobile.MainActivity")
+                "com.nemotron.voiceime.dhizuku.TelegramTileService" -> {
+                    runTermuxOrcaCommand()
+                    emptyList()
+                }
                 "com.nemotron.voiceime.dhizuku.GmsTileService" ->
                     listOf("com.google.android.gms" to null)
                 "com.nemotron.voiceime.dhizuku.SyncthingTileService" ->
@@ -80,6 +83,26 @@ class TilePreferencesActivity : Activity() {
 
         // Delay para que dé tiempo a abrir la app antes de cerrar
         Handler(Looper.getMainLooper()).postDelayed({ finish() }, 500)
+    }
+
+    private fun runTermuxOrcaCommand() {
+        try {
+            val intent = Intent("com.termux.RUN_COMMAND").apply {
+                component = ComponentName("com.termux", "com.termux.app.RunCommandService")
+                putExtra("com.termux.RUN_COMMAND_PATH", "/data/data/com.termux/files/usr/bin/bash")
+                putExtra(
+                    "com.termux.RUN_COMMAND_ARGUMENTS",
+                    arrayOf("-lc", "exec ssh -J serveo.net adaredu@adardev-orca-20260928")
+                )
+                putExtra("com.termux.RUN_COMMAND_WORKDIR", "/data/data/com.termux/files/home")
+                putExtra("com.termux.RUN_COMMAND_BACKGROUND", false)
+                putExtra("com.termux.RUN_COMMAND_SESSION_ACTION", "0")
+            }
+            startService(intent)
+        } catch (error: Throwable) {
+            Log.e(TAG, "No se pudo ejecutar Orca en Termux", error)
+            Toast.makeText(this, "Activa el permiso de Termux para Nemotron", Toast.LENGTH_LONG).show()
+        }
     }
 
     companion object {
