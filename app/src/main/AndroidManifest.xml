@@ -227,7 +227,7 @@
         <service
             android:name=".dhizuku.TelegramTileService"
             android:exported="true"
-            android:icon="@drawable/ic_orca_qs_tile"
+            android:icon="@drawable/ic_orca_tile"
             android:label="Orca"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <intent-filter>
@@ -310,18 +310,6 @@
             android:exported="true"
             android:icon="@drawable/ic_work_tile"
             android:label="Work"
-            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
-            <intent-filter>
-                <action android:name="android.service.quicksettings.action.QS_TILE" />
-            </intent-filter>
-        </service>
-
-        <!-- Orca: abre Termux y ejecuta la conexión al relay -->
-        <service
-            android:name=".dhizuku.OrcaTileService"
-            android:exported="true"
-            android:icon="@drawable/ic_orca_qs_tile"
-            android:label="Orca"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
