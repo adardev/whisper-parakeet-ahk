@@ -14,6 +14,7 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
+    <uses-permission android:name="com.termux.permission.RUN_COMMAND" />
 
     <!-- Health Connect: lectura de todos los tipos de datos de salud -->
     <uses-permission android:name="android.permission.health.READ_STEPS" />
@@ -309,6 +310,18 @@
             android:exported="true"
             android:icon="@drawable/ic_work_tile"
             android:label="Work"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <!-- SSH: abre Termux y ejecuta la conexión al relay -->
+        <service
+            android:name=".dhizuku.SshTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_ssh_tile"
+            android:label="SSH"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
