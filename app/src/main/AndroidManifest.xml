@@ -332,7 +332,7 @@
             android:name=".dhizuku.AssistantSwitchTileService"
             android:exported="true"
             android:icon="@drawable/ic_assistant_switch_tile"
-            android:label="Assistant"
+            android:label="Gemini"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE" />

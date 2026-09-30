@@ -61,14 +61,14 @@ class AssistantSwitchTileService : TileService() {
     private fun refreshTile() {
         val tile = qsTile ?: return
         val current = ShizukuManager.getDefaultAssistantPackage()
-        tile.label = "Assistant"
+        tile.label = "Gemini"
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) tile.subtitle = when (current) {
             GEMINI_PACKAGE -> "Gemini"
             TOOTSIE_PACKAGE -> "Tootsie"
             else -> "Tap to choose"
         }
         tile.icon = Icon.createWithResource(this, R.drawable.ic_assistant_switch_tile)
-        tile.state = if (current == TOOTSIE_PACKAGE) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
+        tile.state = if (current == GEMINI_PACKAGE) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
         tile.updateTile()
     }
 
