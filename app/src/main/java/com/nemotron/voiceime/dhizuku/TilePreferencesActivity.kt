@@ -62,6 +62,15 @@ class TilePreferencesActivity : Activity() {
                         "com.whatsapp.w4b" to "com.whatsapp.Main",
                         "proton.android.past" to "proton.android.past.ui.MainActivity"
                     )
+                "com.nemotron.voiceime.dhizuku.AssistantSwitchTileService" -> {
+                    try {
+                        startActivity(Intent(android.provider.Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS))
+                    } catch (error: Throwable) {
+                        Toast.makeText(this, "Abre Ajustes > Aplicaciones > Apps predeterminadas", Toast.LENGTH_LONG).show()
+                        Log.e(TAG, "Could not open default app settings", error)
+                    }
+                    emptyList()
+                }
                 else -> emptyList()
             }
 

@@ -22,6 +22,10 @@ object ShizukuManager {
     private var shellErr: BufferedReader? = null
     private val shellLock = Any()
 
+    private const val ASSISTANT_ROLE = "android.app.role.ASSISTANT"
+    private const val GEMINI_PACKAGE = "com.google.android.googlequicksearchbox"
+    private const val TOOTSIE_PACKAGE = "com.adarbot.app"
+
     fun isAvailable(): Boolean = try {
         Shizuku.pingBinder()
     } catch (t: Throwable) {
@@ -301,6 +305,39 @@ object ShizukuManager {
     fun stopApp(packageName: String): Boolean {
         if (!hasPermission()) return false
         return execShell("am force-stop $packageName")
+    }
+
+    /** Returns the package currently holding Android's default assistant role. */
+    fun getDefaultAssistantPackage(): String? {
+        if (!hasPermission()) return null
+        val holders = execShellCapture(
+            "cmd role get-role-holders --user \$(am get-current-user) $ASSISTANT_ROLE"
+        )
+        val holder = holders?.lineSequence()?.map { it.trim() }
+            ?.firstOrNull { it.startsWith("com.") }
+        if (!holder.isNullOrBlank()) return holder
+
+        // Some vendor builds omit `get-role-holders`; their secure setting is
+        // still synchronized from the role holder by Android's assistant service.
+        val component = execShellCapture("settings get secure assistant")?.trim()
+        return component?.substringBefore('/')?.takeIf { it.startsWith("com.") }
+    }
+
+    /** Ask the system role manager (through Shizuku's shell identity) to switch assistant. */
+    fun setDefaultAssistantPackage(packageName: String): Boolean {
+        if (!hasPermission() || packageName !in setOf(GEMINI_PACKAGE, TOOTSIE_PACKAGE)) return false
+        val output = execShellCapture(
+            "cmd role add-role-holder --user \$(am get-current-user) $ASSISTANT_ROLE $packageName 0; " +
+                "role_status=\$?; echo NEMO_ASSISTANT_ROLE_EXIT:\$role_status"
+        ) ?: return false
+        if (!output.contains("NEMO_ASSISTANT_ROLE_EXIT:0")) {
+            Log.w(TAG, "Could not set assistant role to $packageName: $output")
+            return false
+        }
+        // The role command waits for its callback, but allow vendor settings a
+        // moment to reflect the new holder before the tile refreshes its label.
+        Thread.sleep(250)
+        return getDefaultAssistantPackage() == packageName
     }
 
     /** Apaga y bloquea la pantalla (equivale a pulsar el botón de encendido). */
