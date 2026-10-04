@@ -15,6 +15,8 @@ class AndroidAutoTileService : AppFreezeTileService() {
             setLocation(true)
             setBluetooth(true)
             setMobileData(true)
+            ShizukuManager.setDoubleTapToWake(true)
+            ShizukuManager.setDoubleTapToSleep(true)
         }.start()
     }
 
@@ -23,6 +25,8 @@ class AndroidAutoTileService : AppFreezeTileService() {
             setLocation(false)
             setBluetooth(false)
             setMobileData(false)
+            ShizukuManager.setDoubleTapToWake(false)
+            ShizukuManager.setDoubleTapToSleep(false)
         }.start()
     }
 

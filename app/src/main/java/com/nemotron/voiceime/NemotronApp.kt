@@ -34,6 +34,7 @@ class NemotronApp : Application() {
         super.onCreate()
         ShizukuProvider.enableMultiProcessSupport(true)
         instance = this
+        com.nemotron.voiceime.dhizuku.AirplaneModeSchedule.scheduleNext(this)
 
         if (com.nemotron.voiceime.guard.AddictionGuard.isServiceNeeded(this)) {
             com.nemotron.voiceime.guard.AddictionGuard.applyEnabled(this)
@@ -50,6 +51,7 @@ class NemotronApp : Application() {
         // inicialización (auto-freeze, guard, detección de coche).
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             if (ShizukuManager.hasPermission()) {
+                com.nemotron.voiceime.dhizuku.AirplaneModeSchedule.scheduleNext(this)
                 if (SecureStore.isAutoFreezeEnabled(this)) {
                     AutoFreezeScheduler.start(this)
                     AutoFreezeScheduler.recover(this)

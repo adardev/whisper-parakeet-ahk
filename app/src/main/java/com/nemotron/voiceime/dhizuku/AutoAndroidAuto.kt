@@ -25,6 +25,8 @@ object AutoAndroidAuto {
                 Log.w(TAG, "coche conectado pero Shizuku no disponible; se reintentará al volver")
                 return@Thread
             }
+            ShizukuManager.setDoubleTapToWake(true)
+            ShizukuManager.setDoubleTapToSleep(true)
             if (!ShizukuManager.isAppHidden(AA_PACKAGE)) {
                 Log.d(TAG, "coche conectado, Android Auto ya activo")
                 return@Thread
@@ -40,13 +42,17 @@ object AutoAndroidAuto {
 
     fun onCarDisconnected(ctx: Context) {
         if (!SecureStore.isAutoAndroidAutoEnabled(ctx)) return
-        if (!SecureStore.wasAutoAndroidAutoUnfroze(ctx)) return
+        val wasUnfroze = SecureStore.wasAutoAndroidAutoUnfroze(ctx)
         Thread {
             if (!ShizukuManager.hasPermission()) return@Thread
-            ShizukuManager.hideApp(AA_PACKAGE)
-            ShizukuManager.stopApp(AA_PACKAGE)
-            SecureStore.setAutoAndroidAutoWasUnfroze(ctx, false)
-            Log.i(TAG, "coche desconectado → Android Auto congelado de nuevo")
+            ShizukuManager.setDoubleTapToWake(false)
+            ShizukuManager.setDoubleTapToSleep(false)
+            if (wasUnfroze) {
+                ShizukuManager.hideApp(AA_PACKAGE)
+                ShizukuManager.stopApp(AA_PACKAGE)
+                SecureStore.setAutoAndroidAutoWasUnfroze(ctx, false)
+                Log.i(TAG, "coche desconectado → Android Auto congelado de nuevo")
+            }
         }.start()
     }
 
@@ -58,6 +64,8 @@ object AutoAndroidAuto {
         if (!CarDetector.isCarConnected()) return
         Thread {
             if (!ShizukuManager.hasPermission()) return@Thread
+            ShizukuManager.setDoubleTapToWake(true)
+            ShizukuManager.setDoubleTapToSleep(true)
             if (ShizukuManager.isAppHidden(AA_PACKAGE)) {
                 if (ShizukuManager.unhideApp(AA_PACKAGE)) {
                     SecureStore.setAutoAndroidAutoWasUnfroze(ctx, true)

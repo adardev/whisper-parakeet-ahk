@@ -387,6 +387,41 @@ object ShizukuManager {
         return out.isNotBlank()
     }
 
+    /** Activa/desactiva el gesto Samsung «Doble toque para encender pantalla». */
+    fun setDoubleTapToWake(enabled: Boolean): Boolean {
+        if (!hasPermission()) return false
+        val value = if (enabled) "1" else "0"
+        val ok = execShell("settings put system double_tab_to_wake_up $value")
+        Log.i(TAG, "double tap to wake → $enabled")
+        return ok
+    }
+
+    /** Activa/desactiva el gesto Samsung «Doble toque para apagar pantalla». */
+    fun setDoubleTapToSleep(enabled: Boolean): Boolean {
+        if (!hasPermission()) return false
+        val value = if (enabled) "1" else "0"
+        val ok = execShell("settings put system double_tap_to_sleep $value")
+        Log.i(TAG, "double tap to sleep → $enabled")
+        return ok
+    }
+
+    /** Lee el estado del modo avión. */
+    fun isAirplaneModeOn(): Boolean? {
+        if (!hasPermission()) return null
+        return when (execShellFresh(arrayOf("settings", "get", "global", "airplane_mode_on"))?.trim()) {
+            "1" -> true
+            "0" -> false
+            else -> null
+        }
+    }
+
+    /** Cambia el modo avión usando el comando soportado por ConnectivityService. */
+    fun setAirplaneMode(enabled: Boolean): Boolean {
+        if (!hasPermission()) return false
+        val action = if (enabled) "enable" else "disable"
+        return execShellFresh(arrayOf("cmd", "connectivity", "airplane-mode", action)) != null
+    }
+
     /** Lanza la app como si fuera del home screen. */
     fun launchApp(packageName: String): Boolean {
         if (!hasPermission()) return false
