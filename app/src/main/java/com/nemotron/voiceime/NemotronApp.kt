@@ -17,6 +17,7 @@ import com.nemotron.voiceime.data.SecureStore
 import com.nemotron.voiceime.dhizuku.AutoAndroidAuto
 import com.nemotron.voiceime.dhizuku.CarConnectionReceiver
 import com.nemotron.voiceime.dhizuku.CarDetector
+import com.nemotron.voiceime.dhizuku.NightAirplaneScreenReceiver
 import com.nemotron.voiceime.dhizuku.ShizukuManager
 import com.nemotron.voiceime.guard.DndLockReceiver
 import com.nemotron.voiceime.ui.AutoFreezeScheduler
@@ -29,6 +30,8 @@ class NemotronApp : Application() {
     private var dndRegistered = false
     private val carReceiver = CarConnectionReceiver()
     private var carReceiverRegistered = false
+    private val nightAirplaneScreenReceiver = NightAirplaneScreenReceiver()
+    private var nightAirplaneScreenReceiverRegistered = false
 
     override fun onCreate() {
         super.onCreate()
@@ -43,6 +46,7 @@ class NemotronApp : Application() {
         Shizuku.addBinderDeadListener(binderDeadListener)
         registerDndReceiver()
         registerCarReceiver()
+        registerNightAirplaneScreenReceiver()
         CarDetector.refresh(this)
         com.nemotron.voiceime.guard.DndKeepAliveService.update(this)
         com.nemotron.voiceime.dhizuku.ConnectionExclusionManager.start(this)
@@ -52,6 +56,7 @@ class NemotronApp : Application() {
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
             if (ShizukuManager.hasPermission()) {
                 com.nemotron.voiceime.dhizuku.AirplaneModeSchedule.scheduleNext(this)
+                NightAirplaneScreenReceiver().onShizukuAvailable(this)
                 if (SecureStore.isAutoFreezeEnabled(this)) {
                     AutoFreezeScheduler.start(this)
                     AutoFreezeScheduler.recover(this)
@@ -109,11 +114,31 @@ class NemotronApp : Application() {
         }
     }
 
+    private fun registerNightAirplaneScreenReceiver() {
+        if (nightAirplaneScreenReceiverRegistered) return
+        try {
+            val filter = IntentFilter().apply {
+                addAction(Intent.ACTION_SCREEN_OFF)
+                addAction(Intent.ACTION_SCREEN_ON)
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(nightAirplaneScreenReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            } else {
+                registerReceiver(nightAirplaneScreenReceiver, filter)
+            }
+            nightAirplaneScreenReceiverRegistered = true
+            Log.d("NemotronApp", "screen-off receiver for night airplane mode registered")
+        } catch (t: Throwable) {
+            Log.w("NemotronApp", "could not register night airplane screen-off receiver", t)
+        }
+    }
+
     private val binderListener = Shizuku.OnBinderReceivedListener {
         Log.d("NemotronApp", "Shizuku binder received")
         registerDndReceiver()
         shizukuDeadNotified = false
         if (Shizuku.checkSelfPermission() == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            NightAirplaneScreenReceiver().onShizukuAvailable(this)
             if (SecureStore.isAutoFreezeEnabled(this)) {
                 AutoFreezeScheduler.start(this)
                 AutoFreezeScheduler.recover(this)
