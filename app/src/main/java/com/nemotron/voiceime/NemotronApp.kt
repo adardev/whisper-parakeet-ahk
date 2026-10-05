@@ -120,6 +120,7 @@ class NemotronApp : Application() {
             val filter = IntentFilter().apply {
                 addAction(Intent.ACTION_SCREEN_OFF)
                 addAction(Intent.ACTION_SCREEN_ON)
+                addAction(Intent.ACTION_AIRPLANE_MODE_CHANGED)
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 registerReceiver(nightAirplaneScreenReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
