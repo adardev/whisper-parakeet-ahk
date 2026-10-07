@@ -42,20 +42,23 @@
             app:summary="API key not configured" />
     </PreferenceCategory>
 
-    <PreferenceCategory app:title="Health Connect (NAS)">
+    <PreferenceCategory app:title="Health Connect → Firebase">
         <Preference
             app:key="health_setup"
             app:title="Enable health transfer"
-            app:summary="Grant permissions and send steps, sleep, heart rate and more to NAS (192.168.0.2:9090)" />
+            app:summary="Grant permissions and upload health data through the internet" />
         <EditTextPreference
-            app:key="health_webhook_url"
-            app:title="Webhook URL"
-            app:defaultValue="http://192.168.0.2:9090/webhook"
-            app:summary="NAS webhook URL where data is sent" />
+            app:key="firebase_api_key"
+            app:title="Firebase Web API key"
+            app:summary="Required for anonymous Firebase Auth" />
+        <EditTextPreference
+            app:key="firebase_database_url"
+            app:title="Firebase Realtime Database URL"
+            app:summary="For example https://project-default-rtdb.firebaseio.com" />
         <Preference
             app:key="health_send_now"
             app:title="Send data now"
-            app:summary="Read and send Health Connect data immediately" />
+            app:summary="Read and upload Health Connect data immediately" />
     </PreferenceCategory>
 
 </PreferenceScreen>

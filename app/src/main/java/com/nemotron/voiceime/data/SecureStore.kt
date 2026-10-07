@@ -29,6 +29,10 @@ object SecureStore {
     private const val KEY_AUTO_AA_ENABLED = "auto_android_auto_enabled"
     private const val KEY_AUTO_AA_WAS_UNFROZE = "auto_android_auto_was_unfroze"
     private const val KEY_AA_TILE_ON = "android_auto_tile_on"
+    private const val KEY_FIREBASE_API_KEY = "firebase_api_key"
+    private const val KEY_FIREBASE_DATABASE_URL = "firebase_database_url"
+    private const val KEY_FIREBASE_REFRESH_TOKEN = "firebase_refresh_token"
+    private const val KEY_FIREBASE_LOCAL_ID = "firebase_local_id"
 
     private const val DEFAULT_MODEL = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
     private const val DEFAULT_LOCALE = "es_ES"
@@ -106,6 +110,34 @@ object SecureStore {
 
     fun setApiKey(ctx: Context, value: String) {
         securePrefs(ctx).edit().putString(KEY_API_KEY, value.trim()).apply()
+    }
+
+    fun getFirebaseApiKey(ctx: Context): String =
+        securePrefs(ctx).getString(KEY_FIREBASE_API_KEY, "").orEmpty()
+
+    fun setFirebaseApiKey(ctx: Context, value: String) {
+        securePrefs(ctx).edit().putString(KEY_FIREBASE_API_KEY, value.trim()).apply()
+    }
+
+    fun getFirebaseDatabaseUrl(ctx: Context): String =
+        plainPrefs(ctx).getString(KEY_FIREBASE_DATABASE_URL, "").orEmpty()
+
+    fun setFirebaseDatabaseUrl(ctx: Context, value: String) {
+        plainPrefs(ctx).edit().putString(KEY_FIREBASE_DATABASE_URL, value.trim()).apply()
+    }
+
+    fun getFirebaseRefreshToken(ctx: Context): String =
+        securePrefs(ctx).getString(KEY_FIREBASE_REFRESH_TOKEN, "").orEmpty()
+
+    fun setFirebaseRefreshToken(ctx: Context, value: String) {
+        securePrefs(ctx).edit().putString(KEY_FIREBASE_REFRESH_TOKEN, value).apply()
+    }
+
+    fun getFirebaseLocalId(ctx: Context): String =
+        securePrefs(ctx).getString(KEY_FIREBASE_LOCAL_ID, "").orEmpty()
+
+    fun setFirebaseLocalId(ctx: Context, value: String) {
+        securePrefs(ctx).edit().putString(KEY_FIREBASE_LOCAL_ID, value).apply()
     }
 
     fun getModel(ctx: Context): String =

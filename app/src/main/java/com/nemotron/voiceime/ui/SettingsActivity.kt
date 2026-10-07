@@ -35,19 +35,35 @@ class SettingsActivity : AppCompatActivity() {
 
         private fun setupHealthPrefs() {
             val ctx = context ?: return
+            preferenceScreen.findPreference<androidx.preference.EditTextPreference>("firebase_api_key")
+                ?.text = SecureStore.getFirebaseApiKey(ctx)
+            preferenceScreen.findPreference<androidx.preference.EditTextPreference>("firebase_database_url")
+                ?.text = SecureStore.getFirebaseDatabaseUrl(ctx)
             preferenceScreen.findPreference<androidx.preference.Preference>("health_setup")
                 ?.setOnPreferenceClickListener {
+                    if (SecureStore.getFirebaseApiKey(ctx).isBlank() ||
+                        SecureStore.getFirebaseDatabaseUrl(ctx).isBlank()) {
+                        android.widget.Toast.makeText(
+                            ctx, "Configura Firebase API key y Database URL primero.",
+                            android.widget.Toast.LENGTH_LONG
+                        ).show()
+                        return@setOnPreferenceClickListener true
+                    }
                     startActivity(android.content.Intent(ctx, com.nemotron.voiceime.health.HealthSetupActivity::class.java))
                     true
                 }
             preferenceScreen.findPreference<androidx.preference.Preference>("health_send_now")
                 ?.setOnPreferenceClickListener {
-                    val url = preferenceScreen.sharedPreferences
-                        ?.getString("health_webhook_url", "http://192.168.0.2:9090/webhook")
-                        ?: "http://192.168.0.2:9090/webhook"
-                    com.nemotron.voiceime.health.HealthTransferService.setWebhookUrl(url)
+                    if (SecureStore.getFirebaseApiKey(ctx).isBlank() ||
+                        SecureStore.getFirebaseDatabaseUrl(ctx).isBlank()) {
+                        android.widget.Toast.makeText(
+                            ctx, "Configura Firebase API key y Database URL primero.",
+                            android.widget.Toast.LENGTH_LONG
+                        ).show()
+                        return@setOnPreferenceClickListener true
+                    }
                     com.nemotron.voiceime.health.HealthTransferService.start(ctx)
-                    android.widget.Toast.makeText(ctx, "Sending health data to NAS...", android.widget.Toast.LENGTH_LONG).show()
+                    android.widget.Toast.makeText(ctx, "Uploading health data to Firebase...", android.widget.Toast.LENGTH_LONG).show()
                     true
                 }
         }
@@ -117,9 +133,11 @@ class SettingsActivity : AppCompatActivity() {
                         android.widget.Toast.LENGTH_SHORT
                     ).show()
                 }
-                "health_webhook_url" -> {
-                    val url = prefs.getString("health_webhook_url", "http://192.168.0.2:9090/webhook")
-                    com.nemotron.voiceime.health.HealthTransferService.setWebhookUrl(url ?: "http://192.168.0.2:9090/webhook")
+                "firebase_api_key" -> {
+                    SecureStore.setFirebaseApiKey(ctx, prefs.getString(key, "").orEmpty())
+                }
+                "firebase_database_url" -> {
+                    SecureStore.setFirebaseDatabaseUrl(ctx, prefs.getString(key, "").orEmpty())
                 }
             }
         }

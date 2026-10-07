@@ -22,17 +22,11 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
-import java.time.Duration
 import java.time.Instant
 
 /**
- * HealthTransferService: servicio foreground que periodicamente lee TODOS los
- * datos de Health Connect y los envia al webhook del NAS.
+ * HealthTransferService: lee datos de Health Connect y los sube a Firebase.
  *
  * Se activa con un broadcast receiver en BOOT_COMPLETED y se mantiene vivo
  * enviando datos cada INTERVAL_MINUTES minutos.
@@ -45,9 +39,6 @@ class HealthTransferService : Service() {
         private const val NOTIF_ID = 4
         private const val ACTION_START = "com.nemotron.voiceime.health.START"
         private const val ACTION_STOP = "com.nemotron.voiceime.health.STOP"
-
-        // Webhook URL por defecto (NAS)
-        private var webhookUrl: String = "http://192.168.0.2:9090/webhook"
 
         // Cuantos dias hacia atras leer en cada envio (datos recientes)
         private const val BACKFILL_DAYS = 30L
@@ -62,18 +53,10 @@ class HealthTransferService : Service() {
             context.startService(intent)
         }
 
-        fun setWebhookUrl(url: String) {
-            webhookUrl = url
-        }
     }
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var transferJob: Job? = null
-    private val httpClient = OkHttpClient.Builder()
-        .connectTimeout(Duration.ofSeconds(10))
-        .readTimeout(Duration.ofSeconds(30))
-        .writeTimeout(Duration.ofSeconds(30))
-        .build()
     private val transferLock = java.util.concurrent.atomic.AtomicBoolean(false)
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -139,7 +122,7 @@ class HealthTransferService : Service() {
         )
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Health Connect")
-            .setContentText("Enviando datos de salud al NAS...")
+            .setContentText("Subiendo datos de salud a Firebase...")
             .setSmallIcon(R.drawable.ic_fit3_tile)
             .setOngoing(false)
             .setContentIntent(launchIntent)
@@ -159,44 +142,14 @@ class HealthTransferService : Service() {
         val start = end.minusSeconds(BACKFILL_DAYS * 24L * 60L * 60L)
         val payload = manager.readAllData(start, end)
 
-        // Envolver en el formato que espera el webhook del NAS
+        // Documento que el servidor puede consultar desde cualquier red.
         val wrapper = JSONObject()
         wrapper.put("type", "health_snapshot")
         wrapper.put("date", end.toString().substring(0, 10))
         wrapper.put("device", "samsung-${Build.MODEL}")
         wrapper.put("data", payload)
 
-        sendToWebhook(wrapper.toString())
-
-        // Guardar tambien en el folder del drive (Syncthing lo sincroniza y
-        // el agente lo lee) y en un archivo "latest" para lectura facil.
-        val dir = "/storage/emulated/0/drive/health"
-        val stamp = java.time.LocalDateTime.now().format(
-            java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd_HHmmss")
-        )
-        val pretty = wrapper.toString(2)
-        com.nemotron.voiceime.dhizuku.ShizukuManager.writeTextFile("$dir/health_$stamp.json", pretty)
-        com.nemotron.voiceime.dhizuku.ShizukuManager.writeTextFile("$dir/latest.json", pretty)
-        Log.d(TAG, "Guardado en drive: $dir (health_$stamp.json + latest.json)")
-    }
-
-    private suspend fun sendToWebhook(json: String) {
-        try {
-            val body = json.toRequestBody("application/json".toMediaType())
-            val request = Request.Builder()
-                .url(webhookUrl)
-                .post(body)
-                .build()
-            val response = httpClient.newCall(request).execute()
-            if (!response.isSuccessful) {
-                Log.e(TAG, "Webhook HTTP ${response.code}: ${response.body?.string()}")
-            } else {
-                Log.d(TAG, "Datos enviados al NAS OK")
-            }
-            response.close()
-        } catch (e: Exception) {
-            Log.e(TAG, "Fallo al enviar webhook: ${e.message}")
-        }
+        FirebaseHealthUploader(this).upload(end.toString().substring(0, 10), wrapper)
     }
 
     override fun onDestroy() {

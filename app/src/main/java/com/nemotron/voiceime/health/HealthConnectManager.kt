@@ -20,7 +20,7 @@ import org.json.JSONObject
 
 /**
  * HealthConnectManager: lee todos los tipos de datos posibles de Health Connect
- * y los estructura como JSON para transferir al NAS via webhook.
+ * y los estructura como JSON para subirlos a Firebase.
  */
 class HealthConnectManager(private val context: Context) {
 

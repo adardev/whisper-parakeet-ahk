@@ -26,7 +26,7 @@ class HealthSetupActivity : ComponentActivity() {
             Log.d(TAG, "Permisos concedidos: $granted")
             if (granted.isNotEmpty()) {
                 HealthTransferService.start(this)
-                Toast.makeText(this, "Health Connect activado. Datos se envian al NAS.", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "Health Connect activado. Datos se suben a Firebase.", Toast.LENGTH_LONG).show()
             } else {
                 Toast.makeText(this, "Sin permisos de Health Connect.", Toast.LENGTH_LONG).show()
             }
