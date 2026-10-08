@@ -52,6 +52,10 @@ abstract class AppFreezeTileService : TileService() {
                 for (pkg in targetPackages) ShizukuManager.unhideApp(pkg)
                 onAfterUnfreeze()
             } else {
+                // Sincronizar antes de congelar el proveedor que necesita el
+                // hook (p. ej. Samsung Health).
+                val beforeFreezeDelayMs = try { onBeforeFreeze() } catch (_: Throwable) { 0L }
+                if (beforeFreezeDelayMs > 0) Thread.sleep(beforeFreezeDelayMs)
                 for (pkg in targetPackages) {
                     ShizukuManager.hideApp(pkg)
                     ShizukuManager.stopApp(pkg)
@@ -64,6 +68,12 @@ abstract class AppFreezeTileService : TileService() {
 
     /** Acciones extra tras congelar (override opcional). */
     open fun onAfterFreeze() {}
+
+    /**
+     * Acciones antes de congelar. Devuelve milisegundos para esperar antes
+     * de ocultar las apps; sirve para terminar una sincronización.
+     */
+    open fun onBeforeFreeze(): Long = 0L
 
     /** Acciones extra tras descongelar (override opcional). */
     open fun onAfterUnfreeze() {}
