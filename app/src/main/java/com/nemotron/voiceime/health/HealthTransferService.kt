@@ -48,7 +48,9 @@ class HealthTransferService : Service() {
         private val completionWaiters = CopyOnWriteArrayList<CountDownLatch>()
 
         // Cuantos dias hacia atras leer en cada envio (datos recientes)
-        private const val BACKFILL_DAYS = 7L
+        // Peso/composición corporal puede tener el último registro de hace
+        // varias semanas aunque el resto de datos sea reciente.
+        private const val BACKFILL_DAYS = 30L
 
         fun start(context: Context) {
             val intent = Intent(context, HealthTransferService::class.java).setAction(ACTION_START)

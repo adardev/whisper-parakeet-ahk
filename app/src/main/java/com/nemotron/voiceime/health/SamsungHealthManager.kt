@@ -23,6 +23,9 @@ import java.time.ZoneId
 /** Lee Samsung Health Data SDK directamente y devuelve un snapshot JSON. */
 class SamsungHealthManager(context: Context) {
     private val store = HealthDataService.getStore(context.applicationContext)
+    // Samsung Health may keep the last weight measurement for years, while
+    // the other streams are intentionally limited to recent data.
+    private val bodyCompositionHistorySeconds = 10L * 365L * 24L * 60L * 60L
 
     // Son tipos que Samsung Health Data SDK expone como registros legibles.
     private val readableTypes: List<DataType> = listOf(
@@ -64,27 +67,42 @@ class SamsungHealthManager(context: Context) {
     }
 
     suspend fun readAllData(start: Instant, end: Instant): JSONObject = withContext(Dispatchers.IO) {
-        val startLocal = LocalDateTime.ofInstant(start, ZoneId.systemDefault())
         val endLocal = LocalDateTime.ofInstant(end, ZoneId.systemDefault())
-        val filter = LocalTimeFilter.of(startLocal, endLocal)
         val result = JSONObject()
 
         for (type in readableTypes) {
             try {
+                val typeStart = if (type == DataTypes.BODY_COMPOSITION) {
+                    start.minusSeconds(bodyCompositionHistorySeconds)
+                } else start
+                val typeFilter = LocalTimeFilter.of(
+                    LocalDateTime.ofInstant(typeStart, ZoneId.systemDefault()), endLocal
+                )
                 @Suppress("UNCHECKED_CAST")
                 val readable = type as DataType.Readable<HealthDataPoint, ReadDataRequest.Builder<HealthDataPoint>>
                 @Suppress("UNCHECKED_CAST")
                 val builder = readable.readDataRequestBuilder as ReadDataRequest.DualTimeBuilder<HealthDataPoint>
-                val response = withTimeoutOrNull(5_000L) {
+                val response = withTimeoutOrNull(
+                    if (type == DataTypes.BODY_COMPOSITION) 15_000L else 5_000L
+                ) {
                     store.readData(
-                        builder.setLocalTimeFilter(filter).setOrdering(Ordering.ASC).build()
+                        builder.setLocalTimeFilter(typeFilter).setOrdering(Ordering.ASC).build()
                     )
                 } ?: continue
                 val points = JSONArray()
-                response.dataList.forEach { points.put(pointToJson(type, it)) }
+                // Puede haber años de mediciones de peso. El agente necesita
+                // el valor más reciente y Firestore limita cada documento a
+                // 1 MiB; conservar todo el histórico rompería la subida.
+                val dataPoints = if (type == DataTypes.BODY_COMPOSITION) {
+                    response.dataList.takeLast(1)
+                } else response.dataList
+                dataPoints.forEach { points.put(pointToJson(type, it)) }
                 result.put(type.name, points)
-            } catch (_: Exception) {
-                // Unavailable/ungranted types do not prevent the rest of the snapshot.
+            } catch (e: Exception) {
+                // Unavailable/ungranted types do not prevent the rest of the snapshot,
+                // pero dejamos el motivo en log para no ocultar BODY_COMPOSITION.
+                android.util.Log.w("SamsungHealthManager",
+                    "No se pudo leer ${type.name}: ${e.javaClass.simpleName}: ${e.message}")
             }
         }
         result
@@ -99,6 +117,10 @@ class SamsungHealthManager(context: Context) {
         // Los campos públicos del DataType son la forma oficial de extraer valores.
         type.javaClass.fields
             .filter { it.type == Field::class.java }
+            // Samsung exposes SERIES_DATA as a Java object toString with
+            // thousands of internal references. It is not useful remotely
+            // and can push the Firestore document above 1 MiB.
+            .filter { it.name != "SERIES_DATA" }
             .forEach { field ->
                 runCatching {
                     val sdkField = field.get(null) as Field<Any>
