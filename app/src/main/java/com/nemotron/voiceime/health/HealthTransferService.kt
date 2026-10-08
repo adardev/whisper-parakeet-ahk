@@ -141,7 +141,9 @@ class HealthTransferService : Service() {
         // que la consulta tarde demasiado y el servicio pueda ser cancelado
         // antes de escribir el snapshot.
         val start = end.minusSeconds(BACKFILL_DAYS * 24L * 60L * 60L)
+        Log.i(TAG, "Leyendo Samsung Health: $start -> $end")
         val payload = manager.readAllData(start, end)
+        Log.i(TAG, "Lectura Samsung Health terminada: ${payload.length()} tipos")
 
         // Documento que el servidor puede consultar desde cualquier red.
         val wrapper = JSONObject()
@@ -151,6 +153,7 @@ class HealthTransferService : Service() {
         wrapper.put("data", payload)
 
         FirebaseHealthUploader(this).upload(end.toString().substring(0, 10), wrapper)
+        Log.i(TAG, "Snapshot Samsung Health subido a Firebase")
     }
 
     override fun onDestroy() {
