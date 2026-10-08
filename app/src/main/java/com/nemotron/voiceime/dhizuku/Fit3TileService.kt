@@ -40,6 +40,12 @@ class Fit3TileService : AppFreezeTileService() {
     /** Al descongelar: enciende Bluetooth si esta apagado y arranca sync de salud. */
     override fun onAfterUnfreeze() {
         ensureBluetoothOn()
+        // Samsung Health puede perder sus permisos de Health Connect cuando
+        // One UI vuelve a habilitar el paquete. Intentamos restaurar todos
+        // los permisos de salud que el propio paquete declara usando el
+        // shell de Shizuku. Esto no toca permisos normales ni concede nada a
+        // nuestra app: el destinatario es exclusivamente Samsung Health.
+        restoreSamsungHealthConnectPermissions()
         // Arranca el servicio de salud: transfiere una vez y se auto-detiene.
         try {
             com.nemotron.voiceime.health.HealthTransferService.start(applicationContext)
@@ -71,7 +77,53 @@ class Fit3TileService : AppFreezeTileService() {
         }
     }
 
+    private fun restoreSamsungHealthConnectPermissions() {
+        if (!ShizukuManager.hasPermission()) {
+            Log.w(TAG, "No se pueden restaurar permisos de Health Connect: Shizuku no autorizado")
+            return
+        }
+
+        val pkg = targetPackages.firstOrNull { it == SAMSUNG_HEALTH_PACKAGE }
+            ?: SAMSUNG_HEALTH_PACKAGE
+        val dump = ShizukuManager.execShellFresh(arrayOf("dumpsys", "package", pkg))
+        if (dump.isNullOrBlank()) {
+            Log.w(TAG, "No se pudo inspeccionar $pkg para restaurar Health Connect")
+            return
+        }
+
+        // Samsung Health declara los permisos como android.permission.health.*.
+        // Se obtiene la lista del dispositivo para que funcione con distintas
+        // versiones de Android/Health Connect sin mantener una lista obsoleta.
+        val permissions = Regex("android\\.permission\\.health\\.[A-Z0-9_]+")
+            .findAll(dump)
+            .map { it.value }
+            .distinct()
+            .filter { it.contains("READ_") || it.contains("WRITE_") }
+            .toList()
+
+        if (permissions.isEmpty()) {
+            Log.w(TAG, "$pkg no declara permisos android.permission.health.*")
+            return
+        }
+
+        var granted = 0
+        for (permission in permissions) {
+            val result = ShizukuManager.execShellFresh(
+                arrayOf("sh", "-c", "pm grant $pkg $permission 2>&1")
+            ).orEmpty()
+            // pm normalmente no imprime nada si tuvo éxito. Los errores se
+            // dejan en log para poder detectar restricciones de One UI.
+            if (result.isBlank()) {
+                granted++
+            } else {
+                Log.w(TAG, "Health Connect no permitió $permission: $result")
+            }
+        }
+        Log.i(TAG, "Health Connect: solicitados=${permissions.size}, enviados=$granted para $pkg")
+    }
+
     companion object {
+        private const val SAMSUNG_HEALTH_PACKAGE = "com.sec.android.app.shealth"
         private const val TAG = "Fit3TileService"
     }
 }
