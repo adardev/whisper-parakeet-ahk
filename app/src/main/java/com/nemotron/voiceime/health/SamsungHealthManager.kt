@@ -87,7 +87,32 @@ class SamsungHealthManager(context: Context) {
             .forEach { field ->
                 runCatching {
                     val sdkField = field.get(null) as Field<Any>
-                    point.getValue(sdkField)?.let { value -> out.put(field.name, value.toString()) }
+                    point.getValue(sdkField)?.let { value ->
+                        if (field.name == "SESSIONS" && value is List<*>) {
+                            val details = JSONArray()
+                            value.forEach { session ->
+                                if (session != null) {
+                                    val call: (String) -> Any? = { name ->
+                                        session.javaClass.getMethod(name).invoke(session)
+                                    }
+                                    details.put(JSONObject()
+                                        .put("startTime", call("getStartTime").toString())
+                                        .put("endTime", call("getEndTime").toString())
+                                        .put("durationSeconds", call("getDuration").toString())
+                                        .put("distanceMeters", call("getDistance"))
+                                        .put("calories", call("getCalories"))
+                                        .put("meanHeartRate", call("getMeanHeartRate"))
+                                        .put("maxHeartRate", call("getMaxHeartRate"))
+                                        .put("meanSpeed", call("getMeanSpeed"))
+                                        .put("maxSpeed", call("getMaxSpeed"))
+                                        .put("meanCadence", call("getMeanCadence"))
+                                        .put("meanPower", call("getMeanPower"))
+                                        .put("autoDetected", call("getAutoDetected")))
+                                }
+                            }
+                            out.put("sessionDetails", details)
+                        } else out.put(field.name, value.toString())
+                    }
                 }
             }
         return out
