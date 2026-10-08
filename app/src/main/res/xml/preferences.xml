@@ -51,10 +51,6 @@
             app:key="firebase_api_key"
             app:title="Firebase Web API key"
             app:summary="Required for anonymous Firebase Auth" />
-        <EditTextPreference
-            app:key="firebase_database_url"
-            app:title="Firebase Realtime Database URL"
-            app:summary="For example https://project-default-rtdb.firebaseio.com" />
         <Preference
             app:key="health_send_now"
             app:title="Send data now"

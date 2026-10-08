@@ -1,31 +1,24 @@
 # Health Connect → Firebase
 
 Nemotron reads Health Connect on the phone and writes one snapshot per day to
-Firebase Realtime Database:
+Firebase Firestore:
 
 ```text
-/health/{anonymousFirebaseUid}/{yyyy-mm-dd}
+/health/{anonymousFirebaseUid}/snapshots/{yyyy-mm-dd}
 ```
 
-Configure Firebase Auth with **Anonymous** sign-in enabled. Configure the app
-under Settings → Health Connect → Firebase with the Web API key and Realtime
-Database URL. The API key is not a server secret; the anonymous refresh token
-is stored in Android encrypted preferences.
+Firebase Authentication must have **Anonymous** sign-in enabled. The app uses
+the dedicated Firebase project (`chat-2bd24`) and stores the anonymous refresh token in Android
+encrypted preferences. The Web API key can be changed from Settings if needed.
 
-Use rules equivalent to:
+Add this match to the Firestore rules (the NAS uses Admin SDK, so it bypasses
+client rules):
 
-```json
-{
-  "rules": {
-    "health": {
-      "$uid": {
-        "$date": {
-          ".read": "auth != null && auth.uid == $uid",
-          ".write": "auth != null && auth.uid == $uid"
-        }
-      }
-    }
-  }
+```text
+match /health/{uid}/snapshots/{date} {
+  allow create, update: if request.auth != null && request.auth.uid == uid;
+  allow read: if false;
+  allow delete: if false;
 }
 ```
 

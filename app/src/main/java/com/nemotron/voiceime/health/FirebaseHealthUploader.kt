@@ -10,24 +10,18 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.json.JSONArray
 import org.json.JSONObject
-import java.net.URLEncoder
 import java.time.Duration
 
-/**
- * Uploads Health Connect snapshots to Firebase Realtime Database.
- *
- * The phone is the only component that reads Health Connect. Firebase is the
- * internet-accessible relay consumed by the NAS/server, so no LAN/VPN is
- * required. Anonymous Firebase Auth keeps the database scoped to this app
- * installation without putting a server credential in the APK.
- */
+/** Uploads Health Connect snapshots to the existing Firebase Firestore project. */
 class FirebaseHealthUploader(private val context: Context) {
 
     companion object {
         private const val TAG = "FirebaseHealthUploader"
         private const val AUTH_URL = "https://identitytoolkit.googleapis.com/v1/accounts:signUp"
         private const val TOKEN_URL = "https://securetoken.googleapis.com/v1/token"
+        private const val FIRESTORE = "https://firestore.googleapis.com/v1/projects"
     }
 
     private val client = OkHttpClient.Builder()
@@ -38,20 +32,21 @@ class FirebaseHealthUploader(private val context: Context) {
 
     suspend fun upload(date: String, snapshot: JSONObject) = withContext(Dispatchers.IO) {
         val apiKey = SecureStore.getFirebaseApiKey(context)
-        val databaseUrl = SecureStore.getFirebaseDatabaseUrl(context).trimEnd('/')
-        require(apiKey.isNotBlank()) { "Firebase API key no configurada" }
-        require(databaseUrl.startsWith("https://")) { "Firebase Database URL inválida" }
-
         val auth = authenticate(apiKey)
-        val pathDate = URLEncoder.encode(date, "UTF-8")
-        val url = "$databaseUrl/health/${auth.localId}/$pathDate.json?auth=${auth.idToken}"
+        val project = SecureStore.DEFAULT_FIREBASE_PROJECT_ID
+        val url = "$FIRESTORE/$project/databases/(default)/documents/" +
+            "health/${auth.localId}/snapshots/$date"
         val response = request(
             Request.Builder()
                 .url(url)
-                .put(snapshot.toString().toRequestBody("application/json".toMediaType()))
+                .put(toFirestoreDocument(snapshot).toString()
+                    .toRequestBody("application/json".toMediaType()))
+                .header("Authorization", "Bearer ${auth.idToken}")
                 .build())
-        if (!response.first) throw IllegalStateException("Firebase upload HTTP ${response.second}")
-        Log.d(TAG, "Health snapshot uploaded: $date")
+        if (!response.first) throw IllegalStateException(
+            "Firebase Firestore HTTP ${response.second}: ${response.third.take(300)}"
+        )
+        Log.d(TAG, "Health snapshot uploaded to Firestore: $date")
     }
 
     private fun authenticate(apiKey: String): Auth = synchronized(this) {
@@ -71,17 +66,41 @@ class FirebaseHealthUploader(private val context: Context) {
             }
             Log.w(TAG, "Firebase refresh token rechazado; se crea sesión anónima nueva")
         }
-
         val body = JSONObject().put("returnSecureToken", true)
             .toString().toRequestBody("application/json".toMediaType())
-        val r = request(
-            Request.Builder().url("$AUTH_URL?key=$apiKey").post(body).build()
-        )
+        val r = request(Request.Builder().url("$AUTH_URL?key=$apiKey").post(body).build())
         if (!r.first) throw IllegalStateException("Firebase Auth HTTP ${r.second}: ${r.third}")
         val json = JSONObject(r.third)
         SecureStore.setFirebaseRefreshToken(context, json.getString("refreshToken"))
         SecureStore.setFirebaseLocalId(context, json.getString("localId"))
         Auth(json.getString("idToken"), json.getString("localId"))
+    }
+
+    private fun toFirestoreDocument(json: JSONObject): JSONObject =
+        JSONObject().put("fields", firestoreFields(json))
+
+    private fun firestoreFields(json: JSONObject): JSONObject {
+        val fields = JSONObject()
+        val keys = json.keys()
+        while (keys.hasNext()) {
+            val key = keys.next()
+            fields.put(key, firestoreValue(json.opt(key)))
+        }
+        return fields
+    }
+
+    private fun firestoreValue(value: Any?): JSONObject = when (value) {
+        null, JSONObject.NULL -> JSONObject().put("nullValue", JSONObject.NULL)
+        is JSONObject -> JSONObject().put("mapValue", JSONObject().put("fields", firestoreFields(value)))
+        is JSONArray -> {
+            val values = JSONArray()
+            for (i in 0 until value.length()) values.put(firestoreValue(value.opt(i)))
+            JSONObject().put("arrayValue", JSONObject().put("values", values))
+        }
+        is Boolean -> JSONObject().put("booleanValue", value)
+        is Int, is Long -> JSONObject().put("integerValue", value.toString())
+        is Number -> JSONObject().put("doubleValue", value.toDouble())
+        else -> JSONObject().put("stringValue", value.toString())
     }
 
     private fun request(request: Request): Triple<Boolean, Int, String> {

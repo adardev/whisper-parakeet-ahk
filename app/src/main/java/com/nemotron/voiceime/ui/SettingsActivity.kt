@@ -37,12 +37,9 @@ class SettingsActivity : AppCompatActivity() {
             val ctx = context ?: return
             preferenceScreen.findPreference<androidx.preference.EditTextPreference>("firebase_api_key")
                 ?.text = SecureStore.getFirebaseApiKey(ctx)
-            preferenceScreen.findPreference<androidx.preference.EditTextPreference>("firebase_database_url")
-                ?.text = SecureStore.getFirebaseDatabaseUrl(ctx)
             preferenceScreen.findPreference<androidx.preference.Preference>("health_setup")
                 ?.setOnPreferenceClickListener {
-                    if (SecureStore.getFirebaseApiKey(ctx).isBlank() ||
-                        SecureStore.getFirebaseDatabaseUrl(ctx).isBlank()) {
+                    if (SecureStore.getFirebaseApiKey(ctx).isBlank()) {
                         android.widget.Toast.makeText(
                             ctx, "Configura Firebase API key y Database URL primero.",
                             android.widget.Toast.LENGTH_LONG
@@ -54,8 +51,7 @@ class SettingsActivity : AppCompatActivity() {
                 }
             preferenceScreen.findPreference<androidx.preference.Preference>("health_send_now")
                 ?.setOnPreferenceClickListener {
-                    if (SecureStore.getFirebaseApiKey(ctx).isBlank() ||
-                        SecureStore.getFirebaseDatabaseUrl(ctx).isBlank()) {
+                    if (SecureStore.getFirebaseApiKey(ctx).isBlank()) {
                         android.widget.Toast.makeText(
                             ctx, "Configura Firebase API key y Database URL primero.",
                             android.widget.Toast.LENGTH_LONG
@@ -135,9 +131,6 @@ class SettingsActivity : AppCompatActivity() {
                 }
                 "firebase_api_key" -> {
                     SecureStore.setFirebaseApiKey(ctx, prefs.getString(key, "").orEmpty())
-                }
-                "firebase_database_url" -> {
-                    SecureStore.setFirebaseDatabaseUrl(ctx, prefs.getString(key, "").orEmpty())
                 }
             }
         }
