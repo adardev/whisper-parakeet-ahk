@@ -25,11 +25,32 @@ class SamsungHealthManager(context: Context) {
     private val store = HealthDataService.getStore(context.applicationContext)
 
     // Son tipos que Samsung Health Data SDK expone como registros legibles.
-    // Keep the transfer bounded: these are the data needed by the exercise
-    // agent and are much faster than querying every Samsung Health type.
     private val readableTypes: List<DataType> = listOf(
         DataTypes.EXERCISE,
-        DataTypes.HEART_RATE
+        DataTypes.EXERCISE_LOCATION,
+        DataTypes.HEART_RATE,
+        DataTypes.STEPS,
+        DataTypes.ACTIVITY_SUMMARY,
+        DataTypes.FLOORS_CLIMBED,
+        DataTypes.SLEEP,
+        DataTypes.SLEEP_GOAL,
+        DataTypes.STEPS_GOAL,
+        DataTypes.ACTIVE_CALORIES_BURNED_GOAL,
+        DataTypes.ACTIVE_TIME_GOAL,
+        DataTypes.ENERGY_SCORE,
+        DataTypes.USER_PROFILE,
+        DataTypes.BLOOD_OXYGEN,
+        DataTypes.BLOOD_GLUCOSE,
+        DataTypes.BLOOD_PRESSURE,
+        DataTypes.BODY_COMPOSITION,
+        DataTypes.WATER_INTAKE,
+        DataTypes.WATER_INTAKE_GOAL,
+        DataTypes.NUTRITION,
+        DataTypes.NUTRITION_GOAL,
+        DataTypes.BODY_TEMPERATURE,
+        DataTypes.SKIN_TEMPERATURE,
+        DataTypes.SLEEP_APNEA,
+        DataTypes.IRREGULAR_HEART_RHYTHM_NOTIFICATION
     )
 
     private fun permissions(): Set<Permission> = readableTypes

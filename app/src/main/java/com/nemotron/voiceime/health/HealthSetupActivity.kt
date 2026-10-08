@@ -23,12 +23,13 @@ class HealthSetupActivity : ComponentActivity() {
             try {
                 val manager = SamsungHealthManager(this@HealthSetupActivity)
                 val granted = manager.grantedPermissions()
-                val requested = if (granted.isEmpty()) {
+                val allPermissions = manager.permissionSetForSetup()
+                val requested = if (granted.size < allPermissions.size) {
                     // requestPermissions devuelve los permisos aceptados por el usuario.
                     val store = com.samsung.android.sdk.health.data.HealthDataService
                         .getStore(applicationContext)
                     store.requestPermissions(
-                        manager.permissionSetForSetup(), this@HealthSetupActivity
+                        allPermissions, this@HealthSetupActivity
                     )
                 } else granted
                 Log.d(TAG, "Samsung Health permissions: $requested")
