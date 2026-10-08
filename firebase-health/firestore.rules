@@ -6,5 +6,11 @@ service cloud.firestore {
       allow create, update: if request.auth != null && request.auth.uid == uid;
       allow read, delete: if false;
     }
+
+    // Fitia is mirrored by the NAS with Firebase Admin credentials.
+    // Keep it server-only; the Admin SDK bypasses these client rules.
+    match /fitia_snapshots/{date} {
+      allow read, write: if false;
+    }
   }
 }
