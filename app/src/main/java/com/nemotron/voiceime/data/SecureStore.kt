@@ -33,8 +33,8 @@ object SecureStore {
     private const val KEY_FIREBASE_DATABASE_URL = "firebase_database_url"
     private const val KEY_FIREBASE_REFRESH_TOKEN = "firebase_refresh_token"
     private const val KEY_FIREBASE_LOCAL_ID = "firebase_local_id"
-    const val DEFAULT_FIREBASE_PROJECT_ID = "chat-2bd24"
-    const val DEFAULT_FIREBASE_API_KEY = "AIzaSyAPPIGECjz8M9WzS5qGPlX_BJ4wVjrcMxc"
+    const val DEFAULT_FIREBASE_PROJECT_ID = "samsung-health-adardev"
+    const val DEFAULT_FIREBASE_API_KEY = "AIzaSyC_c0Jydfst35-_h08DPBgb1JEiutNYSvM"
 
     private const val DEFAULT_MODEL = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
     private const val DEFAULT_LOCALE = "es_ES"

@@ -8,7 +8,7 @@ Firebase Firestore:
 ```
 
 Firebase Authentication must have **Anonymous** sign-in enabled. The app uses
-the dedicated Firebase project (`chat-2bd24`) and stores the anonymous refresh token in Android
+the dedicated Firebase project (`samsung-health-adardev`) and stores the anonymous refresh token in Android
 encrypted preferences. The Web API key can be changed from Settings if needed.
 
 Add this match to the Firestore rules (the NAS uses Admin SDK, so it bypasses
