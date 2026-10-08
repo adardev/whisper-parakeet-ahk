@@ -36,10 +36,11 @@ class FirebaseHealthUploader(private val context: Context) {
         val project = SecureStore.DEFAULT_FIREBASE_PROJECT_ID
         val url = "$FIRESTORE/$project/databases/(default)/documents/" +
             "health/${auth.localId}/snapshots/$date"
+        Log.d(TAG, "Firestore upload project=$project uid=${auth.localId}")
         val response = request(
             Request.Builder()
                 .url(url)
-                .put(toFirestoreDocument(snapshot).toString()
+                .patch(toFirestoreDocument(snapshot).toString()
                     .toRequestBody("application/json".toMediaType()))
                 .header("Authorization", "Bearer ${auth.idToken}")
                 .build())
@@ -105,6 +106,9 @@ class FirebaseHealthUploader(private val context: Context) {
 
     private fun request(request: Request): Triple<Boolean, Int, String> {
         client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) {
+                Log.e(TAG, "HTTP ${response.code} url=${request.url}")
+            }
             return Triple(response.isSuccessful, response.code, response.body?.string().orEmpty())
         }
     }

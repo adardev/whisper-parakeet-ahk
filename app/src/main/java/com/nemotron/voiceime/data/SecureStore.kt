@@ -35,6 +35,7 @@ object SecureStore {
     private const val KEY_FIREBASE_LOCAL_ID = "firebase_local_id"
     const val DEFAULT_FIREBASE_PROJECT_ID = "samsung-health-adardev"
     const val DEFAULT_FIREBASE_API_KEY = "AIzaSyC_c0Jydfst35-_h08DPBgb1JEiutNYSvM"
+    private const val LEGACY_FIREBASE_API_KEY = "AIzaSyAPPIGECjz8M9WzS5qGPlX_BJ4wVjrcMxc"
 
     private const val DEFAULT_MODEL = "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning"
     private const val DEFAULT_LOCALE = "es_ES"
@@ -114,8 +115,15 @@ object SecureStore {
         securePrefs(ctx).edit().putString(KEY_API_KEY, value.trim()).apply()
     }
 
-    fun getFirebaseApiKey(ctx: Context): String =
-        securePrefs(ctx).getString(KEY_FIREBASE_API_KEY, DEFAULT_FIREBASE_API_KEY).orEmpty()
+    fun getFirebaseApiKey(ctx: Context): String {
+        val stored = securePrefs(ctx).getString(KEY_FIREBASE_API_KEY, "").orEmpty()
+        // Migrate installs that still contain the old chat project key.
+        if (stored.isBlank() || stored == LEGACY_FIREBASE_API_KEY) {
+            securePrefs(ctx).edit().putString(KEY_FIREBASE_API_KEY, DEFAULT_FIREBASE_API_KEY).apply()
+            return DEFAULT_FIREBASE_API_KEY
+        }
+        return stored
+    }
 
     fun setFirebaseApiKey(ctx: Context, value: String) {
         securePrefs(ctx).edit().putString(KEY_FIREBASE_API_KEY, value.trim()).apply()

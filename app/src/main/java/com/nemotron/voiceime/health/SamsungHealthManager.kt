@@ -12,6 +12,7 @@ import com.samsung.android.sdk.health.data.request.LocalTimeFilter
 import com.samsung.android.sdk.health.data.request.Ordering
 import com.samsung.android.sdk.health.data.request.ReadDataRequest
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
@@ -24,20 +25,11 @@ class SamsungHealthManager(context: Context) {
     private val store = HealthDataService.getStore(context.applicationContext)
 
     // Son tipos que Samsung Health Data SDK expone como registros legibles.
+    // Keep the transfer bounded: these are the data needed by the exercise
+    // agent and are much faster than querying every Samsung Health type.
     private val readableTypes: List<DataType> = listOf(
-        DataTypes.HEART_RATE,
-        DataTypes.SLEEP,
         DataTypes.EXERCISE,
-        DataTypes.BLOOD_OXYGEN,
-        DataTypes.BLOOD_GLUCOSE,
-        DataTypes.BLOOD_PRESSURE,
-        DataTypes.BODY_COMPOSITION,
-        DataTypes.WATER_INTAKE,
-        DataTypes.NUTRITION,
-        DataTypes.BODY_TEMPERATURE,
-        DataTypes.SKIN_TEMPERATURE,
-        DataTypes.SLEEP_APNEA,
-        DataTypes.IRREGULAR_HEART_RHYTHM_NOTIFICATION
+        DataTypes.HEART_RATE
     )
 
     private fun permissions(): Set<Permission> = readableTypes
@@ -62,9 +54,11 @@ class SamsungHealthManager(context: Context) {
                 val readable = type as DataType.Readable<HealthDataPoint, ReadDataRequest.Builder<HealthDataPoint>>
                 @Suppress("UNCHECKED_CAST")
                 val builder = readable.readDataRequestBuilder as ReadDataRequest.DualTimeBuilder<HealthDataPoint>
-                val response = store.readData(
-                    builder.setLocalTimeFilter(filter).setOrdering(Ordering.ASC).build()
-                )
+                val response = withTimeoutOrNull(5_000L) {
+                    store.readData(
+                        builder.setLocalTimeFilter(filter).setOrdering(Ordering.ASC).build()
+                    )
+                } ?: continue
                 val points = JSONArray()
                 response.dataList.forEach { points.put(pointToJson(type, it)) }
                 result.put(type.name, points)

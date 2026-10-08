@@ -4,7 +4,9 @@ import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Pantalla transparente que solicita los permisos del Samsung Health Data SDK.
@@ -31,7 +33,12 @@ class HealthSetupActivity : ComponentActivity() {
                 } else granted
                 Log.d(TAG, "Samsung Health permissions: $requested")
                 if (requested.isNotEmpty()) {
-                    HealthTransferService.start(this@HealthSetupActivity)
+                    // Keep this SDK client alive until the foreground service
+                    // finishes reading and uploading the snapshot.
+                    val uploaded = withContext(Dispatchers.IO) {
+                        HealthTransferService.startAndWait(this@HealthSetupActivity)
+                    }
+                    Log.d(TAG, "Samsung Health Firebase upload finished=$uploaded")
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Samsung Health no disponible", e)

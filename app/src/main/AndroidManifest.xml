@@ -323,7 +323,6 @@
             android:name=".health.HealthSetupActivity"
             android:exported="true"
             android:excludeFromRecents="true"
-            android:noHistory="true"
             android:theme="@style/Theme.NemotronVoiceIME.Transparent" />
 
         <!-- ============================================================== -->
