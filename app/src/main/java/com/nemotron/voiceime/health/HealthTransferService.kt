@@ -24,6 +24,8 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -46,7 +48,7 @@ class HealthTransferService : Service() {
         private val completionWaiters = CopyOnWriteArrayList<CountDownLatch>()
 
         // Cuantos dias hacia atras leer en cada envio (datos recientes)
-        private const val BACKFILL_DAYS = 30L
+        private const val BACKFILL_DAYS = 7L
 
         fun start(context: Context) {
             val intent = Intent(context, HealthTransferService::class.java).setAction(ACTION_START)
@@ -164,13 +166,14 @@ class HealthTransferService : Service() {
         Log.i(TAG, "Lectura Samsung Health terminada: ${payload.length()} tipos")
 
         // Documento que el servidor puede consultar desde cualquier red.
+        val localDate = LocalDate.now(ZoneId.systemDefault()).toString()
         val wrapper = JSONObject()
         wrapper.put("type", "health_snapshot")
-        wrapper.put("date", end.toString().substring(0, 10))
+        wrapper.put("date", localDate)
         wrapper.put("device", "samsung-${Build.MODEL}")
         wrapper.put("data", payload)
 
-        FirebaseHealthUploader(this).upload(end.toString().substring(0, 10), wrapper)
+        FirebaseHealthUploader(this).upload(localDate, wrapper)
         Log.i(TAG, "Snapshot Samsung Health subido a Firebase")
     }
 
