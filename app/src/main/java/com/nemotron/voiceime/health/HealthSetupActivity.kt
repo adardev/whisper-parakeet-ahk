@@ -2,7 +2,6 @@ package com.nemotron.voiceime.health
 
 import android.os.Bundle
 import android.util.Log
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
@@ -33,11 +32,9 @@ class HealthSetupActivity : ComponentActivity() {
                 Log.d(TAG, "Samsung Health permissions: $requested")
                 if (requested.isNotEmpty()) {
                     HealthTransferService.start(this@HealthSetupActivity)
-                    Toast.makeText(this@HealthSetupActivity, "Samsung Health activado. Datos se suben a Firebase.", Toast.LENGTH_LONG).show()
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Samsung Health no disponible", e)
-                Toast.makeText(this@HealthSetupActivity, "Activa Samsung Health y su modo desarrollador.", Toast.LENGTH_LONG).show()
             } finally { finish() }
         }
     }
