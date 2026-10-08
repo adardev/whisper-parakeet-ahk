@@ -1,6 +1,6 @@
-# Health Connect → Firebase
+# Samsung Health Data SDK → Firebase
 
-Nemotron reads Health Connect on the phone and writes one snapshot per day to
+Nemotron reads Samsung Health through the official Samsung Health Data SDK and writes one snapshot per day to
 Firebase Firestore:
 
 ```text
@@ -22,5 +22,11 @@ match /health/{uid}/snapshots/{date} {
 }
 ```
 
+Before connecting, Samsung Health must be installed and its developer mode for
+Samsung Health Data SDK must be enabled. On the phone: Samsung Health → ⋮ →
+Settings → About Samsung Health → tap the version repeatedly → Developer mode
+(Samsung Health Data SDK) → enable data reading. Then use the app's Samsung
+Health setup action to approve the requested read permissions.
+
 The NAS/server should read the data with Firebase Admin credentials. The old
-LAN webhook and Syncthing health-file path are no longer used.
+Health Connect, LAN webhook, and Syncthing health-file paths are no longer used.

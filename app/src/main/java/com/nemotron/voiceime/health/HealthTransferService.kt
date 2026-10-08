@@ -26,7 +26,7 @@ import org.json.JSONObject
 import java.time.Instant
 
 /**
- * HealthTransferService: lee datos de Health Connect y los sube a Firebase.
+ * HealthTransferService: lee Samsung Health Data SDK y sube los datos a Firebase.
  *
  * Se activa con un broadcast receiver en BOOT_COMPLETED y se mantiene vivo
  * enviando datos cada INTERVAL_MINUTES minutos.
@@ -121,7 +121,7 @@ class HealthTransferService : Service() {
             PendingIntent.FLAG_IMMUTABLE
         )
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Health Connect")
+            .setContentTitle("Samsung Health")
             .setContentText("Subiendo datos de salud a Firebase...")
             .setSmallIcon(R.drawable.ic_fit3_tile)
             .setOngoing(false)
@@ -130,9 +130,10 @@ class HealthTransferService : Service() {
     }
 
     private suspend fun transferData() {
-        val manager = HealthConnectManager(this)
-        if (!manager.hasPermissions()) {
-            Log.w(TAG, "Sin permisos de Health Connect, no se transfiere")
+        val manager = SamsungHealthManager(this)
+        val granted = manager.grantedPermissions()
+        if (granted.isEmpty()) {
+            Log.w(TAG, "Sin permisos de Samsung Health Data SDK, no se transfiere")
             return
         }
         val end = Instant.now()

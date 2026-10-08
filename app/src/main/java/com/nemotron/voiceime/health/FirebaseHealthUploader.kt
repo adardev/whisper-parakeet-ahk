@@ -14,7 +14,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.time.Duration
 
-/** Uploads Health Connect snapshots to the existing Firebase Firestore project. */
+/** Uploads Samsung Health Data SDK snapshots to Firebase Firestore. */
 class FirebaseHealthUploader(private val context: Context) {
 
     companion object {

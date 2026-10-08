@@ -9,7 +9,7 @@ android {
 
     defaultConfig {
         applicationId = "com.nemotron.voiceime2"
-        minSdk = 26
+        minSdk = 29
         targetSdk = 35
         versionCode = 5
         versionName = "1.0"
@@ -45,6 +45,6 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp-sse:4.12.0")
     implementation("dev.rikka.shizuku:api:13.1.5")
     implementation("dev.rikka.shizuku:provider:13.1.5")
-    // Health Connect: leer todos los tipos de datos de salud
-    implementation("androidx.health.connect:connect-client:1.1.0")
+    // Samsung Health Data SDK v1.1.0 (AAR oficial en app/libs)
+    implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.aar"))))
 }

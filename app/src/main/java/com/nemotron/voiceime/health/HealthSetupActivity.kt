@@ -4,12 +4,11 @@ import android.os.Bundle
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.health.connect.client.HealthConnectClient
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 
 /**
- * HealthSetupActivity: pantalla transparente que solicita los permisos de
- * Health Connect (usando el contrato oficial) y arranca el servicio de transferencia.
+ * Pantalla transparente que solicita los permisos del Samsung Health Data SDK.
  */
 class HealthSetupActivity : ComponentActivity() {
 
@@ -17,34 +16,29 @@ class HealthSetupActivity : ComponentActivity() {
         private const val TAG = "HealthSetupActivity"
     }
 
-    private val healthClient by lazy { HealthConnectClient.getOrCreate(this, HealthConnectManager.PROVIDER_PACKAGE) }
-
-    private val permissionLauncher =
-        registerForActivityResult(
-            androidx.health.connect.client.PermissionController.createRequestPermissionResultContract(HealthConnectManager.PROVIDER_PACKAGE)
-        ) { granted: Set<String> ->
-            Log.d(TAG, "Permisos concedidos: $granted")
-            if (granted.isNotEmpty()) {
-                HealthTransferService.start(this)
-                Toast.makeText(this, "Health Connect activado. Datos se suben a Firebase.", Toast.LENGTH_LONG).show()
-            } else {
-                Toast.makeText(this, "Sin permisos de Health Connect.", Toast.LENGTH_LONG).show()
-            }
-            finish()
-        }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val granted = runCatching {
-            kotlinx.coroutines.runBlocking { healthClient.permissionController.getGrantedPermissions() }
-        }.getOrDefault(setOf())
-        val missing = HealthConnectManager.READ_PERMISSIONS - granted
-        if (missing.isEmpty()) {
-            Log.d(TAG, "Todos los permisos ya concedidos, iniciando servicio")
-            HealthTransferService.start(this)
-            finish()
-            return
+        lifecycleScope.launch {
+            try {
+                val manager = SamsungHealthManager(this@HealthSetupActivity)
+                val granted = manager.grantedPermissions()
+                val requested = if (granted.isEmpty()) {
+                    // requestPermissions devuelve los permisos aceptados por el usuario.
+                    val store = com.samsung.android.sdk.health.data.HealthDataService
+                        .getStore(applicationContext)
+                    store.requestPermissions(
+                        manager.permissionSetForSetup(), this@HealthSetupActivity
+                    )
+                } else granted
+                Log.d(TAG, "Samsung Health permissions: $requested")
+                if (requested.isNotEmpty()) {
+                    HealthTransferService.start(this@HealthSetupActivity)
+                    Toast.makeText(this@HealthSetupActivity, "Samsung Health activado. Datos se suben a Firebase.", Toast.LENGTH_LONG).show()
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Samsung Health no disponible", e)
+                Toast.makeText(this@HealthSetupActivity, "Activa Samsung Health y su modo desarrollador.", Toast.LENGTH_LONG).show()
+            } finally { finish() }
         }
-        permissionLauncher.launch(missing)
     }
 }

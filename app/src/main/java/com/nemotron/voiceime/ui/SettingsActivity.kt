@@ -59,7 +59,7 @@ class SettingsActivity : AppCompatActivity() {
                         return@setOnPreferenceClickListener true
                     }
                     com.nemotron.voiceime.health.HealthTransferService.start(ctx)
-                    android.widget.Toast.makeText(ctx, "Uploading health data to Firebase...", android.widget.Toast.LENGTH_LONG).show()
+                    android.widget.Toast.makeText(ctx, "Uploading Samsung Health data to Firebase...", android.widget.Toast.LENGTH_LONG).show()
                     true
                 }
         }

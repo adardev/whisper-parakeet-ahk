@@ -42,11 +42,11 @@
             app:summary="API key not configured" />
     </PreferenceCategory>
 
-    <PreferenceCategory app:title="Health Connect → Firebase">
+    <PreferenceCategory app:title="Samsung Health → Firebase">
         <Preference
             app:key="health_setup"
             app:title="Enable health transfer"
-            app:summary="Grant permissions and upload health data through the internet" />
+            app:summary="Grant Samsung Health permissions and upload through the internet" />
         <EditTextPreference
             app:key="firebase_api_key"
             app:title="Firebase Web API key"
@@ -54,7 +54,7 @@
         <Preference
             app:key="health_send_now"
             app:title="Send data now"
-            app:summary="Read and upload Health Connect data immediately" />
+            app:summary="Read and upload Samsung Health data immediately" />
     </PreferenceCategory>
 
 </PreferenceScreen>
