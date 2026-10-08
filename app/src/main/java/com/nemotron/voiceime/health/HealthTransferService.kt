@@ -24,6 +24,9 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import java.time.Instant
+import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 
 /**
  * HealthTransferService: lee Samsung Health Data SDK y sube los datos a Firebase.
@@ -39,6 +42,8 @@ class HealthTransferService : Service() {
         private const val NOTIF_ID = 4
         private const val ACTION_START = "com.nemotron.voiceime.health.START"
         private const val ACTION_STOP = "com.nemotron.voiceime.health.STOP"
+        private const val WAIT_TIMEOUT_SECONDS = 90L
+        private val completionWaiters = CopyOnWriteArrayList<CountDownLatch>()
 
         // Cuantos dias hacia atras leer en cada envio (datos recientes)
         private const val BACKFILL_DAYS = 30L
@@ -46,6 +51,18 @@ class HealthTransferService : Service() {
         fun start(context: Context) {
             val intent = Intent(context, HealthTransferService::class.java).setAction(ACTION_START)
             context.startForegroundService(intent)
+        }
+
+        /** Starts a transfer and waits until the Firebase upload has finished. */
+        fun startAndWait(context: Context): Boolean {
+            val latch = CountDownLatch(1)
+            completionWaiters += latch
+            return try {
+                start(context)
+                latch.await(WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            } finally {
+                completionWaiters -= latch
+            }
         }
 
         fun stop(context: Context) {
@@ -85,6 +102,7 @@ class HealthTransferService : Service() {
                         Log.e(TAG, "Error en transferencia: ${e.message}")
                     } finally {
                         transferLock.set(false)
+                        completionWaiters.forEach { it.countDown() }
                         stopSelf()
                     }
                 }

@@ -27,12 +27,14 @@ class Fit3TileService : AppFreezeTileService() {
         } catch (_: Throwable) {}
     }
 
-    /** Sincroniza mientras Samsung Health todavía está disponible. */
+    /** Sincroniza y espera la subida antes de congelar Samsung Health. */
     override fun onBeforeFreeze(): Long {
         try {
-            com.nemotron.voiceime.health.HealthTransferService.start(applicationContext)
+            val ok = com.nemotron.voiceime.health.HealthTransferService
+                .startAndWait(applicationContext)
+            Log.d(TAG, "Sync antes de congelar: terminado=$ok")
         } catch (_: Throwable) {}
-        return 8_000L
+        return 0L
     }
 
     /** Al descongelar: enciende Bluetooth si esta apagado y arranca sync de salud. */
