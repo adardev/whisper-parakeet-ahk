@@ -7,7 +7,7 @@ import com.nemotron.voiceime.R
  * Tile para congelar/descongelar Galaxy Fit3 Plugin + Samsung Health.
  * Al congelar también fuerza el cierre de Samsung Accessory Service
  * (dueño de la conexión GATT del Fit3) para desconectar SOLO el reloj,
- * sin apagar el Bluetooth.
+ * y apaga Bluetooth únicamente si no queda ningún otro dispositivo conectado.
  * Al descongelar enciende el Bluetooth si esta apagado (para reconectar el Fit3).
  */
 class Fit3TileService : AppFreezeTileService() {
@@ -21,10 +21,56 @@ class Fit3TileService : AppFreezeTileService() {
 
     override fun onAfterFreeze() {
         ShizukuManager.stopApp("com.samsung.accessory")
+        disableBluetoothIfNoConnectedDevices()
         // DND keep-alive solo corre con Fit3 activo: actualizar al congelar
         try {
             com.nemotron.voiceime.guard.DndKeepAliveService.update(applicationContext)
         } catch (_: Throwable) {}
+    }
+
+    /**
+     * Apaga Bluetooth únicamente cuando el cierre de Fit3 dejó cero conexiones.
+     * Si hay audífonos, coche, teclado u otro periférico conectado, se conserva.
+     */
+    private fun disableBluetoothIfNoConnectedDevices() {
+        if (!ShizukuManager.hasPermission()) return
+
+        // Samsung Health y Accessory pueden tardar unos segundos en soltar las
+        // conexiones GATT después de detener sus paquetes.
+        repeat(8) { attempt ->
+            Thread.sleep(if (attempt == 0) 1200L else 800L)
+            val dump = ShizukuManager.execShellFresh(
+                arrayOf("dumpsys", "bluetooth_manager"), timeoutMs = 8000L
+            )
+            if (dump.isNullOrBlank()) {
+                Log.w(TAG, "No se pudo comprobar conexiones Bluetooth; no se apaga")
+                return
+            }
+
+            val gattDevices = Regex("Connection<[^>]*device:\\s*([^,>]+)")
+                .findAll(dump)
+                .map { it.groupValues[1].trim().uppercase() }
+                .toSet()
+            // Los perfiles clásicos (audio, coche, teclado, etc.) aparecen
+            // como "Devices (N / max)" en dumpsys; el Fit3 normalmente aparece
+            // como conexión GATT.
+            val profileDevices = Regex("Devices \\((\\d+) /")
+                .findAll(dump)
+                .sumOf { it.groupValues[1].toIntOrNull() ?: 0 }
+
+            if (gattDevices.isEmpty() && profileDevices == 0) {
+                val state = ShizukuManager.execShellFresh(
+                    arrayOf("settings", "get", "global", "bluetooth_on")
+                )?.trim()
+                if (state == "1") {
+                    Log.i(TAG, "Fit3 era la única conexión; apagando Bluetooth")
+                    ShizukuManager.execShellFresh(arrayOf("cmd", "bluetooth_manager", "disable"))
+                }
+                return
+            }
+            Log.i(TAG, "Bluetooth sigue activo: gatt=${gattDevices.size}, perfiles=$profileDevices")
+        }
+        Log.i(TAG, "Se conserva Bluetooth: todavía hay conexiones activas")
     }
 
     /** Sincroniza y espera la subida antes de congelar Samsung Health. */
