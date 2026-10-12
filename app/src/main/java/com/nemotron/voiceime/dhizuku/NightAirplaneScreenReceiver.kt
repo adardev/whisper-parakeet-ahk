@@ -13,11 +13,28 @@ class NightAirplaneScreenReceiver : BroadcastReceiver() {
         if (intent.action == Intent.ACTION_AIRPLANE_MODE_CHANGED) {
             val airplaneModeOn = intent.getBooleanExtra("state", true)
             if (!airplaneModeOn && isMorningWakeWindow() && isScreenInteractive(context)) {
-                preferences(context).edit()
+                val prefs = preferences(context)
+                val firstWakeDetection = prefs.getInt(KEY_AWAKE_DAY, -1) != todayKey()
+                prefs.edit()
                     .putInt(KEY_AWAKE_DAY, todayKey())
                     .putBoolean(KEY_PENDING, false)
                     .apply()
-                Log.i(TAG, "despertar matutino detectado; no se reactivará el modo avión al bloquear")
+                if (firstWakeDetection) {
+                    Log.i(TAG, "despertar matutino detectado; restaurando ajustes diurnos de Fit3")
+                    val pendingResult = goAsync()
+                    Thread {
+                        try {
+                            val result = NightRoutineActions.run(context.applicationContext, night = false)
+                            if (!result.success) {
+                                Log.w(TAG, "no se pudieron restaurar los ajustes diurnos de Fit3: ${result.message}")
+                            }
+                        } finally {
+                            pendingResult.finish()
+                        }
+                    }.start()
+                } else {
+                    Log.d(TAG, "despertar ya registrado hoy; no se vuelve a contactar la Fit3")
+                }
             }
             return
         }

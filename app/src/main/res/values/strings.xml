@@ -41,9 +41,9 @@
     <string name="sidekey_status_unknown">Not configured yet (try double-pressing the side key)</string>
     <!-- Anti-addiction -->
     <string name="guard_title">Block Reels / Feed scrolling / Status</string>
-    <string name="guard_summary">Turns off screen and closes Instagram when opening Reels or after heavy Feed scrolling, and WhatsApp on Status. Uses accessibility service: no battery drain (no polling)</string>
+    <string name="guard_summary">Always enabled. Turns off screen and closes Instagram when opening Reels or after heavy Feed scrolling, and WhatsApp on Status. Uses accessibility events (no polling).</string>
     <string name="guard_a11y_label">Nemotron Guard</string>
     <string name="guard_a11y_desc">Turns off screen and closes Instagram when opening Reels or after heavy Feed scrolling, and WhatsApp on Status detection. Only active while viewing those apps, no battery usage.</string>
     <string name="dnd_lock_title">Lock screen when Do Not Disturb is enabled</string>
-    <string name="dnd_lock_summary">When DND mode is enabled, turns off and locks the screen automatically. Uses system broadcast: no battery drain (no polling)</string>
+    <string name="dnd_lock_summary">Always enabled. When Do Not Disturb is enabled, turns off and locks the screen automatically using the system broadcast (no polling).</string>
 </resources>

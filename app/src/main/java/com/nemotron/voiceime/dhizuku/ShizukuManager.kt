@@ -473,11 +473,13 @@ object ShizukuManager {
             .filter { it.isNotEmpty() && it != "null" }
             .toMutableSet()
         val changed = if (enabled) services.add(serviceComponent) else services.remove(serviceComponent)
-        if (!changed) return true
         val joined = services.joinToString(":")
-        val ok = execShell("settings put secure enabled_accessibility_services '$joined'")
+        val servicesOk = !changed || execShell("settings put secure enabled_accessibility_services '$joined'")
+        if (!servicesOk) return false
+        val accessibilityEnabled = enabled || services.isNotEmpty()
+        val flagOk = execShell("settings put secure accessibility_enabled ${if (accessibilityEnabled) 1 else 0}")
         Log.d(TAG, "a11y $serviceComponent → $enabled [$joined]")
-        return ok
+        return flagOk
     }
 
 }

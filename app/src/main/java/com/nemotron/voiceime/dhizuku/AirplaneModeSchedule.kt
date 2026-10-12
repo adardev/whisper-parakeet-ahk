@@ -8,10 +8,10 @@ import android.os.Build
 import android.util.Log
 import java.util.Calendar
 
-/** Programa el siguiente cambio diario: activar a las 23:00 y desactivar a las 08:00. */
+/** Programa el AOD de la Fit3: apagar a las 23:00 y encender a las 08:00. */
 object AirplaneModeSchedule {
     private const val TAG = "AirplaneSchedule"
-    const val ACTION_TOGGLE = "com.nemotron.voiceime.AIRPLANE_SCHEDULE_TOGGLE"
+    const val ACTION_TOGGLE = "com.nemotron.voiceime.FIT3_AOD_SCHEDULE_TOGGLE"
     const val EXTRA_ENABLE = "enable"
     private const val REQUEST_CODE = 2308
 
@@ -35,7 +35,7 @@ object AirplaneModeSchedule {
             } else {
                 alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next.first, actionIntent)
             }
-            Log.i(TAG, "próximo cambio: ${if (next.second) "activar" else "desactivar"} a ${Calendar.getInstance().apply { timeInMillis = next.first }.time}")
+            Log.i(TAG, "próximo cambio AOD: ${if (next.second) "apagar" else "encender"} a ${Calendar.getInstance().apply { timeInMillis = next.first }.time}")
         } catch (e: SecurityException) {
             Log.e(TAG, "no se pudo programar la alarma", e)
         }

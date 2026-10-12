@@ -289,11 +289,10 @@ object SecureStore {
 
     // ── Guard anti-adicción (bloquear Reels / scroll de Inicio / Status) ─
 
-    fun isAddictionGuardEnabled(ctx: Context): Boolean =
-        plainPrefs(ctx).getBoolean(KEY_GUARD_ENABLED, false)
+    fun isAddictionGuardEnabled(@Suppress("UNUSED_PARAMETER") ctx: Context): Boolean = true
 
-    fun setAddictionGuardEnabled(ctx: Context, enabled: Boolean) {
-        plainPrefs(ctx).edit().putBoolean(KEY_GUARD_ENABLED, enabled).apply()
+    fun setAddictionGuardEnabled(ctx: Context, @Suppress("UNUSED_PARAMETER") enabled: Boolean) {
+        plainPrefs(ctx).edit().putBoolean(KEY_GUARD_ENABLED, true).apply()
     }
 
     /** DNS enforcement is mandatory while this app is installed. */
@@ -307,11 +306,10 @@ object SecureStore {
 
     // ── Bloquear pantalla al activar No Molestar ─────────────────────────
 
-    fun isDndLockEnabled(ctx: Context): Boolean =
-        plainPrefs(ctx).getBoolean(KEY_DND_LOCK_ENABLED, false)
+    fun isDndLockEnabled(@Suppress("UNUSED_PARAMETER") ctx: Context): Boolean = true
 
-    fun setDndLockEnabled(ctx: Context, enabled: Boolean) {
-        plainPrefs(ctx).edit().putBoolean(KEY_DND_LOCK_ENABLED, enabled).apply()
+    fun setDndLockEnabled(ctx: Context, @Suppress("UNUSED_PARAMETER") enabled: Boolean) {
+        plainPrefs(ctx).edit().putBoolean(KEY_DND_LOCK_ENABLED, true).apply()
     }
 
     // ── Auto Android Auto (descongelar al conectar al coche, recongelar al quitar) ──

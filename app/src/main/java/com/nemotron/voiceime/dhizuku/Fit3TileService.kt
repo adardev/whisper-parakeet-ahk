@@ -32,7 +32,7 @@ class Fit3TileService : AppFreezeTileService() {
      * Apaga Bluetooth únicamente cuando el cierre de Fit3 dejó cero conexiones.
      * Si hay audífonos, coche, teclado u otro periférico conectado, se conserva.
      */
-    private fun disableBluetoothIfNoConnectedDevices() {
+    internal fun disableBluetoothIfNoConnectedDevices() {
         if (!ShizukuManager.hasPermission()) return
 
         // Samsung Health y Accessory pueden tardar unos segundos en soltar las

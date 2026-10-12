@@ -5,7 +5,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.preference.PreferenceFragmentCompat
 import com.nemotron.voiceime.R
 import com.nemotron.voiceime.data.SecureStore
-import com.nemotron.voiceime.guard.AddictionGuard
 
 class SettingsActivity : AppCompatActivity() {
 
@@ -28,9 +27,48 @@ class SettingsActivity : AppCompatActivity() {
     class SettingsFragment : PreferenceFragmentCompat() {
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
             setPreferencesFromResource(R.xml.preferences, rootKey)
-            syncGuardSwitch()
             updateStatusSummary()
             setupHealthPrefs()
+            setupAodTest()
+        }
+
+        private fun setupAodTest() {
+            val ctx = context ?: return
+            listOf(
+                "night_test_enable" to true,
+                "night_test_disable" to false
+            ).forEach { (key, enable) ->
+                preferenceScreen.findPreference<androidx.preference.Preference>(key)
+                    ?.setOnPreferenceClickListener { preference ->
+                    if (android.os.Build.VERSION.SDK_INT >= 31 &&
+                        androidx.core.content.ContextCompat.checkSelfPermission(ctx,
+                            android.Manifest.permission.BLUETOOTH_CONNECT) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                        requestPermissions(arrayOf(android.Manifest.permission.BLUETOOTH_CONNECT), 2308)
+                        return@setOnPreferenceClickListener true
+                    }
+                    if (!com.nemotron.voiceime.dhizuku.ShizukuManager.hasPermission()) {
+                        com.nemotron.voiceime.dhizuku.ShizukuManager.requestPermission()
+                        android.widget.Toast.makeText(
+                            ctx,
+                            "Concede el permiso de Shizuku y vuelve a pulsar.",
+                            android.widget.Toast.LENGTH_LONG
+                        ).show()
+                        return@setOnPreferenceClickListener true
+                    }
+
+                    val controls = listOf("night_test_enable", "night_test_disable").mapNotNull {
+                        preferenceScreen.findPreference<androidx.preference.Preference>(it)
+                    }
+                    controls.forEach { it.isEnabled = false }
+                    Thread {
+                        com.nemotron.voiceime.dhizuku.NightRoutineActions.run(ctx.applicationContext, enable)
+                        activity?.runOnUiThread {
+                            controls.forEach { it.isEnabled = true }
+                        }
+                    }.start()
+                    true
+                }
+            }
         }
 
         private fun setupHealthPrefs() {
@@ -64,22 +102,6 @@ class SettingsActivity : AppCompatActivity() {
                 }
         }
 
-        private fun syncGuardSwitch() {
-            val ctx = context ?: return
-            val enabled = SecureStore.isAddictionGuardEnabled(ctx)
-            preferenceScreen.sharedPreferences
-                ?.edit()?.putBoolean("addiction_guard_enabled", enabled)?.apply()
-            preferenceScreen.findPreference<androidx.preference.SwitchPreferenceCompat>(
-                "addiction_guard_enabled"
-            )?.isChecked = enabled
-            val dndLock = SecureStore.isDndLockEnabled(ctx)
-            preferenceScreen.sharedPreferences
-                ?.edit()?.putBoolean("dnd_lock_enabled", dndLock)?.apply()
-            preferenceScreen.findPreference<androidx.preference.SwitchPreferenceCompat>(
-                "dnd_lock_enabled"
-            )?.isChecked = dndLock
-        }
-
         override fun onResume() {
             super.onResume()
             updateStatusSummary()
@@ -98,37 +120,6 @@ class SettingsActivity : AppCompatActivity() {
             SecureStore.syncFromPrefs(ctx, prefs)
             when (key) {
                 "api_key" -> updateStatusSummary()
-                "addiction_guard_enabled" -> {
-                    val enabled = prefs.getBoolean("addiction_guard_enabled", false)
-                    SecureStore.setAddictionGuardEnabled(ctx, enabled)
-                    AddictionGuard.applyEnabled(ctx)
-                    com.nemotron.voiceime.guard.DndKeepAliveService.update(ctx)
-                    if (enabled) {
-                        android.widget.Toast.makeText(
-                            ctx,
-                            if (AddictionGuard.isA11yActive(ctx)) {
-                                "Guard active (no battery drain)"
-                            } else {
-                                "Grant access: Settings → Accessibility → Nemotron Guard"
-                            },
-                            android.widget.Toast.LENGTH_LONG
-                        ).show()
-                    }
-                }
-                "dnd_lock_enabled" -> {
-                    val enabled = prefs.getBoolean("dnd_lock_enabled", false)
-                    SecureStore.setDndLockEnabled(ctx, enabled)
-                    com.nemotron.voiceime.guard.DndKeepAliveService.update(ctx)
-                    android.widget.Toast.makeText(
-                        ctx,
-                    if (enabled) {
-                        "Screen will lock when DND is enabled"
-                    } else {
-                        "DND will no longer lock the screen"
-                    },
-                        android.widget.Toast.LENGTH_SHORT
-                    ).show()
-                }
                 "firebase_api_key" -> {
                     SecureStore.setFirebaseApiKey(ctx, prefs.getString(key, "").orEmpty())
                 }

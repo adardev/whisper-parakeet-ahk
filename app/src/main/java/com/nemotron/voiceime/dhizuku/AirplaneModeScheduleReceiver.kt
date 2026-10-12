@@ -13,16 +13,13 @@ class AirplaneModeScheduleReceiver : BroadcastReceiver() {
                 val pendingResult = goAsync()
                 Thread {
                     try {
-                        val current = ShizukuManager.isAirplaneModeOn()
-                        if (current == null) {
-                            Log.w(TAG, "no se pudo leer el modo avión; no se cambia")
-                        } else if (current == enable) {
-                            Log.i(TAG, "el modo avión ya está ${if (enable) "activado" else "desactivado"}; sin cambios")
-                        } else if (!ShizukuManager.setAirplaneMode(enable)) {
-                            Log.w(TAG, "Shizuku no pudo cambiar el modo avión")
-                        } else {
-                            Log.i(TAG, "modo avión ${if (enable) "activado" else "desactivado"} por horario")
+                        if (!enable) setAirplaneModeIfNeeded(false)
+                        if (!NightRoutineActions.run(context, enable).success) {
+                            Log.w(TAG, "no se pudo cambiar el AOD de la Fit3 en el límite programado")
                         }
+                        // The daily airplane-mode schedule stays an independent action.
+                        // The manual Fit3 test buttons only exercise the watch settings.
+                        if (enable) setAirplaneModeIfNeeded(true)
                     } finally {
                         AirplaneModeSchedule.scheduleNext(context)
                         pendingResult.finish()
@@ -38,5 +35,17 @@ class AirplaneModeScheduleReceiver : BroadcastReceiver() {
 
     private companion object {
         const val TAG = "AirplaneSchedule"
+
+        fun setAirplaneModeIfNeeded(enabled: Boolean) {
+            when (ShizukuManager.isAirplaneModeOn()) {
+                null -> Log.w(TAG, "no se pudo leer el modo avión")
+                enabled -> Unit
+                else -> {
+                    val changed = ShizukuManager.setAirplaneMode(enabled) &&
+                        ShizukuManager.isAirplaneModeOn() == enabled
+                    if (!changed) Log.w(TAG, "no se pudo cambiar el modo avión a $enabled")
+                }
+            }
+        }
     }
 }

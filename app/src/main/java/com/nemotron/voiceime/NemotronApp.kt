@@ -37,6 +37,8 @@ class NemotronApp : Application() {
         super.onCreate()
         ShizukuProvider.enableMultiProcessSupport(true)
         instance = this
+        SecureStore.setAddictionGuardEnabled(this, true)
+        SecureStore.setDndLockEnabled(this, true)
         com.nemotron.voiceime.dhizuku.AirplaneModeSchedule.scheduleNext(this)
 
         if (com.nemotron.voiceime.guard.AddictionGuard.isServiceNeeded(this)) {

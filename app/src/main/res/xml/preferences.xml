@@ -16,16 +16,14 @@
     </PreferenceCategory>
 
     <PreferenceCategory app:title="Anti-addiction">
-        <SwitchPreferenceCompat
+        <Preference
             app:key="addiction_guard_enabled"
             app:title="@string/guard_title"
-            app:summary="@string/guard_summary"
-            app:defaultValue="false" />
-        <SwitchPreferenceCompat
+            app:summary="@string/guard_summary" />
+        <Preference
             app:key="dnd_lock_enabled"
             app:title="@string/dnd_lock_title"
-            app:summary="@string/dnd_lock_summary"
-            app:defaultValue="false" />
+            app:summary="@string/dnd_lock_summary" />
     </PreferenceCategory>
 
     <PreferenceCategory app:title="Network">
@@ -33,6 +31,17 @@
             app:key="dns_enforcer_status"
             app:title="Private DNS protected"
             app:summary="Always active while Nemotron is installed: b1ed39.dns.nextdns.io" />
+    </PreferenceCategory>
+
+    <PreferenceCategory app:title="Night automation">
+        <Preference
+            app:key="night_test_enable"
+            app:title="Test night mode now"
+            app:summary="Apaga Always On Display y Levantar para activar en Fit3; verifica ambos cambios. Igual que a las 11 PM." />
+        <Preference
+            app:key="night_test_disable"
+            app:title="Test morning mode now"
+            app:summary="Enciende Always On Display y Levantar para activar en Fit3; verifica ambos cambios. Igual que a las 8 AM." />
     </PreferenceCategory>
 
     <PreferenceCategory app:title="Status">
