@@ -1,7 +1,8 @@
 # Fit3 AOD schedule
 
-At 23:00 Nemotron turns off Always On Display and Raise to wake on the paired
-Galaxy Fit3 over SAP/BLE; at 08:00 it turns both on. It reads back the full
+At 23:00 Nemotron turns off Always On Display and Touch to wake on the paired
+Galaxy Fit3 over SAP/BLE; at 08:00 it turns both on. Raise to wake is explicitly
+kept off in both states, including manual tests and temporary night pauses. It reads back the full
 settings reply twice, including fragmented replies, and a BLE write by itself
 is not counted as success. The manual night and morning test buttons call only
 these same display actions. They do not change Airplane mode.
@@ -14,7 +15,7 @@ it freezes the Fit3 tile again and turns Bluetooth off only if no other
 peripherals remain connected.
 
 During the night, manually disabling airplane mode with the screen on pauses
-the watch's night settings too: AOD and Raise to wake are enabled temporarily.
+the watch's night settings too: AOD and Touch to wake are enabled temporarily.
 The next screen-off sends both settings off again before restoring airplane
 mode, even if airplane mode was already enabled manually. Watch actions from
 these broadcasts run in order, so a quick lock cannot leave an older daytime
@@ -26,8 +27,9 @@ for the day: both watch settings remain enabled after locking the phone.
 The small codec uses protocol details inspected at commit
 `1ac39f063fe5d0bcae72c71acf40d40218752365` of
 [Fit3-App](https://github.com/yuriyurin/Fit3-App): service 11 (settings),
-message 6 / parameter 9 for AOD, and message 32 for the full settings readback.
-Only capability negotiation, these two settings messages, and SAP framing are
+message 6 / parameter 9 for AOD, parameter 10 for Raise to wake (always off),
+parameter 11 for Touch to wake, and message 32 for the full settings readback.
+Only capability negotiation, these three settings messages, and SAP framing are
 implemented here; there is no scan, persistent connection, reconnect loop, or
 periodic poll. Each BLE operation has a 30-second bound.
 

@@ -37,11 +37,11 @@
         <Preference
             app:key="night_test_enable"
             app:title="Test night mode now"
-            app:summary="Apaga Always On Display y Levantar para activar en Fit3; verifica ambos cambios. Igual que a las 11 PM." />
+            app:summary="Apaga Always On Display y Tocar para activar en Fit3; mantiene Levantar para activar apagado y verifica los tres ajustes. Igual que a las 11 PM." />
         <Preference
             app:key="night_test_disable"
             app:title="Test morning mode now"
-            app:summary="Enciende Always On Display y Levantar para activar en Fit3; verifica ambos cambios. Igual que a las 8 AM." />
+            app:summary="Enciende Always On Display y Tocar para activar en Fit3; mantiene Levantar para activar apagado y verifica los tres ajustes. Igual que a las 8 AM." />
     </PreferenceCategory>
 
     <PreferenceCategory app:title="Status">

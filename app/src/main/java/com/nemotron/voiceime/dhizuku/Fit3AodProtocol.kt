@@ -9,6 +9,7 @@ internal object Fit3AodProtocol {
     private const val FULL_SETTINGS_MESSAGE = 32
     private const val AOD_PARAMETER = 9
     private const val RAISE_TO_WAKE_PARAMETER = 10
+    private const val TOUCH_TO_WAKE_PARAMETER = 11
 
     fun setAod(enabled: Boolean) = byteArrayOf(
         DISPLAY_MESSAGE.toByte(), AOD_PARAMETER.toByte(), if (enabled) 1 else 0
@@ -16,6 +17,10 @@ internal object Fit3AodProtocol {
 
     fun setRaiseToWake(enabled: Boolean) = byteArrayOf(
         DISPLAY_MESSAGE.toByte(), RAISE_TO_WAKE_PARAMETER.toByte(), if (enabled) 1 else 0
+    )
+
+    fun setTouchToWake(enabled: Boolean) = byteArrayOf(
+        DISPLAY_MESSAGE.toByte(), TOUCH_TO_WAKE_PARAMETER.toByte(), if (enabled) 1 else 0
     )
 
     fun querySettings() = byteArrayOf(FULL_SETTINGS_MESSAGE.toByte())
@@ -117,7 +122,7 @@ internal object Fit3AodProtocol {
     }
 
     /** Full settings response: header 0x60, count, then parameter ID/value pairs. */
-    data class DisplayState(val aod: Boolean, val raiseToWake: Boolean?)
+    data class DisplayState(val aod: Boolean, val raiseToWake: Boolean?, val touchToWake: Boolean?)
 
     fun displayState(message: ByteArray): DisplayState? {
         if (message.size < 3 || message[0] != 0x60.toByte()) return null
@@ -126,6 +131,7 @@ internal object Fit3AodProtocol {
         var i = 2
         var aod: Boolean? = null
         var raiseToWake: Boolean? = null
+        var touchToWake: Boolean? = null
         repeat(count) {
             if (i + 1 >= message.size) return null
             val id = message[i++].toInt() and 255
@@ -135,14 +141,16 @@ internal object Fit3AodProtocol {
                 i += 2
                 if (id == AOD_PARAMETER) aod = value != 0
                 if (id == RAISE_TO_WAKE_PARAMETER) raiseToWake = value != 0
+                if (id == TOUCH_TO_WAKE_PARAMETER) touchToWake = value != 0
             } else {
                 if (i >= message.size) return null
                 val value = message[i++].toInt() and 255
                 if (id == AOD_PARAMETER) aod = value != 0
                 if (id == RAISE_TO_WAKE_PARAMETER) raiseToWake = value != 0
+                if (id == TOUCH_TO_WAKE_PARAMETER) touchToWake = value != 0
             }
         }
-        return aod?.let { DisplayState(it, raiseToWake) }
+        return aod?.let { DisplayState(it, raiseToWake, touchToWake) }
     }
 
     private fun checksum(bytes: ByteArray): ByteArray {

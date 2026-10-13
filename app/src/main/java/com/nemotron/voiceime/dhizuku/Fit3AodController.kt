@@ -38,7 +38,7 @@ object Fit3AodController {
         return try {
             Session(context.applicationContext, devices.single()).use { session ->
                 session.setAod(enabled)
-                Result(true, "Fit3 confirmó AOD ${if (enabled) "activado" else "desactivado"}.")
+                Result(true, "Fit3 confirmó AOD y Tocar para activar ${if (enabled) "activados" else "desactivados"}; Levantar para activar apagado.")
             }
         } catch (e: Exception) {
             Log.w(TAG, "AOD $enabled no confirmado: ${e.message}")
@@ -129,14 +129,15 @@ object Fit3AodController {
             }
 
             write(Fit3AodProtocol.frame(Fit3AodProtocol.setAod(enabled), sapMtu))
-            write(Fit3AodProtocol.frame(Fit3AodProtocol.setRaiseToWake(enabled), sapMtu))
+            write(Fit3AodProtocol.frame(Fit3AodProtocol.setRaiseToWake(false), sapMtu))
+            write(Fit3AodProtocol.frame(Fit3AodProtocol.setTouchToWake(enabled), sapMtu))
             // A successful GATT write alone does not mean the setting changed.
             // Read the state twice, including a delayed read to catch an immediate undo.
             Thread.sleep(250)
             queryAndConfirm(enabled)
             Thread.sleep(1_000)
             queryAndConfirm(enabled)
-            Log.i(TAG, "VERIFIED AOD=$enabled RAISE_TO_WAKE=$enabled, dos lecturas de la pulsera")
+            Log.i(TAG, "VERIFIED AOD=$enabled RAISE_TO_WAKE=false TOUCH_TO_WAKE=$enabled, dos lecturas de la pulsera")
         }
 
         private fun queryAndConfirm(enabled: Boolean) {
@@ -147,9 +148,10 @@ object Fit3AodController {
                 val packet = notification(readDeadline)
                 val message = reassembler.push(packet) ?: continue
                 val state = Fit3AodProtocol.displayState(message) ?: continue
-                Log.i(TAG, "READ AOD=${state.aod} RAISE_TO_WAKE=${state.raiseToWake}")
+                Log.i(TAG, "READ AOD=${state.aod} RAISE_TO_WAKE=${state.raiseToWake} TOUCH_TO_WAKE=${state.touchToWake}")
                 if (state.aod != enabled) throw IOException("la pulsera devolvió AOD=${state.aod}")
-                if (state.raiseToWake != enabled) throw IOException("la pulsera devolvió Levantar para activar=${state.raiseToWake}")
+                if (state.raiseToWake != false) throw IOException("la pulsera devolvió Levantar para activar=${state.raiseToWake}")
+                if (state.touchToWake != enabled) throw IOException("la pulsera devolvió Tocar para activar=${state.touchToWake}")
                 return
             }
         }
