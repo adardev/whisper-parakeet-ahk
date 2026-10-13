@@ -6,6 +6,7 @@ import android.content.Intent
 import android.os.PowerManager
 import android.util.Log
 import java.util.Calendar
+import java.util.concurrent.Executors
 
 /** Reintenta el modo avión al bloquear la pantalla durante el horario nocturno. */
 class NightAirplaneScreenReceiver : BroadcastReceiver() {
@@ -18,11 +19,12 @@ class NightAirplaneScreenReceiver : BroadcastReceiver() {
                 prefs.edit()
                     .putInt(KEY_AWAKE_DAY, todayKey())
                     .putBoolean(KEY_PENDING, false)
+                    .putBoolean(KEY_TEMPORARY_FIT3, false)
                     .apply()
                 if (firstWakeDetection) {
                     Log.i(TAG, "despertar matutino detectado; restaurando ajustes diurnos de Fit3")
                     val pendingResult = goAsync()
-                    Thread {
+                    fit3Actions.execute {
                         try {
                             val result = NightRoutineActions.run(context.applicationContext, night = false)
                             if (!result.success) {
@@ -31,9 +33,29 @@ class NightAirplaneScreenReceiver : BroadcastReceiver() {
                         } finally {
                             pendingResult.finish()
                         }
-                    }.start()
+                    }
                 } else {
                     Log.d(TAG, "despertar ya registrado hoy; no se vuelve a contactar la Fit3")
+                }
+            } else if (!airplaneModeOn && isNightWindow() && isScreenInteractive(context)) {
+                // Outside the morning wake window this is only a pause until the next lock.
+                preferences(context).edit()
+                    .putBoolean(KEY_TEMPORARY_FIT3, true)
+                    .putBoolean(KEY_PENDING, false)
+                    .apply()
+                val pendingResult = goAsync()
+                fit3Actions.execute {
+                    try {
+                        // A quick lock may have arrived before this queued action starts.
+                        if (isNightWindow() && isScreenInteractive(context)) {
+                            // An older queued lock may have just cleared the flag.
+                            preferences(context).edit().putBoolean(KEY_TEMPORARY_FIT3, true).apply()
+                            val result = NightRoutineActions.run(context.applicationContext, night = false)
+                            if (!result.success) Log.w(TAG, "pausa temporal de Fit3 no confirmada: ${result.message}")
+                        }
+                    } finally {
+                        pendingResult.finish()
+                    }
                 }
             }
             return
@@ -51,16 +73,16 @@ class NightAirplaneScreenReceiver : BroadcastReceiver() {
 
         preferences(context).edit().putBoolean(KEY_PENDING, true).apply()
         val pendingResult = goAsync()
-        Thread {
+        fit3Actions.execute {
             try { applyPending(context, screenMustRemainOff = false) }
             finally { pendingResult.finish() }
-        }.start()
+        }
     }
 
     /** Reintenta solo cuando Shizuku vuelve, sin crear alarmas ni bucles de sondeo. */
     fun onShizukuAvailable(context: Context) {
         if (!preferences(context).getBoolean(KEY_PENDING, false)) return
-        Thread { applyPending(context, screenMustRemainOff = true) }.start()
+        fit3Actions.execute { applyPending(context, screenMustRemainOff = true) }
     }
 
     private fun applyPending(context: Context, screenMustRemainOff: Boolean) {
@@ -82,14 +104,29 @@ class NightAirplaneScreenReceiver : BroadcastReceiver() {
             }
         }
 
+        // Send watch settings before enabling airplane mode. Also restore them if airplane
+        // mode was already re-enabled manually; its state alone does not confirm Fit3 state.
+        var fit3NightConfirmed = true
+        if (prefs.getBoolean(KEY_TEMPORARY_FIT3, false)) {
+            val result = NightRoutineActions.run(context.applicationContext, night = true)
+            fit3NightConfirmed = result.success
+            if (result.success && prefs.getBoolean(KEY_PENDING, false)) {
+                prefs.edit().putBoolean(KEY_TEMPORARY_FIT3, false).apply()
+            } else if (!result.success) {
+                Log.w(TAG, "reactivación nocturna de Fit3 pendiente: ${result.message}")
+            }
+        }
+        // Screen-on or another manual pause may have superseded this lock while BLE ran.
+        if (!prefs.getBoolean(KEY_PENDING, false)) return
+
         when (ShizukuManager.isAirplaneModeOn()) {
             null -> Log.w(TAG, "bloqueo nocturno pendiente: Shizuku aún no permite consultar el modo avión")
             true -> {
-                prefs.edit().putBoolean(KEY_PENDING, false).apply()
+                if (fit3NightConfirmed) prefs.edit().putBoolean(KEY_PENDING, false).apply()
                 Log.d(TAG, "bloqueo nocturno: modo avión ya activo")
             }
             false -> if (ShizukuManager.setAirplaneMode(true)) {
-                prefs.edit().putBoolean(KEY_PENDING, false).apply()
+                if (fit3NightConfirmed) prefs.edit().putBoolean(KEY_PENDING, false).apply()
                 Log.i(TAG, "bloqueo nocturno: modo avión activado")
             } else {
                 Log.w(TAG, "bloqueo nocturno sigue pendiente; no se pudo activar")
@@ -128,6 +165,9 @@ class NightAirplaneScreenReceiver : BroadcastReceiver() {
         const val PREFS = "airplane_screen_off"
         const val KEY_PENDING = "pending_night_activation"
         const val KEY_AWAKE_DAY = "awake_day"
+        const val KEY_TEMPORARY_FIT3 = "temporary_fit3_day_settings"
         const val MORNING_WAKE_HOUR = 5
+        // Keep temporary restore and the following lock action in broadcast order.
+        val fit3Actions = Executors.newSingleThreadExecutor { task -> Thread(task, "NightFit3Actions") }
     }
 }

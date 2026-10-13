@@ -13,6 +13,16 @@ turns Bluetooth on if needed. After sending the settings at either boundary,
 it freezes the Fit3 tile again and turns Bluetooth off only if no other
 peripherals remain connected.
 
+During the night, manually disabling airplane mode with the screen on pauses
+the watch's night settings too: AOD and Raise to wake are enabled temporarily.
+The next screen-off sends both settings off again before restoring airplane
+mode, even if airplane mode was already enabled manually. Watch actions from
+these broadcasts run in order, so a quick lock cannot leave an older daytime
+request running after the night request. Failed night restoration remains
+pending for the existing Shizuku-available retry, without polling.
+Between 05:00 and 08:00, disabling airplane mode still means the user is awake
+for the day: both watch settings remain enabled after locking the phone.
+
 The small codec uses protocol details inspected at commit
 `1ac39f063fe5d0bcae72c71acf40d40218752365` of
 [Fit3-App](https://github.com/yuriyurin/Fit3-App): service 11 (settings),
