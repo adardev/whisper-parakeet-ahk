@@ -13,6 +13,7 @@ import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.nemotron.voiceime.R
+import com.samsung.android.sdk.health.data.request.DataTypes
 import com.nemotron.voiceime.ui.MainActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -26,15 +27,13 @@ import org.json.JSONObject
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
-import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
 /**
  * HealthTransferService: lee Samsung Health Data SDK y sube los datos a Firebase.
  *
- * Se activa con un broadcast receiver en BOOT_COMPLETED y se mantiene vivo
- * enviando datos cada INTERVAL_MINUTES minutos.
+ * Se inicia por solicitud del tile Fit3 o desde Ajustes, envía una vez y se detiene.
  */
 class HealthTransferService : Service() {
 
@@ -44,8 +43,24 @@ class HealthTransferService : Service() {
         private const val NOTIF_ID = 4
         private const val ACTION_START = "com.nemotron.voiceime.health.START"
         private const val ACTION_STOP = "com.nemotron.voiceime.health.STOP"
-        private const val WAIT_TIMEOUT_SECONDS = 90L
-        private val completionWaiters = CopyOnWriteArrayList<CountDownLatch>()
+        // Samsung Health can spend several seconds timing out each optional
+        // data stream before returning the required exercise records. Keep
+        // the tile active until that read and its Firestore retries finish.
+        private const val WAIT_TIMEOUT_SECONDS = 240L
+        private class TransferWaiter {
+            val latch = CountDownLatch(1)
+            @Volatile var succeeded = false
+                private set
+
+            fun complete(success: Boolean) {
+                succeeded = success
+                latch.countDown()
+            }
+        }
+
+        private val transferStateLock = Any()
+        private var transferActive = false
+        private val completionWaiters = mutableListOf<TransferWaiter>()
 
         // Cuantos dias hacia atras leer en cada envio (datos recientes)
         // Peso/composición corporal puede tener el último registro de hace
@@ -59,13 +74,13 @@ class HealthTransferService : Service() {
 
         /** Starts a transfer and waits until the Firebase upload has finished. */
         fun startAndWait(context: Context): Boolean {
-            val latch = CountDownLatch(1)
-            completionWaiters += latch
+            val waiter = TransferWaiter()
+            synchronized(transferStateLock) { completionWaiters += waiter }
             return try {
                 start(context)
-                latch.await(WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                waiter.latch.await(WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS) && waiter.succeeded
             } finally {
-                completionWaiters -= latch
+                synchronized(transferStateLock) { completionWaiters -= waiter }
             }
         }
 
@@ -78,11 +93,12 @@ class HealthTransferService : Service() {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var transferJob: Job? = null
-    private val transferLock = java.util.concurrent.atomic.AtomicBoolean(false)
+    @Volatile private var latestStartId = 0
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        synchronized(transferStateLock) { latestStartId = startId }
         when (intent?.action) {
             ACTION_STOP -> {
                 stopForeground(STOP_FOREGROUND_REMOVE)
@@ -94,20 +110,38 @@ class HealthTransferService : Service() {
                 // Transferir UNA vez y auto-detener el servicio.
                 // Asi NO queda corriendo en background (ahorro de bateria):
                 // solo existe durante la transferencia.
-                if (!transferLock.compareAndSet(false, true)) {
-                    stopSelf()
+                val shouldStartTransfer = synchronized(transferStateLock) {
+                    if (transferActive) false else {
+                        transferActive = true
+                        true
+                    }
+                }
+                if (!shouldStartTransfer) {
+                    // The Fit3 tile starts a transfer when it is enabled and
+                    // calls startAndWait() again before freezing Samsung
+                    // Health. Keep the first transfer alive; its completion
+                    // will release every waiter. Stopping here cancels the
+                    // in-flight coroutine and loses the snapshot.
+                    Log.i(TAG, "Transferencia ya activa; se espera la existente")
                     return START_NOT_STICKY
                 }
                 transferJob?.cancel()
                 transferJob = serviceScope.launch {
+                    var succeeded = false
                     try {
                         transferData()
+                        succeeded = true
                     } catch (e: Exception) {
                         Log.e(TAG, "Error en transferencia: ${e.message}")
                     } finally {
-                        transferLock.set(false)
-                        completionWaiters.forEach { it.countDown() }
-                        stopSelf()
+                        val finished = synchronized(transferStateLock) {
+                            transferActive = false
+                            val waiters = completionWaiters.toList()
+                            completionWaiters.clear()
+                            waiters to latestStartId
+                        }
+                        finished.first.forEach { it.complete(succeeded) }
+                        stopSelfResult(finished.second)
                     }
                 }
             }
@@ -154,9 +188,9 @@ class HealthTransferService : Service() {
     private suspend fun transferData() {
         val manager = SamsungHealthManager(this)
         val granted = manager.grantedPermissions()
+        Log.i(TAG, "Permisos Samsung Health Data SDK concedidos=${granted.size}/${manager.permissionSetForSetup().size}: $granted")
         if (granted.isEmpty()) {
-            Log.w(TAG, "Sin permisos de Samsung Health Data SDK, no se transfiere")
-            return
+            throw IllegalStateException("Sin permisos de Samsung Health Data SDK")
         }
         val end = Instant.now()
         // El tile transfiere datos recientes. Leer toda la historia aquí hace
@@ -166,6 +200,9 @@ class HealthTransferService : Service() {
         Log.i(TAG, "Leyendo Samsung Health: $start -> $end")
         val payload = manager.readAllData(start, end)
         Log.i(TAG, "Lectura Samsung Health terminada: ${payload.length()} tipos")
+        if (!payload.has(DataTypes.EXERCISE.name)) {
+            throw IllegalStateException("El snapshot no contiene datos de ejercicio")
+        }
 
         // Documento que el servidor puede consultar desde cualquier red.
         val localDate = LocalDate.now(ZoneId.systemDefault()).toString()

@@ -7,6 +7,7 @@ import android.os.Looper
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import android.util.Log
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Tile de Quick Settings: freeze/unfreeze toggle.
@@ -22,6 +23,7 @@ abstract class AppFreezeTileService : TileService() {
     open val targetPackages: List<String> get() = listOf(targetPackage)
 
     private val handler = Handler(Looper.getMainLooper())
+    private val clickInProgress = AtomicBoolean(false)
 
     override fun onStartListening() {
         super.onStartListening()
@@ -41,28 +43,45 @@ abstract class AppFreezeTileService : TileService() {
             Log.w(TAG, "Shizuku permission not granted")
             return
         }
+        if (!clickInProgress.compareAndSet(false, true)) {
+            Log.w(TAG, "Ignorado toque duplicado mientras $tileLabel sigue procesando")
+            return
+        }
 
         Thread {
-            val disabled = try {
-                ShizukuManager.stillDisabled(targetPackages)
-            } catch (_: Throwable) { emptySet<String>() }
-            Log.d(TAG, "Currently frozen: $disabled")
-            val anyFrozen = disabled.isNotEmpty()
-            if (anyFrozen) {
-                for (pkg in targetPackages) ShizukuManager.unhideApp(pkg)
-                onAfterUnfreeze()
-            } else {
-                // Sincronizar antes de congelar el proveedor que necesita el
-                // hook (p. ej. Samsung Health).
-                val beforeFreezeDelayMs = try { onBeforeFreeze() } catch (_: Throwable) { 0L }
-                if (beforeFreezeDelayMs > 0) Thread.sleep(beforeFreezeDelayMs)
-                for (pkg in targetPackages) {
-                    ShizukuManager.hideApp(pkg)
-                    ShizukuManager.stopApp(pkg)
+            try {
+                val disabled = ShizukuManager.stillDisabled(targetPackages)
+                Log.d(TAG, "Currently frozen: $disabled")
+                val anyFrozen = disabled.isNotEmpty()
+                if (anyFrozen) {
+                    for (pkg in targetPackages) ShizukuManager.unhideApp(pkg)
+                    onAfterUnfreeze()
+                } else {
+                    // Sincronizar antes de congelar el proveedor que necesita el
+                    // hook (p. ej. Samsung Health).
+                    val beforeFreezeDelayMs = try {
+                        onBeforeFreeze()
+                    } catch (t: Throwable) {
+                        Log.e(TAG, "Falló la acción previa a congelar $tileLabel", t)
+                        -1L
+                    }
+                    if (beforeFreezeDelayMs < 0) {
+                        Log.w(TAG, "$tileLabel permanece activo porque no terminó la acción previa")
+                        return@Thread
+                    }
+                    if (beforeFreezeDelayMs > 0) Thread.sleep(beforeFreezeDelayMs)
+                    for (pkg in targetPackages) {
+                        ShizukuManager.hideApp(pkg)
+                        ShizukuManager.stopApp(pkg)
+                    }
+                    onAfterFreeze()
                 }
-                onAfterFreeze()
+            } catch (t: Throwable) {
+                Log.e(TAG, "Falló el cambio de estado de $tileLabel", t)
+            } finally {
+                clickInProgress.set(false)
+                handler.post { try { updateTileState() } catch (_: Throwable) {} }
             }
-            handler.post { try { updateTileState() } catch (_: Throwable) {} }
         }.start()
     }
 

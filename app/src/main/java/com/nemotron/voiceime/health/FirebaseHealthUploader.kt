@@ -3,6 +3,7 @@ package com.nemotron.voiceime.health
 import android.content.Context
 import android.util.Log
 import com.nemotron.voiceime.data.SecureStore
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.FormBody
@@ -37,17 +38,29 @@ class FirebaseHealthUploader(private val context: Context) {
         val url = "$FIRESTORE/$project/databases/(default)/documents/" +
             "health/${auth.localId}/snapshots/$date"
         Log.d(TAG, "Firestore upload project=$project uid=${auth.localId}")
-        val response = request(
-            Request.Builder()
-                .url(url)
-                .patch(toFirestoreDocument(snapshot).toString()
-                    .toRequestBody("application/json".toMediaType()))
-                .header("Authorization", "Bearer ${auth.idToken}")
-                .build())
-        if (!response.first) throw IllegalStateException(
-            "Firebase Firestore HTTP ${response.second}: ${response.third.take(300)}"
-        )
-        Log.d(TAG, "Health snapshot uploaded to Firestore: $date")
+        val payload = toFirestoreDocument(snapshot).toString()
+        var backoffMs = 1_000L
+        val maxAttempts = 6
+        for (attempt in 1..maxAttempts) {
+            val response = request(
+                Request.Builder()
+                    .url(url)
+                    .patch(payload.toRequestBody("application/json".toMediaType()))
+                    .header("Authorization", "Bearer ${auth.idToken}")
+                    .build())
+            if (response.first) {
+                Log.d(TAG, "Health snapshot uploaded to Firestore: $date")
+                return@withContext
+            }
+
+            val retryable = response.second == 429 || response.second in 500..599
+            if (!retryable || attempt == maxAttempts) throw IllegalStateException(
+                "Firebase Firestore HTTP ${response.second}: ${response.third.take(300)}"
+            )
+            Log.w(TAG, "Firestore HTTP ${response.second}; reintento $attempt/$maxAttempts en ${backoffMs}ms")
+            delay(backoffMs)
+            backoffMs = (backoffMs * 2).coerceAtMost(30_000L)
+        }
     }
 
     private fun authenticate(apiKey: String): Auth = synchronized(this) {

@@ -11,6 +11,7 @@ import com.samsung.android.sdk.health.data.request.DataTypes
 import com.samsung.android.sdk.health.data.request.LocalTimeFilter
 import com.samsung.android.sdk.health.data.request.Ordering
 import com.samsung.android.sdk.health.data.request.ReadDataRequest
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.withContext
@@ -82,13 +83,24 @@ class SamsungHealthManager(context: Context) {
                 val readable = type as DataType.Readable<HealthDataPoint, ReadDataRequest.Builder<HealthDataPoint>>
                 @Suppress("UNCHECKED_CAST")
                 val builder = readable.readDataRequestBuilder as ReadDataRequest.DualTimeBuilder<HealthDataPoint>
-                val response = withTimeoutOrNull(
-                    if (type == DataTypes.BODY_COMPOSITION) 15_000L else 5_000L
-                ) {
+                val timeoutMs = when (type) {
+                    DataTypes.EXERCISE -> 30_000L
+                    DataTypes.BODY_COMPOSITION -> 15_000L
+                    else -> 5_000L
+                }
+                val response = withTimeoutOrNull(timeoutMs) {
                     store.readData(
                         builder.setLocalTimeFilter(typeFilter).setOrdering(Ordering.ASC).build()
                     )
-                } ?: continue
+                }
+                if (response == null) {
+                    android.util.Log.w("SamsungHealthManager",
+                        "Tiempo agotado leyendo ${type.name} tras ${timeoutMs}ms; se omite del snapshot")
+                    if (type == DataTypes.EXERCISE) {
+                        throw IllegalStateException("Samsung Health no respondió a la consulta de ejercicio")
+                    }
+                    continue
+                }
                 val points = JSONArray()
                 // Puede haber años de mediciones de peso. El agente necesita
                 // el valor más reciente y Firestore limita cada documento a
@@ -98,11 +110,15 @@ class SamsungHealthManager(context: Context) {
                 } else response.dataList
                 dataPoints.forEach { points.put(pointToJson(type, it)) }
                 result.put(type.name, points)
+                if (type == DataTypes.EXERCISE) {
+                    android.util.Log.i("SamsungHealthManager", "Ejercicio leído: ${points.length()} registros")
+                }
             } catch (e: Exception) {
                 // Unavailable/ungranted types do not prevent the rest of the snapshot,
                 // pero dejamos el motivo en log para no ocultar BODY_COMPOSITION.
                 android.util.Log.w("SamsungHealthManager",
                     "No se pudo leer ${type.name}: ${e.javaClass.simpleName}: ${e.message}")
+                if (e is CancellationException || type == DataTypes.EXERCISE) throw e
             }
         }
         result
