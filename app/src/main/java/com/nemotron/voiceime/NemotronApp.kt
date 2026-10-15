@@ -1,6 +1,5 @@
 package com.nemotron.voiceime
 
-import android.app.Application
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -24,7 +23,7 @@ import com.nemotron.voiceime.ui.AutoFreezeScheduler
 import rikka.shizuku.Shizuku
 import rikka.shizuku.ShizukuProvider
 
-class NemotronApp : Application() {
+class NemotronApp : com.samsung.android.honeyboard.app.HoneyBoardApplication() {
 
     private val dndReceiver = DndLockReceiver()
     private var dndRegistered = false

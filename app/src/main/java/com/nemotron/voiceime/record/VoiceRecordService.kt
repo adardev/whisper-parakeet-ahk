@@ -14,6 +14,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.SystemClock
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
@@ -21,6 +22,9 @@ import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.util.Log
+import android.view.MotionEvent
+import android.view.View
+import android.view.inputmethod.InputConnection
 import androidx.core.app.NotificationCompat
 import com.nemotron.voiceime.R
 import com.nemotron.voiceime.data.SecureStore
@@ -50,6 +54,7 @@ class VoiceRecordService : Service() {
 
     private fun startRecording() {
         Log.d(TAG, "startRecording")
+        requestedRecordingState = true
         try {
             startForeground(NOTIF_ID, buildNotification("Grabando… toca para parar"))
         } catch (_: SecurityException) {
@@ -61,6 +66,7 @@ class VoiceRecordService : Service() {
             return
         }
         isRunning = true
+        if (keyboardInputConnection != null) KeyboardDictationFeedback.setRecording(true)
         delivered = false
         isProcessing = false
         isStopping = false
@@ -87,11 +93,13 @@ class VoiceRecordService : Service() {
         val rec = sr ?: return
         val i = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            val loc = SecureStore.getLocale(this@VoiceRecordService)
+            val loc = if (keyboardInputConnection != null) "es_MX" else SecureStore.getLocale(this@VoiceRecordService)
             try {
                 val parts = loc.split("_")
                 val l = java.util.Locale(parts.getOrNull(0) ?: "es", parts.getOrNull(1) ?: "")
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE, l.toLanguageTag())
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, l.toLanguageTag())
+                putExtra(RecognizerIntent.EXTRA_ENABLE_LANGUAGE_DETECTION, false)
             } catch (_: Throwable) {}
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
         }
@@ -106,8 +114,10 @@ class VoiceRecordService : Service() {
 
     private fun stopAndFinalize() {
         Log.d(TAG, "stopAndFinalize")
+        requestedRecordingState = false
         isStopping = true
-        vibrate()
+        KeyboardDictationFeedback.setRecording(false)
+        if (keyboardInputConnection == null) vibrate()
         try { sr?.stopListening() } catch (_: Throwable) {}
         main.postDelayed({ if (isRunning && !delivered) deliverAccumulated(withToast = false) }, 2500)
     }
@@ -134,11 +144,11 @@ class VoiceRecordService : Service() {
         override fun onReadyForSpeech(p: Bundle?) {
                 if (!readyVibrated) {
                     readyVibrated = true
-                    vibrate()
+                    if (keyboardInputConnection == null) vibrate()
                 }
             }
         override fun onBeginningOfSpeech() {}
-        override fun onRmsChanged(v: Float) {}
+        override fun onRmsChanged(v: Float) { KeyboardDictationFeedback.setLevel(v) }
         override fun onBufferReceived(b: ByteArray?) {}
         override fun onEndOfSpeech() {}
 
@@ -199,6 +209,16 @@ class VoiceRecordService : Service() {
             cleanup()
             return
         }
+        val insertedIntoKeyboard = try {
+            keyboardInputConnection?.commitText("$finalText ", 1) == true
+        } catch (error: Throwable) {
+            Log.w(TAG, "Could not insert through HoneyBoard input connection", error)
+            false
+        }
+        if (insertedIntoKeyboard) {
+            cleanup()
+            return
+        }
         val cb = getSystemService(CLIPBOARD_SERVICE) as ClipboardManager
         val clip = ClipData.newPlainText("nemotron", finalText)
         clip.description.extras = android.os.PersistableBundle().apply {
@@ -212,10 +232,13 @@ class VoiceRecordService : Service() {
     }
 
     private fun cleanup() {
+        KeyboardDictationFeedback.setRecording(false)
+        requestedRecordingState = false
         isRunning = false
         isProcessing = false
         stopSR()
         restoreStreams()
+        keyboardInputConnection = null
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
@@ -247,6 +270,10 @@ class VoiceRecordService : Service() {
     }
 
     private fun toast(s: String) {
+        if (keyboardInputConnection != null) {
+            Log.w(TAG, s)
+            return
+        }
         android.widget.Toast.makeText(this, s, android.widget.Toast.LENGTH_SHORT).show()
     }
 
@@ -295,6 +322,8 @@ class VoiceRecordService : Service() {
     }
 
     override fun onDestroy() {
+        KeyboardDictationFeedback.setRecording(false)
+        keyboardInputConnection = null
         restoreStreams()
         stopSR()
         super.onDestroy()
@@ -306,6 +335,82 @@ class VoiceRecordService : Service() {
         private const val NOTIF_ID = 9011
         const val ACTION_START = "com.nemotron.voiceime.START"
         const val ACTION_STOP = "com.nemotron.voiceime.STOP"
+
+        @Volatile private var keyboardInputConnection: InputConnection? = null
+        @Volatile private var honeyBoardKeyboard = java.lang.ref.WeakReference<View>(null)
+        private const val DOUBLE_SPACE_WINDOW_MS = 750L
+        @Volatile private var lastSpaceCommitUptime = 0L
+        @Volatile private var requestedRecordingState: Boolean? = null
+
+        @JvmStatic
+        fun bindHoneyBoardKeyboard(keyboard: View) {
+            honeyBoardKeyboard = java.lang.ref.WeakReference(keyboard)
+        }
+
+        /** Observe HoneyBoard's semantic text callback; software keys don't emit hardware KeyEvents. */
+        @JvmStatic
+        @Synchronized
+        fun onHoneyBoardSpaceCommit(inputConnection: InputConnection, text: CharSequence): Boolean {
+            // HoneyBoard sometimes batches two rapid space-key commits into one CharSequence.
+            // Only a commit made entirely of literal spaces can participate in the gesture.
+            if (text.isEmpty() || text.any { it != ' ' }) {
+                lastSpaceCommitUptime = 0L
+                return false
+            }
+
+            val now = SystemClock.uptimeMillis()
+            val previousSpace = lastSpaceCommitUptime
+            val paired = previousSpace != 0L && now - previousSpace <= DOUBLE_SPACE_WINDOW_MS
+            if (text.length == 1 && !paired) {
+                lastSpaceCommitUptime = now
+                Log.d(TAG, "Space key commit 1/2")
+                return false
+            }
+
+            val keyboard = honeyBoardKeyboard.get() ?: run {
+                lastSpaceCommitUptime = 0L
+                Log.w(TAG, "Ignoring double-space: HoneyBoard view is not bound")
+                return false
+            }
+
+            lastSpaceCommitUptime = 0L
+            // The pending first space is already in the editor. Remove it when the
+            // second callback arrives; batched spaces have not been committed yet.
+            if (paired) {
+                try {
+                    inputConnection.deleteSurroundingText(1, 0)
+                } catch (error: Throwable) {
+                    Log.w(TAG, "Could not remove first space from editor", error)
+                }
+            }
+            Log.i(TAG, "Double-space detected (chars=${text.length}, paired=$paired)")
+            toggleFromIme(keyboard.context, inputConnection, keyboard)
+            return true
+        }
+
+        @JvmStatic
+        fun toggleFromIme(context: Context, inputConnection: InputConnection?, keyboard: View) {
+            KeyboardDictationFeedback.bind(keyboard, keyboard.width / 2f)
+            keyboardInputConnection = inputConnection
+            lastSpaceCommitUptime = 0L
+            val start = !(requestedRecordingState ?: isRunning)
+            requestedRecordingState = start
+            val action = if (start) ACTION_START else ACTION_STOP
+            Log.i(TAG, "Dictation toggle requested: ${if (start) "start" else "stop"}; running=$isRunning")
+            val intent = Intent(context, VoiceRecordService::class.java).setAction(action)
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) context.startForegroundService(intent)
+                else context.startService(intent)
+                KeyboardDictationFeedback.pulse(context)
+            } catch (error: Throwable) {
+                Log.e(TAG, "Could not toggle dictation from HoneyBoard", error)
+            }
+        }
+
+        @JvmStatic
+        fun toggleFromIme(context: Context, inputConnection: InputConnection?, keyboard: View, event: MotionEvent) {
+            toggleFromIme(context, inputConnection, keyboard)
+        }
 
         @Volatile var isRunning: Boolean = false
         @Volatile var isProcessing: Boolean = false

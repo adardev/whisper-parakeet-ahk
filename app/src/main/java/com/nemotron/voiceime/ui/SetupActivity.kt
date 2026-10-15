@@ -97,6 +97,10 @@ class SetupActivity : AppCompatActivity() {
             else micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
 
+        b.btnHoneyBoardKeyboard.setOnClickListener {
+            startActivity(Intent(android.provider.Settings.ACTION_INPUT_METHOD_SETTINGS))
+        }
+
         b.btnSettings.setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
