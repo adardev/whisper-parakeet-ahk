@@ -430,6 +430,19 @@ foreach ($component in $hbApp.ChildNodes) {
     $componentName = $component.GetAttribute('name', $androidNs)
     $componentName = $componentName.Replace('androidx.', 'com.nemotron.honeyboard.shaded.androidx.')
     $componentName = $componentName.Replace('com.google.android.material.', 'com.nemotron.honeyboard.shaded.com.google.android.material.')
+    if ($component.LocalName -eq 'activity' -and $componentName -match '\.SpeakKeyboardInputAloudShortcut$') {
+        $isAccessibilityShortcut = $false
+        foreach ($category in $component.SelectNodes('.//category')) {
+            if ($category.GetAttribute('name', $androidNs) -eq 'android.intent.category.ACCESSIBILITY_SHORTCUT_TARGET') {
+                $isAccessibilityShortcut = $true
+                break
+            }
+        }
+        # HoneyBoard's cloned shortcut duplicates the one already provided by
+        # Samsung Keyboard and makes the merged IME appear as another
+        # accessibility feature to banking apps.
+        if ($isAccessibilityShortcut) { continue }
+    }
     if ($component.LocalName -eq 'service' -and $componentName -eq 'com.samsung.android.honeyboard.nemotron.NemotronDictationService') { continue }
     $existing = $null
     if ($componentName) {
