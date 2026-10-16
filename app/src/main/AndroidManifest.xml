@@ -48,7 +48,7 @@
             android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
 
         <!-- ============================================================== -->
-        <!--  MainActivity: TOGGLE INVISIBLE (es el LAUNCHER por defecto).  -->
+        <!--  MainActivity: destino invisible del doble toque del botón lateral. -->
         <!-- ============================================================== -->
         <activity
             android:name=".ui.MainActivity"
@@ -57,6 +57,28 @@
             android:noHistory="true"
             android:theme="@style/Theme.NemotronVoiceIME.Transparent"
             android:taskAffinity="" />
+
+        <!-- Assign this separate launcher entry to Side key > Double press. -->
+        <activity
+            android:name=".ui.SleepModeActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@style/Theme.NemotronVoiceIME.Transparent"
+            android:taskAffinity="" />
+
+        <activity-alias
+            android:name=".SleepModeShortcutAlias"
+            android:enabled="true"
+            android:exported="true"
+            android:icon="@drawable/ic_sleep_mode_tile"
+            android:label="Sleep Mode"
+            android:targetActivity=".ui.SleepModeActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
 
         <!-- Alias interno para compatibilidad; Nemotron se abre desde Adarbot. -->
         <activity-alias
@@ -298,6 +320,17 @@
             android:exported="true"
             android:icon="@drawable/ic_assistant_switch_tile"
             android:label="Gemini"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name=".dhizuku.SleepModeTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_sleep_mode_tile"
+            android:label="Sleep Mode"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
             <intent-filter>
                 <action android:name="android.service.quicksettings.action.QS_TILE" />

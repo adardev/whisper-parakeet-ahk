@@ -10,9 +10,17 @@ import java.util.concurrent.Executors
 
 /** Reintenta el modo avión al bloquear la pantalla durante el horario nocturno. */
 class NightAirplaneScreenReceiver : BroadcastReceiver() {
+    fun clearPendingWork(context: Context) {
+        preferences(context).edit()
+            .putBoolean(KEY_PENDING, false)
+            .putBoolean(KEY_TEMPORARY_FIT3, false)
+            .apply()
+    }
+
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_AIRPLANE_MODE_CHANGED) {
             val airplaneModeOn = intent.getBooleanExtra("state", true)
+            if (SleepModeController.consumeExpectedAirplaneChange(context, airplaneModeOn)) return
             if (!airplaneModeOn && isMorningWakeWindow() && isScreenInteractive(context)) {
                 val prefs = preferences(context)
                 val firstWakeDetection = prefs.getInt(KEY_AWAKE_DAY, -1) != todayKey()
@@ -29,6 +37,8 @@ class NightAirplaneScreenReceiver : BroadcastReceiver() {
                             val result = NightRoutineActions.run(context.applicationContext, night = false)
                             if (!result.success) {
                                 Log.w(TAG, "no se pudieron restaurar los ajustes diurnos de Fit3: ${result.message}")
+                            } else {
+                                SleepModeController.markScheduledState(context, false)
                             }
                         } finally {
                             pendingResult.finish()
@@ -37,7 +47,7 @@ class NightAirplaneScreenReceiver : BroadcastReceiver() {
                 } else {
                     Log.d(TAG, "despertar ya registrado hoy; no se vuelve a contactar la Fit3")
                 }
-            } else if (!airplaneModeOn && isNightWindow() && isScreenInteractive(context)) {
+            } else if (!airplaneModeOn && (isNightWindow() || SleepModeController.isEnabled(context)) && isScreenInteractive(context)) {
                 // Outside the morning wake window this is only a pause until the next lock.
                 preferences(context).edit()
                     .putBoolean(KEY_TEMPORARY_FIT3, true)
@@ -64,7 +74,7 @@ class NightAirplaneScreenReceiver : BroadcastReceiver() {
             preferences(context).edit().putBoolean(KEY_PENDING, false).apply()
             return
         }
-        if (intent.action != Intent.ACTION_SCREEN_OFF || !isNightWindow()) return
+        if (intent.action != Intent.ACTION_SCREEN_OFF || !(isNightWindow() || SleepModeController.isEnabled(context))) return
         if (hasWokenUpToday(context)) {
             preferences(context).edit().putBoolean(KEY_PENDING, false).apply()
             Log.d(TAG, "despertar matutino ya detectado; se respeta el modo avión apagado")
@@ -88,7 +98,7 @@ class NightAirplaneScreenReceiver : BroadcastReceiver() {
     private fun applyPending(context: Context, screenMustRemainOff: Boolean) {
         val prefs = preferences(context)
         if (!prefs.getBoolean(KEY_PENDING, false)) return
-        if (!isNightWindow()) {
+        if (!(isNightWindow() || SleepModeController.isEnabled(context))) {
             prefs.edit().putBoolean(KEY_PENDING, false).apply()
             return
         }

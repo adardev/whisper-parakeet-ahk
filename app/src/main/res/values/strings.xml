@@ -11,7 +11,7 @@
     <string name="welcome_desc">AI-powered voice input with streaming (NVIDIA NIM). Configure the Samsung side key to record with double press.\n\nSteps to enable:</string>
     <string name="step_1">1. Press \"Permissions\" and grant microphone access</string>
     <string name="step_4">2. Press \"Configure API\" and paste your NVIDIA NIM API key</string>
-    <string name="step_5">3. Press the Samsung side key to start/stop recording</string>
+    <string name="step_5">3. Double press the Samsung side key to toggle Sleep Mode</string>
     <string name="btn_permissions">Permissions</string>
     <string name="btn_settings">Configure API</string>
     <string name="hint_test">Press the button and test your voice:</string>
@@ -34,8 +34,8 @@
     <string name="a11y_enabled">Accessibility configured (WRITE_SECURE_SETTINGS granted)</string>
 
     <!-- Side Key wizard -->
-    <string name="section_sidekey">Configure Side Key</string>
-    <string name="sidekey_step">1. Press \"Open Side Key\" -> open settings\\n2. Enable: double press -> Open app -> choose Nemotron\\n3. From now on, double press side key = start/stop recording\\n(the app opens invisibly and triggers the toggle)</string>
+    <string name="section_sidekey">Sleep Mode shortcut</string>
+    <string name="sidekey_step">1. Open Side Key settings\\n2. Enable double press -> Open app -> choose Nemotron\\n3. Double press toggles Sleep Mode. Voice dictation stays on the keyboard spacebar.</string>
     <string name="btn_sidekey">Open Side Key settings</string>
     <string name="sidekey_uninstall_hint">If you set the side key as default launcher, you must CHOOSE Nemotron even if it has the same icon</string>
     <string name="sidekey_status_unknown">Not configured yet (try double-pressing the side key)</string>

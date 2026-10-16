@@ -1,9 +1,9 @@
 package com.nemotron.voiceime.ui
 
 import android.app.Activity
-import android.content.Intent
 import android.os.Bundle
-import com.nemotron.voiceime.record.VoiceRecordService
+import android.util.Log
+import com.nemotron.voiceime.dhizuku.SleepModeController
 
 class MainActivity : Activity() {
 
@@ -11,30 +11,17 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         overridePendingTransition(0, 0)
 
-        if (!hasMic()) {
-            val i = Intent(this, SetupActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        Thread {
+            val result = SleepModeController.toggle(applicationContext)
+            if (!result.success) Log.w(TAG, result.message)
+            runOnUiThread {
+                finish()
+                overridePendingTransition(0, 0)
             }
-            startActivity(i)
-            finish()
-            overridePendingTransition(0, 0)
-            return
-        }
-
-        val action = if (VoiceRecordService.isRunning) VoiceRecordService.ACTION_STOP
-                     else VoiceRecordService.ACTION_START
-
-        val intent = Intent(this, VoiceRecordService::class.java).apply { this.action = action }
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
-            startForegroundService(intent)
-        } else {
-            startService(intent)
-        }
-        finish()
-        overridePendingTransition(0, 0)
+        }.start()
     }
 
-    private fun hasMic(): Boolean =
-        checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) ==
-            android.content.pm.PackageManager.PERMISSION_GRANTED
+    private companion object {
+        const val TAG = "SideKeySleepMode"
+    }
 }

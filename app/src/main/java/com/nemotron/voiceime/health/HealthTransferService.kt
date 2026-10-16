@@ -14,7 +14,7 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.nemotron.voiceime.R
 import com.samsung.android.sdk.health.data.request.DataTypes
-import com.nemotron.voiceime.ui.MainActivity
+import com.nemotron.voiceime.ui.SetupActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -173,7 +173,7 @@ class HealthTransferService : Service() {
     private fun buildNotification(): Notification {
         val launchIntent = PendingIntent.getActivity(
             this, 0,
-            Intent(this, MainActivity::class.java),
+            Intent(this, SetupActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE
         )
         return NotificationCompat.Builder(this, CHANNEL_ID)

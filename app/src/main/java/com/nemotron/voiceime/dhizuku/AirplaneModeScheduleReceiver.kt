@@ -13,13 +13,13 @@ class AirplaneModeScheduleReceiver : BroadcastReceiver() {
                 val pendingResult = goAsync()
                 Thread {
                     try {
-                        if (!enable) setAirplaneModeIfNeeded(false)
-                        if (!NightRoutineActions.run(context, enable).success) {
-                            Log.w(TAG, "no se pudo cambiar el AOD de la Fit3 en el límite programado")
+                        val alreadyEnabled = SleepModeController.isEnabled(context)
+                        if (alreadyEnabled == enable) {
+                            Log.i(TAG, "límite ${if (enable) "23:00" else "08:00"}: Sleep Mode ya está ${if (enable) "activo" else "apagado"}; sin cambios")
+                        } else {
+                            val result = SleepModeController.setEnabled(context, enable)
+                            if (!result.success) Log.w(TAG, "rutina programada pendiente: ${result.message}")
                         }
-                        // The daily airplane-mode schedule stays an independent action.
-                        // The manual Fit3 test buttons only exercise the watch settings.
-                        if (enable) setAirplaneModeIfNeeded(true)
                     } finally {
                         AirplaneModeSchedule.scheduleNext(context)
                         pendingResult.finish()
@@ -35,17 +35,5 @@ class AirplaneModeScheduleReceiver : BroadcastReceiver() {
 
     private companion object {
         const val TAG = "AirplaneSchedule"
-
-        fun setAirplaneModeIfNeeded(enabled: Boolean) {
-            when (ShizukuManager.isAirplaneModeOn()) {
-                null -> Log.w(TAG, "no se pudo leer el modo avión")
-                enabled -> Unit
-                else -> {
-                    val changed = ShizukuManager.setAirplaneMode(enabled) &&
-                        ShizukuManager.isAirplaneModeOn() == enabled
-                    if (!changed) Log.w(TAG, "no se pudo cambiar el modo avión a $enabled")
-                }
-            }
-        }
     }
 }
