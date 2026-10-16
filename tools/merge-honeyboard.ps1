@@ -444,6 +444,7 @@ foreach ($component in $hbApp.ChildNodes) {
         if ($isAccessibilityShortcut) { continue }
     }
     if ($component.LocalName -eq 'service' -and $componentName -eq 'com.samsung.android.honeyboard.nemotron.NemotronDictationService') { continue }
+    if ($component.LocalName -eq 'service' -and $componentName -eq 'com.samsung.android.writingtoolkit.service.FakeHoneyBoardService') { continue }
     $existing = $null
     if ($componentName) {
         foreach ($candidate in $nemApp.ChildNodes) {
