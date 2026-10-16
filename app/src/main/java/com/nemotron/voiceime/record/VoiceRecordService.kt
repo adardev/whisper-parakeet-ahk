@@ -7,6 +7,7 @@ import android.app.Service
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.inputmethodservice.InputMethodService
 import android.content.Intent
 import android.media.AudioManager
 import android.os.Build
@@ -338,6 +339,7 @@ class VoiceRecordService : Service() {
 
         @Volatile private var keyboardInputConnection: InputConnection? = null
         @Volatile private var honeyBoardKeyboard = java.lang.ref.WeakReference<View>(null)
+        @Volatile private var honeyBoardAppContext: Context? = null
         private const val DOUBLE_SPACE_WINDOW_MS = 750L
         @Volatile private var lastSpaceCommitUptime = 0L
         @Volatile private var requestedRecordingState: Boolean? = null
@@ -345,6 +347,12 @@ class VoiceRecordService : Service() {
         @JvmStatic
         fun bindHoneyBoardKeyboard(keyboard: View) {
             honeyBoardKeyboard = java.lang.ref.WeakReference(keyboard)
+        }
+
+        @JvmStatic
+        fun bindHoneyBoardService(context: Context) {
+            honeyBoardAppContext = context.applicationContext
+            (context as? InputMethodService)?.window?.window?.decorView?.let(::bindHoneyBoardKeyboard)
         }
 
         /** Observe HoneyBoard's semantic text callback; software keys don't emit hardware KeyEvents. */
@@ -367,9 +375,10 @@ class VoiceRecordService : Service() {
                 return false
             }
 
-            val keyboard = honeyBoardKeyboard.get() ?: run {
+            val keyboard = honeyBoardKeyboard.get()
+            val context = keyboard?.context ?: honeyBoardAppContext ?: run {
                 lastSpaceCommitUptime = 0L
-                Log.w(TAG, "Ignoring double-space: HoneyBoard view is not bound")
+                Log.w(TAG, "Ignoring double-space: HoneyBoard service context is not bound")
                 return false
             }
 
@@ -384,13 +393,13 @@ class VoiceRecordService : Service() {
                 }
             }
             Log.i(TAG, "Double-space detected (chars=${text.length}, paired=$paired)")
-            toggleFromIme(keyboard.context, inputConnection, keyboard)
+            toggleFromIme(context, inputConnection, keyboard)
             return true
         }
 
         @JvmStatic
-        fun toggleFromIme(context: Context, inputConnection: InputConnection?, keyboard: View) {
-            KeyboardDictationFeedback.bind(keyboard, keyboard.width / 2f)
+        fun toggleFromIme(context: Context, inputConnection: InputConnection?, keyboard: View?) {
+            keyboard?.let { KeyboardDictationFeedback.bind(it, it.width / 2f) }
             keyboardInputConnection = inputConnection
             lastSpaceCommitUptime = 0L
             val start = !(requestedRecordingState ?: isRunning)

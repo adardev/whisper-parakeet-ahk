@@ -9,6 +9,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
+$env:JAVA_HOME = Split-Path -Parent (Split-Path -Parent $JavaExe)
 
 foreach ($file in @($HoneyBoardApk, $NemotronApk, $ApktoolJar, $JavaExe)) {
     if (-not (Test-Path -LiteralPath $file -PathType Leaf)) {
@@ -42,6 +43,19 @@ $aligned = Join-Path $work 'combined-aligned.apk'
 if ($LASTEXITCODE -ne 0) { throw 'Could not decode the Nemotron APK.' }
 & $JavaExe -jar $ApktoolJar d $HoneyBoardApk -o $hb -f
 if ($LASTEXITCODE -ne 0) { throw 'Could not decode the HoneyBoard APK.' }
+
+# Nemotron already ships the shared Samsung subtype helper class. Patch its
+# existing copy because duplicate-class reuse below intentionally skips the
+# HoneyBoard copy, which otherwise broadcasts to every Android user.
+$subtypeHelper = Get-ChildItem -LiteralPath $base -Recurse -Filter 'b.smali' |
+    Where-Object { $_.FullName -match '[\\/]mi[\\/]b\.smali$' } | Select-Object -First 1
+if ($subtypeHelper) {
+    $subtypeText = [IO.File]::ReadAllText($subtypeHelper.FullName)
+    $subtypeText = $subtypeText.Replace(
+        'invoke-virtual {p0, p1, v2}, Landroid/content/Context;->sendBroadcastAsUser(Landroid/content/Intent;Landroid/os/UserHandle;)V',
+        'invoke-virtual {p0, p1}, Landroid/content/Context;->sendBroadcast(Landroid/content/Intent;)V')
+    [IO.File]::WriteAllText($subtypeHelper.FullName, $subtypeText, [Text.UTF8Encoding]::new($false))
+}
 
 # Keep Nemotron's resource IDs (and app data) stable. Read complete compiled
 # resource tables, including non-public resources, and namespace collisions.
@@ -122,6 +136,7 @@ foreach ($entry in $hbSpecs) {
 # Include package-renamed provider and permission strings from the original
 # Samsung package copy, not the side-by-side clone's temporary package ID.
 $oldHbPackage = 'com.samsung.android.honeyboard.patched'
+$sourceHoneyBoardPackage = 'com.samsung.android.honeyboard'
 $newAppPackage = 'com.nemotron.voiceime2'
 foreach ($node in $newPublicNodes) { [void]$nemPublic.resources.AppendChild($node) }
 $nemPublic.Save($nemPublicPath)
@@ -213,6 +228,22 @@ foreach ($sourceFile in Get-ChildItem -LiteralPath $hbRes -Recurse -File) {
 # Inject HoneyBoard DEX classes and isolate its AndroidX, Material and coroutine
 # libraries. Replace the compile-only Application stub with Samsung's class.
 $nemSmaliDirs = Get-ChildItem -LiteralPath $base -Directory | Where-Object { $_.Name -match '^smali(?:_classes\d+)?$' }
+$hbSourceManifest = [xml] (Get-Content -LiteralPath (Join-Path $hb 'AndroidManifest.xml') -Raw)
+$androidNs = 'http://schemas.android.com/apk/res/android'
+$hbProviderAuthorityMap = @{}
+foreach ($provider in $hbSourceManifest.SelectNodes('//*[local-name()="provider"]')) {
+    $authorities = $provider.GetAttribute('authorities', $androidNs)
+    foreach ($authority in ($authorities -split '[;,]')) {
+        $authority = $authority.Trim()
+        if (-not $authority -or $hbProviderAuthorityMap.ContainsKey($authority)) { continue }
+        if ($authority.StartsWith('com.samsung.android.honeyboard', [StringComparison]::Ordinal)) {
+            $renamedAuthority = $authority.Replace('com.samsung.android.honeyboard', 'com.nemotron.voiceime2')
+        } else {
+            $renamedAuthority = $authority + '.nemotron'
+        }
+        $hbProviderAuthorityMap[$authority] = $renamedAuthority
+    }
+}
 $existingClasses = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
 foreach ($dir in $nemSmaliDirs) {
     foreach ($file in Get-ChildItem -LiteralPath $dir.FullName -Recurse -Filter '*.smali') {
@@ -276,6 +307,15 @@ foreach ($hbDir in $hbSmaliDirs) {
             'com.samsung.android.honeyboard.patched.androidx-startup.patched',
             'com.nemotron.voiceime2.androidx-startup')
         $content = $content.Replace($oldHbPackage, $newAppPackage)
+        $content = $content.Replace(
+            'Landroid/provider/Settings$Secure;->getInt(Landroid/content/ContentResolver;Ljava/lang/String;I)I',
+            'Lcom/nemotron/voiceime/record/HoneyBoardCompat;->getSecureInt(Landroid/content/ContentResolver;Ljava/lang/String;I)I')
+        $content = $content.Replace(
+            'invoke-virtual {p0, p1, v2}, Landroid/content/Context;->sendBroadcastAsUser(Landroid/content/Intent;Landroid/os/UserHandle;)V',
+            'invoke-virtual {p0, p1}, Landroid/content/Context;->sendBroadcast(Landroid/content/Intent;)V')
+        foreach ($authority in $hbProviderAuthorityMap.Keys) {
+            $content = $content.Replace($authority, $hbProviderAuthorityMap[$authority])
+        }
         if ($content.Contains('NemotronDictationService;->toggle(Landroid/content/Context;Landroid/view/inputmethod/InputConnection;)V')) {
             $content = $content.Replace(
                 'Lcom/samsung/android/honeyboard/nemotron/NemotronDictationService;->toggle(Landroid/content/Context;Landroid/view/inputmethod/InputConnection;)V',
@@ -309,7 +349,7 @@ foreach ($hbDir in $hbSmaliDirs) {
             $spaceCommitHooks++
         }
         if ($descriptor -eq 'Lcom/samsung/android/honeyboard/service/HoneyBoardService;') {
-            $content = $content.Replace('invoke-super {p0}, Landroid/inputmethodservice/InputMethodService;->onCreate()V', "invoke-super {p0}, Landroid/inputmethodservice/InputMethodService;->onCreate()V`n    invoke-static {p0}, Lcom/nemotron/voiceime/record/HoneyBoardDialogs;->bind(Landroid/inputmethodservice/InputMethodService;)V")
+            $content = $content.Replace('invoke-super {p0}, Landroid/inputmethodservice/InputMethodService;->onCreate()V', "invoke-super {p0}, Landroid/inputmethodservice/InputMethodService;->onCreate()V`n    invoke-static {p0}, Lcom/nemotron/voiceime/record/VoiceRecordService;->bindHoneyBoardService(Landroid/content/Context;)V`n    invoke-static {p0}, Lcom/nemotron/voiceime/record/HoneyBoardDialogs;->bind(Landroid/inputmethodservice/InputMethodService;)V")
         }
         if ($descriptor -eq 'Lcom/samsung/android/honeyboard/base/rts/ftu/AbsAgreementDialog;') {
             $content = [regex]::Replace($content, '(invoke-virtual \{(\w+), \w+\}, Landroid/view/Window;->setType\(I\)V)', '$1' + "`n    invoke-static {" + '$2' + '}, Lcom/nemotron/voiceime/record/HoneyBoardDialogs;->attach(Landroid/view/Window;)V')
@@ -319,8 +359,9 @@ foreach ($hbDir in $hbSmaliDirs) {
         $insertedClassCount++
     }
 }
-if ($dictationHooks -ne 1) { throw "Expected one HoneyBoard double-space dictation hook, found $dictationHooks" }
+if ($dictationHooks -gt 1) { throw "Expected at most one legacy HoneyBoard dictation hook, found $dictationHooks" }
 if ($spaceCommitHooks -ne 1) { throw "Expected one HoneyBoard semantic space-key hook, found $spaceCommitHooks" }
+if ($dictationHooks -eq 0) { Write-Host 'Using HoneyBoard semantic space-commit detection for double-space dictation.' }
 
 # Keep HoneyBoard's coroutine ServiceLoader configuration isolated as well.
 $hbServices = Join-Path $hb 'unknown\META-INF\services'
@@ -355,6 +396,16 @@ $nemManifestPath = Join-Path $base 'AndroidManifest.xml'
 [xml] $hbManifest = Get-Content -LiteralPath (Join-Path $hb 'AndroidManifest.xml') -Raw
 $nemRoot = $nemManifest.manifest
 $hbRoot = $hbManifest.manifest
+$hbPermissionNameMap = @{}
+foreach ($permission in $hbRoot.SelectNodes('permission')) {
+    $permissionName = $permission.GetAttribute('name', $androidNs)
+    if ($permissionName) {
+        # A transplanted IME must not claim permissions still owned by the
+        # installed Samsung package (some declarations use Bixby/Docomo names).
+        $safePermissionName = $permissionName -replace '[^A-Za-z0-9_.]', '_'
+        $hbPermissionNameMap[$permissionName] = $newAppPackage + '.honeyboard.permission.' + $safePermissionName
+    }
+}
 # Samsung Keyboard 5.9.30 targets API 33 and relies on legacy visibility of
 # enabled_input_methods. Keep the combined app at API 33 for its receivers.
 $usesSdk = $nemRoot.SelectSingleNode('uses-sdk')
@@ -370,6 +421,14 @@ function Rewrite-HoneyBoardPackage([System.Xml.XmlNode] $node) {
     foreach ($element in $elements) {
         foreach ($attribute in @($element.Attributes)) {
             $attribute.Value = $attribute.Value.Replace($oldHbPackage, $newAppPackage)
+            if ($attribute.LocalName -eq 'authorities') {
+                foreach ($authority in $hbProviderAuthorityMap.Keys) {
+                    $attribute.Value = $attribute.Value.Replace($authority, $hbProviderAuthorityMap[$authority])
+                }
+            }
+            if ($hbPermissionNameMap.ContainsKey($attribute.Value)) {
+                $attribute.Value = $hbPermissionNameMap[$attribute.Value]
+            }
             $attribute.Value = $attribute.Value.Replace('androidx.', 'com.nemotron.honeyboard.shaded.androidx.')
             $attribute.Value = $attribute.Value.Replace('com.google.android.material.', 'com.nemotron.honeyboard.shaded.com.google.android.material.')
             $attribute.Value = [regex]::Replace($attribute.Value, '@(?:\+)?[A-Za-z_]+/[A-Za-z0-9_.$]+', {
@@ -455,7 +514,7 @@ foreach ($component in $hbApp.ChildNodes) {
         $copy = $nemManifest.ImportNode($component, $true)
         Rewrite-HoneyBoardPackage $copy
         if ($component.LocalName -eq 'service' -and $componentName -eq 'com.samsung.android.honeyboard.service.HoneyBoardService') {
-            $copy.SetAttribute('label', $androidNs, 'Samsung Keyboard')
+            $copy.SetAttribute('label', $androidNs, 'Nemotron Keyboard')
         }
         [void]$nemApp.AppendChild($copy)
         continue
