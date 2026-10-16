@@ -214,7 +214,7 @@ class SetupActivity : AppCompatActivity() {
 
         val global = StringBuilder()
         when {
-            ok -> global.append("✓ ALL SET. Press the Samsung side key to record.")
+            ok -> global.append("✓ Ready. Double-tap the keyboard spacebar to start or stop dictation.")
             else -> global.append("✗ Missing steps: microphone permission is required.")
         }
         b.tvGlobalStatus.text = global.toString()

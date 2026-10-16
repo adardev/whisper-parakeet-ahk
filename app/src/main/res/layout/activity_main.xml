@@ -81,52 +81,10 @@
             android:layout_marginTop="4dp" />
 
         <Button
-            android:id="@+id/btnHoneyBoardKeyboard"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Enable Samsung Keyboard"
-            android:layout_marginTop="4dp" />
-
-        <Button
             android:id="@+id/btnSettings"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/btn_settings"
-            android:layout_marginTop="4dp" />
-
-        <!-- Probar -->
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:background="#22000000"
-            android:layout_marginTop="20dp" />
-
-        <!-- Side Key Section -->
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:background="#22000000"
-            android:layout_marginTop="20dp" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/section_sidekey"
-            android:layout_marginTop="16dp"
-            android:textSize="16sp"
-            android:textStyle="bold" />
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/sidekey_step"
-            android:layout_marginTop="8dp"
-            android:textSize="13sp"
-            android:lineSpacingExtra="4dp" />
-        <Button
-            android:id="@+id/btnSideKey"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/btn_sidekey"
+            android:text="Configure"
             android:layout_marginTop="8dp" />
 
         <!-- Auto Freeze Section -->
@@ -309,45 +267,23 @@
             android:lineSpacingExtra="4dp"
             android:textColor="@color/text_dim" />
         <Button
-            android:id="@+id/btnEscolomos"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Open Escolomos"
-            android:layout_marginTop="8dp" />
-        <Button
             android:id="@+id/btnAddShortcuts"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Add app shortcuts to home"
             android:layout_marginTop="8dp" />
 
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="1dp"
-            android:background="#22000000"
-            android:layout_marginTop="20dp" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="3. Test everything works:"
-            android:layout_marginTop="16dp"
-            android:textSize="14sp" />
-        <Button
-            android:id="@+id/btnTest"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/btn_test"
-            android:layout_marginTop="8dp" />
-        <TextView
-            android:id="@+id/tvResult"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:minHeight="60dp"
-            android:textSize="15sp"
-            android:background="#11000000"
-            android:padding="12dp" />
+        <!-- Keep existing actions wired for compatibility while hiding their controls. -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:visibility="gone">
+            <Button android:id="@+id/btnHoneyBoardKeyboard" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+            <Button android:id="@+id/btnSideKey" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+            <Button android:id="@+id/btnEscolomos" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+            <Button android:id="@+id/btnTest" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+            <TextView android:id="@+id/tvResult" android:layout_width="wrap_content" android:layout_height="wrap_content" />
+        </LinearLayout>
 
     </LinearLayout>
 
