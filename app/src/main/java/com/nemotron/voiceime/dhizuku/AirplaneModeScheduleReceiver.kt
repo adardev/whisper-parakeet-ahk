@@ -15,7 +15,7 @@ class AirplaneModeScheduleReceiver : BroadcastReceiver() {
                     try {
                         val alreadyEnabled = SleepModeController.isEnabled(context)
                         if (alreadyEnabled == enable) {
-                            Log.i(TAG, "límite ${if (enable) "23:00" else "08:00"}: Sleep Mode ya está ${if (enable) "activo" else "apagado"}; sin cambios")
+                            Log.i(TAG, "Sleep Mode a las ${if (enable) "23:00" else "08:00"}: ya estaba ${if (enable) "activo" else "apagado"}; sin cambios")
                         } else {
                             val result = SleepModeController.setEnabled(context, enable)
                             if (!result.success) Log.w(TAG, "rutina programada pendiente: ${result.message}")
