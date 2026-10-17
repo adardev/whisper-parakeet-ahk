@@ -154,6 +154,7 @@ $nemPublic.Save($nemPublicPath)
 # Copy HoneyBoard resources with matching references to their isolated symbols.
 $hbRes = Join-Path $hb 'res'
 $nemRes = Join-Path $base 'res'
+$oneUiXmlTargets = [System.Collections.Generic.List[string]]::new()
 function Rewrite-HbXmlText([string] $xmlText) {
     # Samsung's easy-mode widget uses an OEM-only category name. Android's
     # public AAPT schema accepts home_screen for the equivalent launcher slot.
@@ -224,6 +225,7 @@ foreach ($sourceFile in Get-ChildItem -LiteralPath $hbRes -Recurse -File) {
         # such as arrays.xml and strings.xml.
         $target = Join-Path $targetDir ('oneui-' + $sourceFile.Name)
         $values.Save($target)
+        $oneUiXmlTargets.Add($target)
         continue
     }
 
@@ -242,6 +244,7 @@ foreach ($sourceFile in Get-ChildItem -LiteralPath $hbRes -Recurse -File) {
     New-Item -ItemType Directory -Path (Split-Path -Parent $target) -Force | Out-Null
     if ($sourceFile.Extension -eq '.xml') {
         [IO.File]::WriteAllText($target, (Rewrite-HbXmlText ([IO.File]::ReadAllText($sourceFile.FullName))))
+        $oneUiXmlTargets.Add($target)
     } else { Copy-Item -LiteralPath $sourceFile.FullName -Destination $target }
 }
 
@@ -276,6 +279,7 @@ $hbSmaliDirs = @(Get-ChildItem -LiteralPath $hb -Directory | Where-Object { $_.N
 # Give every colliding One UI descriptor its own namespace, then rewrite all
 # references in One UI DEX files to the isolated copy.
 $oneUiRelocationMap = [System.Collections.Generic.Dictionary[string,string]]::new([StringComparer]::Ordinal)
+$oneUiLibraryDescriptors = [System.Collections.Generic.List[string]]::new()
 foreach ($hbDir in $hbSmaliDirs) {
     foreach ($file in Get-ChildItem -LiteralPath $hbDir.FullName -Recurse -Filter '*.smali') {
         $content = [IO.File]::ReadAllText($file.FullName)
@@ -301,11 +305,37 @@ foreach ($hbDir in $hbSmaliDirs) {
         $descriptor = $sourceDescriptor
         $descriptor = $descriptor.Replace('Landroidx/', 'Lcom/nemotron/oneui/shaded/androidx/')
         $descriptor = $descriptor.Replace('Lcom/google/android/material/', 'Lcom/nemotron/oneui/shaded/com/google/android/material/')
+        $oneUiLibraryDescriptors.Add($descriptor)
         if ($existingClasses.Contains($descriptor)) {
             $relocated = 'Lcom/nemotron/oneui/shaded/' + $descriptor.Substring(1, $descriptor.Length - 2) + ';'
             $oneUiRelocationMap[$descriptor] = $relocated
         }
     }
+}
+# Preserve package access by moving every class in a colliding package together.
+$isolatedPackages = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+foreach ($descriptor in $oneUiRelocationMap.Keys) {
+    [void]$isolatedPackages.Add($descriptor.Substring(0, $descriptor.LastIndexOf('/') + 1))
+}
+foreach ($descriptor in $oneUiLibraryDescriptors) {
+    $package = $descriptor.Substring(0, $descriptor.LastIndexOf('/') + 1)
+    if ($isolatedPackages.Contains($package) -and -not $oneUiRelocationMap.ContainsKey($descriptor)) {
+        $oneUiRelocationMap[$descriptor] = 'Lcom/nemotron/oneui/shaded/' + $descriptor.Substring(1)
+    }
+}
+# Layout tags and view-class attributes must follow the same map as DEX casts.
+foreach ($xmlTarget in $oneUiXmlTargets) {
+    $xmlText = [IO.File]::ReadAllText($xmlTarget)
+    $xmlText = [regex]::Replace($xmlText, '[A-Za-z_$][A-Za-z0-9_$]*(?:\.[A-Za-z0-9_$]+)+', {
+        param($m)
+        $descriptor = 'L' + $m.Value.Replace('.', '/') + ';'
+        if ($oneUiRelocationMap.ContainsKey($descriptor)) {
+            $mapped = $oneUiRelocationMap[$descriptor]
+            return $mapped.Substring(1, $mapped.Length - 2).Replace('/', '.')
+        }
+        return $m.Value
+    })
+    [IO.File]::WriteAllText($xmlTarget, $xmlText)
 }
 # Some One UI releases rely on Kotlin stdlib classes supplied by their platform
 # image instead of packaging them. Map Nemotron's existing stdlib classes to
@@ -386,6 +416,7 @@ foreach ($hbDir in $hbSmaliDirs) {
         # A54 has no folding display. Use a public callback implementation
         # instead of Samsung's hidden FoldStateListener constructor.
         $content = $content.Replace('Landroid/hardware/devicestate/DeviceStateManager$FoldStateListener;', 'Lcom/nemotron/oneui/compat/FoldStateListener;')
+        $content = $content.Replace('Landroid/app/ActivityManager;->getCurrentUser()I', 'Landroid/os/UserHandle;->myUserId()I')
         foreach ($settingsTable in @('Secure','System','Global')) {
             $content = $content.Replace('Landroid/provider/Settings$' + $settingsTable + ';->getString(Landroid/content/ContentResolver;Ljava/lang/String;)Ljava/lang/String;', 'Lcom/nemotron/oneui/compat/SettingsCompat;->get' + $settingsTable + 'String(Landroid/content/ContentResolver;Ljava/lang/String;)Ljava/lang/String;')
         }
@@ -765,6 +796,7 @@ $hbCode = $hbCode.Replace('.super Landroid/app/Application;', '.super Lcom/sec/a
 $hbCode = $hbCode.Replace('Landroid/app/Application;-><init>()V', 'Lcom/sec/android/app/launcher/LauncherApplication;-><init>()V')
 $hbCode = $hbCode.Replace('Landroid/app/Application;->onCreate()V', 'Lcom/sec/android/app/launcher/LauncherApplication;->onCreate()V')
 $hbCode = $hbCode.Replace('Landroid/app/Application;->onTerminate()V', 'Lcom/sec/android/app/launcher/LauncherApplication;->onTerminate()V')
+$hbCode = [regex]::Replace($hbCode, '(invoke-super(?:/range)? \{[^}]+\}, )Landroid/app/Application;->', '$1Lcom/sec/android/app/launcher/LauncherApplication;->')
 [IO.File]::WriteAllText($hbApp.FullName, $hbCode, [Text.UTF8Encoding]::new($false))
 Write-Host "Injected $insertedClassCount One UI Home classes; reused $duplicateClassCount shared library classes; added $kotlinFallbackCount Kotlin fallback classes."
 $compatTarget = Join-Path $kotlinFallbackDir 'com\nemotron\oneui\compat\LauncherCompat.smali'
