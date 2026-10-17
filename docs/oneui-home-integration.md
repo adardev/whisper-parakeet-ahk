@@ -8,7 +8,7 @@ Nemotron se recompila con el código, los recursos, las bibliotecas y los compon
 - El alias `com.sec.android.app.launcher.activities.LauncherActivity` con las categorías `MAIN` y `HOME`.
 - Recursos, proveedores, servicios, receptores, assets y bibliotecas nativas de One UI Home.
 - La inicialización Hilt de `LauncherApplication` encadenada con HoneyBoard y `NemotronApp`.
-- Filtro en `WorkspaceViewModel.v0(PackageOperation.Added)`: el clon descarta `com.instagram.android` y `com.whatsapp` antes de pasar la instalación al manejador que añade apps al espacio de Inicio. Las aplicaciones siguen instaladas; solo se omite su alta automática en la página de inicio.
+- `WorkspaceViewModel.v0(PackageOperation.Added)` omite las altas automáticas de cualquier aplicación nueva en Inicio. `ItemData.getHidden()` marca como ocultas las entradas nativas APP de Instagram y WhatsApp por su componente o paquete de referencia; conserva SHORTCUT y DEEP_SHORTCUT. La comprobación visual de estas políticas sigue pendiente mientras se resuelve el arranque.
 - El APK final sigue usando el nombre visible Nemotron y la firma debug de Nemotron.
 
 La compilación no concede permisos protegidos por firma o por instalación privilegiada, como `STATUS_BAR`, `MONITOR_INPUT` y `WRITE_SECURE_SETTINGS`. Android puede negar esas funciones a una copia instalada como app de usuario. La copia también tiene almacenamiento privado distinto: no hereda ajustes internos del One UI Home del sistema, incluido “Home screen only”.
@@ -39,6 +39,15 @@ Después de confirmar que ADB muestra el A54 como `device`:
 
 ```powershell
 adb install -r 'C:\ruta\Nemotron-OneUIHome-Integrated.apk'
+adb shell pm grant com.nemotron.voiceime2 android.permission.PACKAGE_USAGE_STATS
+adb shell appops set com.nemotron.voiceime2 GET_USAGE_STATS allow
+adb shell am start -n com.nemotron.voiceime2/com.sec.android.app.launcher.activities.LauncherActivity
+adb logcat -d -s AndroidRuntime:E
+```
+
+Comprobar primero que la interfaz abre y permanece estable. Solo entonces elegir el rol HOME:
+
+```powershell
 adb shell cmd role add-role-holder --user 0 android.app.role.HOME com.nemotron.voiceime2
 ```
 
