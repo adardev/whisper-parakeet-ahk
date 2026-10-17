@@ -380,6 +380,9 @@ foreach ($hbDir in $hbSmaliDirs) {
         # A54 has no folding display. Use a public callback implementation
         # instead of Samsung's hidden FoldStateListener constructor.
         $content = $content.Replace('Landroid/hardware/devicestate/DeviceStateManager$FoldStateListener;', 'Lcom/nemotron/oneui/compat/FoldStateListener;')
+        foreach ($settingsTable in @('Secure','System','Global')) {
+            $content = $content.Replace('Landroid/provider/Settings$' + $settingsTable + ';->getString(Landroid/content/ContentResolver;Ljava/lang/String;)Ljava/lang/String;', 'Lcom/nemotron/oneui/compat/SettingsCompat;->get' + $settingsTable + 'String(Landroid/content/ContentResolver;Ljava/lang/String;)Ljava/lang/String;')
+        }
         $content = [regex]::Replace($content, 'invoke-virtual(/range)? (\{[^}]+\}), Landroid/content/Context;->getDisplay\(\)Landroid/view/Display;', 'invoke-static$1 $2, Lcom/nemotron/oneui/compat/LauncherCompat;->getDisplay(Landroid/content/Context;)Landroid/view/Display;')
         $content = [regex]::Replace($content, 'invoke-virtual(/range)? (\{[^}]+\}), Landroid/content/Context;->createWindowContext\(ILandroid/os/Bundle;\)Landroid/content/Context;', 'invoke-static$1 $2, Lcom/nemotron/oneui/compat/LauncherCompat;->createWindowContext(Landroid/content/Context;ILandroid/os/Bundle;)Landroid/content/Context;')
         $content = [regex]::Replace($content, 'invoke-virtual(/range)? (\{[^}]+\}), Lcom/samsung/android/app/SemRoleManager;->getRoleHolders\(Ljava/lang/String;\)Ljava/util/List;', 'invoke-static$1 $2, Lcom/nemotron/oneui/compat/LauncherCompat;->getRoleHolders(Lcom/samsung/android/app/SemRoleManager;Ljava/lang/String;)Ljava/util/List;')
@@ -434,6 +437,14 @@ foreach ($hbDir in $hbSmaliDirs) {
         if ($sourceDescriptor -eq 'Lcom/honeyspace/sdk/database/entity/ItemData;') {
             $hiddenGetter = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'oneui-compat\ItemData-getHidden.smali.inc'))
             $content = [regex]::Replace($content, '(?s)\.method public final getHidden\(\)Lcom/honeyspace/sdk/database/field/HiddenType;.*?\.end method', $hiddenGetter)
+        }
+        if ($sourceDescriptor -eq 'Lcom/honeyspace/common/performance/DevicePerfInfo;') {
+            $ramMethod = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'oneui-compat\DevicePerfInfo-setDeviceTotalRam.smali.inc'))
+            $content = [regex]::Replace($content, '(?s)\.method private final setDeviceTotalRam\(\)V.*?\.end method', $ramMethod)
+        }
+        if ($sourceDescriptor -eq 'Lcom/honeyspace/common/reflection/ReflectionUtilsKt;') {
+            $reflectionMethods = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'oneui-compat\ReflectionUtils-methods.smali.inc'))
+            $content = [regex]::Replace($content, '(?ms)^\.method.*', $reflectionMethods)
         }
         if ($originalDescriptor -eq 'Lcom/samsung/android/honeyboard/app/HoneyBoardApplication;') {
             $stub = Get-ChildItem -LiteralPath $base -Recurse -Filter 'HoneyBoardApplication.smali' | Select-Object -First 1
