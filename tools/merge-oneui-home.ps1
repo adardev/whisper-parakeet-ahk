@@ -58,6 +58,12 @@ if (-not $DecodedWorkDir) {
     if ($LASTEXITCODE -ne 0) { throw 'Could not decode the One UI Home APK.' }
 }
 
+[xml] $baseInputManifest = Get-Content -LiteralPath (Join-Path $base 'AndroidManifest.xml') -Raw
+[xml] $homeInputManifest = Get-Content -LiteralPath (Join-Path $hb 'AndroidManifest.xml') -Raw
+if ($baseInputManifest.manifest.package -ne 'com.nemotron.voiceime2') { throw 'The base must be Nemotron with HoneyBoard integrated.' }
+if ($homeInputManifest.manifest.package -ne 'com.sec.android.app.launcher') { throw 'The donor must be the original One UI Home APK.' }
+if ($baseInputManifest.OuterXml.Contains('com.sec.android.app.launcher.activities.LauncherActivity')) { throw 'The base already includes One UI Home; use a clean decoded base.' }
+
 # Keep Nemotron's resource IDs (and app data) stable. Read complete compiled
 # resource tables, including non-public resources, and namespace collisions.
 # All HoneyBoard attributes receive new IDs in their original order: its compiled
@@ -385,6 +391,11 @@ foreach ($hbDir in $hbSmaliDirs) {
         }
         $content = [regex]::Replace($content, 'invoke-virtual(/range)? (\{[^}]+\}), Landroid/content/Context;->getDisplay\(\)Landroid/view/Display;', 'invoke-static$1 $2, Lcom/nemotron/oneui/compat/LauncherCompat;->getDisplay(Landroid/content/Context;)Landroid/view/Display;')
         $content = [regex]::Replace($content, 'invoke-virtual(/range)? (\{[^}]+\}), Landroid/content/Context;->createWindowContext\(ILandroid/os/Bundle;\)Landroid/content/Context;', 'invoke-static$1 $2, Lcom/nemotron/oneui/compat/LauncherCompat;->createWindowContext(Landroid/content/Context;ILandroid/os/Bundle;)Landroid/content/Context;')
+        foreach ($serviceCall in @('bindService(Landroid/content/Intent;Landroid/content/ServiceConnection;I)Z','bindServiceAsUser(Landroid/content/Intent;Landroid/content/ServiceConnection;ILandroid/os/UserHandle;)Z','unbindService(Landroid/content/ServiceConnection;)V')) {
+            $sourceCall = [regex]::Escape('Landroid/content/Context;->' + $serviceCall)
+            $targetCall = 'Lcom/nemotron/oneui/compat/LauncherCompat;->' + $serviceCall.Replace('(', '(Landroid/content/Context;')
+            $content = [regex]::Replace($content, 'invoke-virtual(/range)? (\{[^}]+\}), ' + $sourceCall, 'invoke-static$1 $2, ' + $targetCall)
+        }
         $content = [regex]::Replace($content, 'invoke-virtual(/range)? (\{[^}]+\}), Lcom/samsung/android/app/SemRoleManager;->getRoleHolders\(Ljava/lang/String;\)Ljava/util/List;', 'invoke-static$1 $2, Lcom/nemotron/oneui/compat/LauncherCompat;->getRoleHolders(Lcom/samsung/android/app/SemRoleManager;Ljava/lang/String;)Ljava/util/List;')
         if ($sourceDescriptor -eq 'Lcom/honeyspace/core/repository/N0;') {
             $roleMethod = @'
@@ -445,6 +456,11 @@ foreach ($hbDir in $hbSmaliDirs) {
         if ($sourceDescriptor -eq 'Lcom/honeyspace/common/reflection/ReflectionUtilsKt;') {
             $reflectionMethods = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'oneui-compat\ReflectionUtils-methods.smali.inc'))
             $content = [regex]::Replace($content, '(?ms)^\.method.*', $reflectionMethods)
+        }
+        if ($sourceDescriptor -eq 'Lk3/b;') {
+            $boundsMethod = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'oneui-compat\WindowBounds-getBounds.smali.inc'))
+            $content = [regex]::Replace($content, '(?s)\.method public static b\(Landroid/content/res/Configuration;\)Landroid/graphics/Rect;.*?\.end method', $boundsMethod)
+            $content = [regex]::Replace($content, '(?ms)const-class v0, Landroid/content/res/Configuration;\s+const-string/jumbo v4, "windowConfiguration".*?^    :goto_4[ \t]*\r?$', 'invoke-static {p1}, Lcom/nemotron/oneui/compat/LauncherCompat;->getWindowBounds(Landroid/content/res/Configuration;)Landroid/graphics/Rect;' + "`n    move-result-object p1`n    :goto_4")
         }
         if ($originalDescriptor -eq 'Lcom/samsung/android/honeyboard/app/HoneyBoardApplication;') {
             $stub = Get-ChildItem -LiteralPath $base -Recurse -Filter 'HoneyBoardApplication.smali' | Select-Object -First 1
