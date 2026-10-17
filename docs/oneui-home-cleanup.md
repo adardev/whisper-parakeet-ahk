@@ -16,3 +16,6 @@ Temporales adicionales revisados: honeyboard-resource-donor es una decodificaci�
 
 También se retiran las salidas experimentales antiguas Nemotron-OneUIHome* de app/build/outputs/apk/debug: clones aligned/unsigned, final aligned/unsigned, Compat, Filtered, KotlinFiltered y sus APK/idsig obsoletos. Son intentos fallidos anteriores, no la reconstrucción actual de app/build/oneui-repro. Se conservan las APK NemotronKeyboard y las APK originales de entrada. Antes de esta retirada se hizo commit y push de scripts, adaptadores y documentación.
 
+
+Resultado de la última retirada: 20 archivos obsoletos y 1.151 MB de contenido eliminados. Espacio libre observado al terminar esa limpieza: C: 6,47 GB; E: 11,56 GB. La reconstrucción actual y su árbol de trabajo permanecen disponibles para continuar la validación.
+
