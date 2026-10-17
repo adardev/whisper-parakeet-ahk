@@ -13,3 +13,6 @@ Después del push 4bc500f se eliminaron también oneui-home-validation-4 y la re
 
 Temporales adicionales revisados: honeyboard-resource-donor es una decodificación de inspección que ya no usa el integrador. HoneyBoard-original.apk es idéntico byte a byte a A54-HoneyBoard.apk (SHA-256 48bc8996a647e32b414bd78aab51b997908f600f1f19b900be6e9fd7b307edff). Se conserva A54-HoneyBoard.apk y se retiran el duplicado y esa decodificación, unos 488 MB de contenido. Los árboles de clon anteriores se mantienen hasta revisar sus diferencias.
 
+
+También se retiran las salidas experimentales antiguas Nemotron-OneUIHome* de app/build/outputs/apk/debug: clones aligned/unsigned, final aligned/unsigned, Compat, Filtered, KotlinFiltered y sus APK/idsig obsoletos. Son intentos fallidos anteriores, no la reconstrucción actual de app/build/oneui-repro. Se conservan las APK NemotronKeyboard y las APK originales de entrada. Antes de esta retirada se hizo commit y push de scripts, adaptadores y documentación.
+
