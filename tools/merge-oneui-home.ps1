@@ -152,8 +152,8 @@ function Rewrite-HbXmlText([string] $xmlText) {
     # Samsung's easy-mode widget uses an OEM-only category name. Android's
     # public AAPT schema accepts home_screen for the equivalent launcher slot.
     $xmlText = $xmlText.Replace('android:widgetCategory="favorite"', 'android:widgetCategory="home_screen"')
-    $xmlText = $xmlText.Replace('androidx.', 'com.nemotron.honeyboard.shaded.androidx.')
-    $xmlText = $xmlText.Replace('com.google.android.material.', 'com.nemotron.honeyboard.shaded.com.google.android.material.')
+    $xmlText = $xmlText.Replace('androidx.', 'com.nemotron.oneui.shaded.androidx.')
+    $xmlText = $xmlText.Replace('com.google.android.material.', 'com.nemotron.oneui.shaded.com.google.android.material.')
     $xmlText = [regex]::Replace($xmlText, '(<(?:item|attr) name=")([^":]+)(")', {
         param($m)
         $key = 'attr/' + $m.Groups[2].Value
@@ -261,9 +261,8 @@ foreach ($provider in $hbSourceManifest.SelectNodes('//*[local-name()="provider"
 $existingClasses = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
 foreach ($dir in $nemSmaliDirs) {
     foreach ($file in Get-ChildItem -LiteralPath $dir.FullName -Recurse -Filter '*.smali') {
-        $rel = $file.FullName.Substring($dir.FullName.Length + 1).Replace('\', '/')
-        $descriptor = 'L' + $rel.Substring(0, $rel.Length - 6) + ';'
-        [void]$existingClasses.Add($descriptor)
+        $classMatch = [regex]::Match([IO.File]::ReadAllText($file.FullName), '(?m)^\.class\s+(?:[^\r\n]*?\s)?(L[^;\s]+;)')
+        if ($classMatch.Success) { [void]$existingClasses.Add($classMatch.Groups[1].Value) }
     }
 }
 $hbSmaliDirs = @(Get-ChildItem -LiteralPath $hb -Directory | Where-Object { $_.Name -match '^smali(?:_classes\d+)?$' } | Sort-Object { if ($_.Name -eq 'smali') { 1 } else { [int]($_.Name -replace '^smali_classes', '') } })
@@ -277,6 +276,10 @@ foreach ($hbDir in $hbSmaliDirs) {
         $classMatch = [regex]::Match($content, '(?m)^\.class\s+(?:[^\r\n]*?\s)?(L[^;\s]+;)')
         if (-not $classMatch.Success) { continue }
         $sourceDescriptor = $classMatch.Groups[1].Value
+        if ($sourceDescriptor -match '^L([^/]+)/' -and $Matches[1] -notin @('android','androidx','com','dagger','java','javax','kotlin','kotlinx','org')) {
+            $oneUiRelocationMap[$sourceDescriptor] = 'Lcom/nemotron/oneui/shaded/' + $sourceDescriptor.Substring(1)
+            continue
+        }
         if ($sourceDescriptor.StartsWith('Lkotlin/')) {
             # One UI Home carries a Kotlin stdlib newer than Nemotron's. Keep
             # its whole stdlib in one package so internal/package access stays
@@ -290,8 +293,8 @@ foreach ($hbDir in $hbSmaliDirs) {
             continue
         }
         $descriptor = $sourceDescriptor
-        $descriptor = $descriptor.Replace('Landroidx/', 'Lcom/nemotron/honeyboard/shaded/androidx/')
-        $descriptor = $descriptor.Replace('Lcom/google/android/material/', 'Lcom/nemotron/honeyboard/shaded/com/google/android/material/')
+        $descriptor = $descriptor.Replace('Landroidx/', 'Lcom/nemotron/oneui/shaded/androidx/')
+        $descriptor = $descriptor.Replace('Lcom/google/android/material/', 'Lcom/nemotron/oneui/shaded/com/google/android/material/')
         if ($existingClasses.Contains($descriptor)) {
             $relocated = 'Lcom/nemotron/oneui/shaded/' + $descriptor.Substring(1, $descriptor.Length - 2) + ';'
             $oneUiRelocationMap[$descriptor] = $relocated
@@ -343,13 +346,13 @@ foreach ($hbDir in $hbSmaliDirs) {
             $originalDescriptor = $sourceDescriptor.Replace('Lkotlinx/coroutines/', 'Lcom/nemotron/honeyboard/shaded/kotlinx/coroutines/')
         }
         if (-not $sourceDescriptor.StartsWith('Lkotlin/')) {
-            $originalDescriptor = $originalDescriptor.Replace('Landroidx/', 'Lcom/nemotron/honeyboard/shaded/androidx/')
-            $originalDescriptor = $originalDescriptor.Replace('Lcom/google/android/material/', 'Lcom/nemotron/honeyboard/shaded/com/google/android/material/')
+            $originalDescriptor = $originalDescriptor.Replace('Landroidx/', 'Lcom/nemotron/oneui/shaded/androidx/')
+            $originalDescriptor = $originalDescriptor.Replace('Lcom/google/android/material/', 'Lcom/nemotron/oneui/shaded/com/google/android/material/')
         }
         if ($rel.Replace('\', '/').StartsWith('kotlinx/coroutines/')) {
-            $rel = 'com\nemotron\honeyboard\shaded\' + $rel
+            $rel = 'com\nemotron\oneui\shaded\' + $rel
         } elseif ($rel.Replace('\', '/').StartsWith('androidx/') -or $rel.Replace('\', '/').StartsWith('com/google/android/material/')) {
-            $rel = 'com\nemotron\honeyboard\shaded\' + $rel
+            $rel = 'com\nemotron\oneui\shaded\' + $rel
         }
         $descriptor = $originalDescriptor
         $mapKey = if ($sourceDescriptor.StartsWith('Lkotlin/')) { $sourceDescriptor } else { $originalDescriptor }
@@ -370,10 +373,12 @@ foreach ($hbDir in $hbSmaliDirs) {
         $content = $content.Replace('kotlinx.coroutines.', 'com.nemotron.oneui.shaded.kotlinx.coroutines.')
         $content = $content.Replace('Lkotlin/', 'Lcom/nemotron/oneui/shaded/kotlin/')
         $content = $content.Replace('kotlin.', 'com.nemotron.oneui.shaded.kotlin.')
-        $content = $content.Replace('Landroidx/', 'Lcom/nemotron/honeyboard/shaded/androidx/')
-        $content = $content.Replace('androidx.', 'com.nemotron.honeyboard.shaded.androidx.')
-        $content = $content.Replace('Lcom/google/android/material/', 'Lcom/nemotron/honeyboard/shaded/com/google/android/material/')
-        $content = $content.Replace('com.google.android.material.', 'com.nemotron.honeyboard.shaded.com.google.android.material.')
+        $content = $content.Replace('Landroidx/', 'Lcom/nemotron/oneui/shaded/androidx/')
+        $content = $content.Replace('androidx.', 'com.nemotron.oneui.shaded.androidx.')
+        $content = $content.Replace('Lcom/google/android/material/', 'Lcom/nemotron/oneui/shaded/com/google/android/material/')
+        $content = $content.Replace('com.google.android.material.', 'com.nemotron.oneui.shaded.com.google.android.material.')
+        $content = [regex]::Replace($content, 'invoke-virtual(/range)? (\{[^}]+\}), Landroid/content/Context;->getDisplay\(\)Landroid/view/Display;', 'invoke-static$1 $2, Lcom/nemotron/oneui/compat/LauncherCompat;->getDisplay(Landroid/content/Context;)Landroid/view/Display;')
+        $content = [regex]::Replace($content, 'invoke-virtual(/range)? (\{[^}]+\}), Landroid/content/Context;->createWindowContext\(ILandroid/os/Bundle;\)Landroid/content/Context;', 'invoke-static$1 $2, Lcom/nemotron/oneui/compat/LauncherCompat;->createWindowContext(Landroid/content/Context;ILandroid/os/Bundle;)Landroid/content/Context;')
         $content = [regex]::Replace($content, 'L[A-Za-z0-9_$/-]+;', {
             param($match)
             if ($oneUiRelocationMap.ContainsKey($match.Value)) { return $oneUiRelocationMap[$match.Value] }
@@ -581,8 +586,8 @@ function Rewrite-HoneyBoardPackage([System.Xml.XmlNode] $node) {
             if ($hbPermissionNameMap.ContainsKey($attribute.Value)) {
                 $attribute.Value = $hbPermissionNameMap[$attribute.Value]
             }
-            $attribute.Value = $attribute.Value.Replace('androidx.', 'com.nemotron.honeyboard.shaded.androidx.')
-            $attribute.Value = $attribute.Value.Replace('com.google.android.material.', 'com.nemotron.honeyboard.shaded.com.google.android.material.')
+            $attribute.Value = $attribute.Value.Replace('androidx.', 'com.nemotron.oneui.shaded.androidx.')
+            $attribute.Value = $attribute.Value.Replace('com.google.android.material.', 'com.nemotron.oneui.shaded.com.google.android.material.')
             $attribute.Value = [regex]::Replace($attribute.Value, '@(?:\+)?[A-Za-z_]+/[A-Za-z0-9_.$]+', {
                 param($m)
                 $resourceKey = $m.Value.TrimStart('@', '+')
@@ -639,8 +644,8 @@ $componentTags = @('activity', 'activity-alias', 'service', 'receiver', 'provide
 foreach ($component in $hbApp.ChildNodes) {
     if ($component.NodeType -ne [System.Xml.XmlNodeType]::Element -or $componentTags -notcontains $component.LocalName) { continue }
     $componentName = $component.GetAttribute('name', $androidNs)
-    $componentName = $componentName.Replace('androidx.', 'com.nemotron.honeyboard.shaded.androidx.')
-    $componentName = $componentName.Replace('com.google.android.material.', 'com.nemotron.honeyboard.shaded.com.google.android.material.')
+    $componentName = $componentName.Replace('androidx.', 'com.nemotron.oneui.shaded.androidx.')
+    $componentName = $componentName.Replace('com.google.android.material.', 'com.nemotron.oneui.shaded.com.google.android.material.')
     if ($componentName -and -not $componentName.StartsWith('.')) {
         $componentDescriptor = 'L' + $componentName.Replace('.', '/') + ';'
         if ($oneUiRelocationMap.ContainsKey($componentDescriptor)) {
@@ -713,6 +718,9 @@ $hbCode = $hbCode.Replace('Landroid/app/Application;->onCreate()V', 'Lcom/sec/an
 $hbCode = $hbCode.Replace('Landroid/app/Application;->onTerminate()V', 'Lcom/sec/android/app/launcher/LauncherApplication;->onTerminate()V')
 [IO.File]::WriteAllText($hbApp.FullName, $hbCode, [Text.UTF8Encoding]::new($false))
 Write-Host "Injected $insertedClassCount One UI Home classes; reused $duplicateClassCount shared library classes; added $kotlinFallbackCount Kotlin fallback classes."
+$compatTarget = Join-Path $kotlinFallbackDir 'com\nemotron\oneui\compat\LauncherCompat.smali'
+New-Item -ItemType Directory -Path (Split-Path -Parent $compatTarget) -Force | Out-Null
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'oneui-compat\LauncherCompat.smali') -Destination $compatTarget
 & $JavaExe -jar $ApktoolJar b $base -p $FrameworkDir -o $unsigned
 if ($LASTEXITCODE -ne 0) { throw "APKTool rebuild failed. Working files are at $work" }
 & $zipalign -f -p 4 $unsigned $aligned
