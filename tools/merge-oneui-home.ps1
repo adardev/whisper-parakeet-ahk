@@ -831,6 +831,7 @@ Copy-Item -LiteralPath (Join-Path $hiddenApiVendor 'smali\org') -Destination (Jo
 $licenseDir = Join-Path $base 'assets\licenses'
 New-Item -ItemType Directory -Path $licenseDir -Force | Out-Null
 Copy-Item -LiteralPath (Join-Path $hiddenApiVendor 'LICENSE') -Destination (Join-Path $licenseDir 'hiddenapibypass-6.2.txt')
+& (Join-Path $PSScriptRoot 'patch-oneui-behavior.ps1') -DecodedRoot $base
 & $JavaExe -jar $ApktoolJar b $base -p $FrameworkDir -o $unsigned
 if ($LASTEXITCODE -ne 0) { throw "APKTool rebuild failed. Working files are at $work" }
 & $zipalign -f -p 4 $unsigned $aligned
