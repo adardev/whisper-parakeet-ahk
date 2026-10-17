@@ -386,8 +386,6 @@ foreach ($hbDir in $hbSmaliDirs) {
         # A54 has no folding display. Use a public callback implementation
         # instead of Samsung's hidden FoldStateListener constructor.
         $content = $content.Replace('Landroid/hardware/devicestate/DeviceStateManager$FoldStateListener;', 'Lcom/nemotron/oneui/compat/FoldStateListener;')
-        $content = $content.Replace('Landroid/window/BackProgressAnimator$ProgressCallback;', 'Lcom/nemotron/oneui/compat/BackProgressAnimator$ProgressCallback;')
-        $content = $content.Replace('Landroid/window/BackProgressAnimator;', 'Lcom/nemotron/oneui/compat/BackProgressAnimator;')
         foreach ($settingsTable in @('Secure','System','Global')) {
             $content = $content.Replace('Landroid/provider/Settings$' + $settingsTable + ';->getString(Landroid/content/ContentResolver;Ljava/lang/String;)Ljava/lang/String;', 'Lcom/nemotron/oneui/compat/SettingsCompat;->get' + $settingsTable + 'String(Landroid/content/ContentResolver;Ljava/lang/String;)Ljava/lang/String;')
         }
@@ -443,6 +441,7 @@ foreach ($hbDir in $hbSmaliDirs) {
             $content = $content.Replace('.method public final onConfigurationChanged(Landroid/content/res/Configuration;)V', '.method public onConfigurationChanged(Landroid/content/res/Configuration;)V')
             $superDescriptor = [regex]::Match($content, '(?m)^\.super (L[^;]+;)').Groups[1].Value
             $content += "`n.method protected attachBaseContext(Landroid/content/Context;)V`n    .locals 0`n    invoke-super {p0, p1}, $superDescriptor`->attachBaseContext(Landroid/content/Context;)V`n    invoke-static {p0}, Lcom/nemotron/oneui/compat/LauncherCompat;->init(Landroid/content/Context;)V`n    return-void`n.end method`n"
+            $content += "`n" + [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'oneui-compat\LauncherApplication-context.smali.inc'))
         }
         if ($sourceDescriptor -eq 'Lcom/honeyspace/common/wrapper/DeviceStateManagerWrapper;') {
             $content = [regex]::Replace($content, 'new-instance (\w+), Landroid/hardware/devicestate/DeviceStateManager;\s+invoke-direct \{\1\}, Landroid/hardware/devicestate/DeviceStateManager;-><init>\(\)V', 'invoke-static {}, Lcom/nemotron/oneui/compat/LauncherCompat;->getDeviceStateManager()Landroid/hardware/devicestate/DeviceStateManager;' + "`n    move-result-object " + '$1')
@@ -463,6 +462,10 @@ foreach ($hbDir in $hbSmaliDirs) {
             $boundsMethod = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'oneui-compat\WindowBounds-getBounds.smali.inc'))
             $content = [regex]::Replace($content, '(?s)\.method public static b\(Landroid/content/res/Configuration;\)Landroid/graphics/Rect;.*?\.end method', $boundsMethod)
             $content = [regex]::Replace($content, '(?ms)const-class v0, Landroid/content/res/Configuration;\s+const-string/jumbo v4, "windowConfiguration".*?^    :goto_4[ \t]*\r?$', 'invoke-static {p1}, Lcom/nemotron/oneui/compat/LauncherCompat;->getWindowBounds(Landroid/content/res/Configuration;)Landroid/graphics/Rect;' + "`n    move-result-object p1`n    :goto_4")
+        }
+        if ($sourceDescriptor -eq 'Lcom/android/systemui/shared/system/QuickStepContract;') {
+            $cornerMethod = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'oneui-compat\QuickStepContract-getWindowCornerRadius.smali.inc'))
+            $content = [regex]::Replace($content, '(?s)\.method public static getWindowCornerRadius\(Landroid/content/Context;\)F.*?\.end method', $cornerMethod)
         }
         if ($originalDescriptor -eq 'Lcom/samsung/android/honeyboard/app/HoneyBoardApplication;') {
             $stub = Get-ChildItem -LiteralPath $base -Recurse -Filter 'HoneyBoardApplication.smali' | Select-Object -First 1
