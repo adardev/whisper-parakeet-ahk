@@ -57,3 +57,5 @@ Cambios del script: aislamiento por descriptor `.class`, archivos de valores `on
 Los directorios `app/build/oneui-home-validation*` y sus APK de prueba son archivos generados, no fuentes. Se pueden regenerar con los APK de entrada y el script. No deben publicarse como versiones funcionales. Se guardan las modificaciones y este estado en Git antes de limpiar dichos intermediarios para recuperar espacio.
 
 El filtro actual actúa sobre altas de paquetes; todavía falta verificar la carga inicial y eliminar de la vista las entradas ya persistidas. No se ha demostrado que los iconos nativos permanezcan ocultos después de reiniciar.
+
+Corrección posterior: el lector de directivas smali admite clases sin modificadores (.class L...;). La sustitución de descriptores limita los caracteres permitidos para no capturar el nombre de un método junto a su primer parámetro. Se recompila desde entradas limpias para validar estas correcciones. Se han eliminado APK fallidas y los primeros dos árboles generados; el código permanece en Git.

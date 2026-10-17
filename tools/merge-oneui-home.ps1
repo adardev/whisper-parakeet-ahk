@@ -274,7 +274,7 @@ $oneUiRelocationMap = [System.Collections.Generic.Dictionary[string,string]]::ne
 foreach ($hbDir in $hbSmaliDirs) {
     foreach ($file in Get-ChildItem -LiteralPath $hbDir.FullName -Recurse -Filter '*.smali') {
         $content = [IO.File]::ReadAllText($file.FullName)
-        $classMatch = [regex]::Match($content, '(?m)^\.class\s+[^\r\n]*?\s(L[^;\s]+;)')
+        $classMatch = [regex]::Match($content, '(?m)^\.class\s+(?:[^\r\n]*?\s)?(L[^;\s]+;)')
         if (-not $classMatch.Success) { continue }
         $sourceDescriptor = $classMatch.Groups[1].Value
         if ($sourceDescriptor.StartsWith('Lkotlin/')) {
@@ -335,7 +335,7 @@ foreach ($hbDir in $hbSmaliDirs) {
     foreach ($file in Get-ChildItem -LiteralPath $hbDir.FullName -Recurse -Filter '*.smali') {
         $rel = $file.FullName.Substring($hbDir.FullName.Length + 1)
         $content = [IO.File]::ReadAllText($file.FullName)
-        $classMatch = [regex]::Match($content, '(?m)^\.class\s+[^\r\n]*?\s(L[^;\s]+;)')
+        $classMatch = [regex]::Match($content, '(?m)^\.class\s+(?:[^\r\n]*?\s)?(L[^;\s]+;)')
         if (-not $classMatch.Success) { continue }
         $originalDescriptor = $classMatch.Groups[1].Value
         $sourceDescriptor = $originalDescriptor
@@ -374,7 +374,7 @@ foreach ($hbDir in $hbSmaliDirs) {
         $content = $content.Replace('androidx.', 'com.nemotron.honeyboard.shaded.androidx.')
         $content = $content.Replace('Lcom/google/android/material/', 'Lcom/nemotron/honeyboard/shaded/com/google/android/material/')
         $content = $content.Replace('com.google.android.material.', 'com.nemotron.honeyboard.shaded.com.google.android.material.')
-        $content = [regex]::Replace($content, 'L[^;\s]+;', {
+        $content = [regex]::Replace($content, 'L[A-Za-z0-9_$/-]+;', {
             param($match)
             if ($oneUiRelocationMap.ContainsKey($match.Value)) { return $oneUiRelocationMap[$match.Value] }
             return $match.Value
@@ -486,7 +486,7 @@ $kotlinFallbackCount = 0
 foreach ($baseSmaliDir in $nemSmaliDirs) {
     foreach ($file in Get-ChildItem -LiteralPath $baseSmaliDir.FullName -Recurse -Filter '*.smali') {
         $rel = $file.FullName.Substring($baseSmaliDir.FullName.Length + 1).Replace('/', '\')
-        if (-not $rel.StartsWith('kotlin\', [StringComparison]::Ordinal)) { continue }
+        if (-not $rel.StartsWith('kotlin\', [StringComparison]::Ordinal) -and -not $rel.StartsWith('kotlinx\coroutines\', [StringComparison]::Ordinal)) { continue }
         $targetRel = if ($rel.StartsWith('kotlin\', [StringComparison]::Ordinal)) {
             'com\nemotron\oneui\shaded\' + $rel
         } else {
