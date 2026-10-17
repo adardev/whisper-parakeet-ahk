@@ -1,0 +1,59 @@
+# One UI Home integrado en Nemotron
+
+Nemotron se recompila con el código, los recursos, las bibliotecas y los componentes HOME de One UI Home extraídos del A54. La integración conserva el paquete principal `com.nemotron.voiceime2`; no reemplaza el One UI Home del sistema y no necesita su firma Samsung. La salida se firma con la misma clave debug de Nemotron.
+
+## Qué se integró
+
+- One UI Home 17.5.05.33 del A54: cinco DEX y aproximadamente 33,700 clases smali.
+- El alias `com.sec.android.app.launcher.activities.LauncherActivity` con las categorías `MAIN` y `HOME`.
+- Recursos, proveedores, servicios, receptores, assets y bibliotecas nativas de One UI Home.
+- La inicialización Hilt de `LauncherApplication` encadenada con HoneyBoard y `NemotronApp`.
+- Filtro en `WorkspaceViewModel.v0(PackageOperation.Added)`: el clon descarta `com.instagram.android` y `com.whatsapp` antes de pasar la instalación al manejador que añade apps al espacio de Inicio. Las aplicaciones siguen instaladas; solo se omite su alta automática en la página de inicio.
+- El APK final sigue usando el nombre visible Nemotron y la firma debug de Nemotron.
+
+La compilación no concede permisos protegidos por firma o por instalación privilegiada, como `STATUS_BAR`, `MONITOR_INPUT` y `WRITE_SECURE_SETTINGS`. Android puede negar esas funciones a una copia instalada como app de usuario. La copia también tiene almacenamiento privado distinto: no hereda ajustes internos del One UI Home del sistema, incluido “Home screen only”.
+
+## Compilar
+
+Se necesita el APK de One UI Home extraído del mismo teléfono, el APK Nemotron con HoneyBoard ya integrado, Apktool 2.12.1, el `framework-res.apk` del A54 registrado en Apktool con la etiqueta `A54`, Android SDK Build Tools y JDK 17.
+
+```powershell
+$env:JAVA_HOME = 'C:\ruta\a\jdk-17'
+$env:ANDROID_HOME = 'C:\Users\adaredu\AppData\Local\Android\Sdk'
+
+.\tools\merge-oneui-home.ps1 `
+  -OneUIHomeApk 'C:\ruta\TouchWizHome_2017.apk' `
+  -NemotronApk 'C:\ruta\NemotronKeyboard-no-custom-home.apk' `
+  -OutputApk 'C:\ruta\Nemotron-OneUIHome-Integrated.apk' `
+  -ApktoolJar 'C:\ruta\apktool_2.12.1.jar' `
+  -AndroidSdk $env:ANDROID_HOME `
+  -JavaExe "$env:JAVA_HOME\bin\java.exe" `
+  -FrameworkDir 'C:\ruta\apktool-A54-frames'
+```
+
+El script remapea recursos y autoridades que colisionan, aísla clases One UI que comparten descriptores con Nemotron (incluidos los nombres de clase internos que Apktool renombra al decodificar), aplica el filtro de paquetes, fusiona el manifiesto y firma el resultado con `%USERPROFILE%\.android\debug.keystore`.
+
+## Instalar y elegir HOME
+
+Después de confirmar que ADB muestra el A54 como `device`:
+
+```powershell
+adb install -r 'C:\ruta\Nemotron-OneUIHome-Integrated.apk'
+adb shell cmd role add-role-holder --user 0 android.app.role.HOME com.nemotron.voiceime2
+```
+
+El alias HOME integrado debe aparecer como Nemotron en Aplicaciones predeterminadas. El One UI Home original continúa instalado. Para volver, selecciona One UI Home en esa misma pantalla.
+
+## Estado de verificación
+
+La compilación inicial se instaló en el A54, pero falló durante el arranque por una colisión entre una interfaz de One UI (`o1.h`) y una clase de Nemotron con el mismo descriptor. El script se corrigió para basar el aislamiento en la directiva `.class` real en cada smali; la APK filtrada debe volver a instalarse y probarse antes de usarla como Home predeterminado. Mantén One UI Home del sistema como predeterminado mientras esa validación termina. El clon usa datos privados separados y no hereda el diseño/configuración guardado por el One UI Home del sistema ni sus permisos privilegiados.
+
+## Checkpoint del 17 de octubre de 2026
+
+Estado: integración experimental, todavía no funcional como launcher. Se instalaron compilaciones de prueba en el A54; el inicio predeterminado permanece en `com.sec.android.app.launcher`.
+
+Cambios del script: aislamiento por descriptor `.class`, archivos de valores `oneui-*` para evitar sobrescribir recursos `hb-*` del teclado, adaptación de `widgetCategory` de `favorite` a `home_screen`, filtro de paquetes en `WorkspaceViewModel.v0`, y aislamiento de Kotlin y coroutines. Los intentos anteriores detectaron colisiones `o1.h`, incompatibilidad de `ArraysKt`, referencias de Kotlin parcialmente trasladadas y clases de coroutines ausentes. El último fallo observado fue `NoClassDefFoundError` para `ChannelFlowBuilder` en el espacio de coroutines trasladado. El aislamiento completo y sus dependencias siguen pendientes de validar.
+
+Los directorios `app/build/oneui-home-validation*` y sus APK de prueba son archivos generados, no fuentes. Se pueden regenerar con los APK de entrada y el script. No deben publicarse como versiones funcionales. Se guardan las modificaciones y este estado en Git antes de limpiar dichos intermediarios para recuperar espacio.
+
+El filtro actual actúa sobre altas de paquetes; todavía falta verificar la carga inicial y eliminar de la vista las entradas ya persistidas. No se ha demostrado que los iconos nativos permanezcan ocultos después de reiniciar.

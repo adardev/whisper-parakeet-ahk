@@ -312,9 +312,11 @@ class SetupActivity : AppCompatActivity() {
             val appInfo = try { packageManager.getApplicationInfo(pkg, 0) } catch (_: Throwable) { null }
             if (appInfo == null) continue
 
-            // Renderiza el icono nativo a bitmap (soporta adaptive icons sin depender de
-            // recursos de otro paquete, evitando que el launcher crashee).
-            val drawable = packageManager.getApplicationIcon(pkg)
+            // Instagram usa la marca de Nemotron en el atajo; las otras apps
+            // conservan su icono propio.
+            val drawable = packageManager.getApplicationIcon(
+                if (pkg == "com.instagram.android") packageName else pkg
+            )
             val size = 108
             val bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
             val canvas = android.graphics.Canvas(bitmap)

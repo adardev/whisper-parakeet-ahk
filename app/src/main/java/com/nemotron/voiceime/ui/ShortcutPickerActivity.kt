@@ -29,6 +29,7 @@ class ShortcutPickerActivity : AppCompatActivity() {
     private lateinit var adapter: ShortcutAdapter
 
     private val apps = listOf(
+        AppInfo("Instagram", "com.instagram.android", "com.instagram.android.activity.MainTabActivity"),
         AppInfo("Samsung Health", "com.sec.android.app.shealth", "com.samsung.android.app.shealth.home.HomeMainActivity"),
         AppInfo("WhatsApp", "com.whatsapp", "com.whatsapp.Main"),
     )
@@ -50,7 +51,7 @@ class ShortcutPickerActivity : AppCompatActivity() {
 
     private fun requestShortcut(app: AppInfo) {
         val drawable = try {
-            packageManager.getApplicationIcon(app.pkg)
+            shortcutDrawable(app)
         } catch (_: Throwable) {
             Toast.makeText(this, "App not installed: ${app.pkg}", Toast.LENGTH_SHORT).show()
             return
@@ -101,6 +102,10 @@ class ShortcutPickerActivity : AppCompatActivity() {
 
     data class AppInfo(val label: String, val pkg: String, val activity: String)
 
+    private fun shortcutDrawable(app: AppInfo): Drawable = packageManager.getApplicationIcon(
+        if (app.pkg == INSTAGRAM_PACKAGE) packageName else app.pkg
+    )
+
     inner class ShortcutAdapter : BaseAdapter() {
         override fun getCount(): Int = apps.size
         override fun getItem(position: Int): AppInfo = apps[position]
@@ -116,7 +121,7 @@ class ShortcutPickerActivity : AppCompatActivity() {
             val pkgView = view.findViewById<TextView>(R.id.appPackage)
             val btn = view.findViewById<Button>(R.id.btnAddShortcut)
 
-            val icon = try { packageManager.getApplicationIcon(app.pkg) } catch (_: Throwable) { null }
+            val icon = try { shortcutDrawable(app) } catch (_: Throwable) { null }
             if (icon != null) iconView.setImageDrawable(icon)
             labelView.text = app.label
             pkgView.text = app.pkg
@@ -127,5 +132,9 @@ class ShortcutPickerActivity : AppCompatActivity() {
 
             return view
         }
+    }
+
+    companion object {
+        private const val INSTAGRAM_PACKAGE = "com.instagram.android"
     }
 }
