@@ -270,7 +270,12 @@ foreach ($provider in $hbSourceManifest.SelectNodes('//*[local-name()="provider"
 $existingClasses = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
 foreach ($dir in $nemSmaliDirs) {
     foreach ($file in Get-ChildItem -LiteralPath $dir.FullName -Recurse -Filter '*.smali') {
-        $classMatch = [regex]::Match([IO.File]::ReadAllText($file.FullName), '(?m)^\.class\s+(?:[^\r\n]*?\s)?(L[^;\s]+;)')
+        $baseCode = [IO.File]::ReadAllText($file.FullName)
+        $ownUserCode = $baseCode.Replace('Landroid/app/ActivityManager;->semGetCurrentUser()I', 'Landroid/os/UserHandle;->myUserId()I')
+        if ($ownUserCode -cne $baseCode) {
+            [IO.File]::WriteAllText($file.FullName, $ownUserCode, [Text.UTF8Encoding]::new($false))
+        }
+        $classMatch = [regex]::Match($ownUserCode, '(?m)^\.class\s+(?:[^\r\n]*?\s)?(L[^;\s]+;)')
         if ($classMatch.Success) { [void]$existingClasses.Add($classMatch.Groups[1].Value) }
     }
 }

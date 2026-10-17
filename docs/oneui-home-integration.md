@@ -91,3 +91,6 @@ La reconstrucción limpia detectó una colisión entre clases como Y0/b e y0/b. 
 
 La reconstrucción con alias conservados compiló con 33.692 clases del donante y 142 fallbacks. El arranque superó la clase Y0.b ausente; apareció una SecurityException en ActivityManager.semGetCurrentUser. Se reemplaza también esa variante Samsung por UserHandle.myUserId. Continúa la comprobación en dispositivo.
 
+
+La corrección semGetCurrentUser se aplica tanto a las clases del launcher como a la base HoneyBoard. Tras reinstalar, el proceso permanece activo sin AndroidRuntime fatal en el intervalo observado. La pantalla quedó bloqueada con PIN; la validación visual está pendiente de desbloqueo y no se ha cambiado el HOME predeterminado.
+
