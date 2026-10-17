@@ -90,7 +90,7 @@ class ShortcutPickerActivity : AppCompatActivity() {
             putExtra(ShortcutActivity.EXTRA_ACTIVITY, app.activity)
         }
 
-        val shortcut = androidx.core.content.pm.ShortcutInfoCompat.Builder(this, "shortcut_${app.pkg}")
+        val shortcut = androidx.core.content.pm.ShortcutInfoCompat.Builder(this, "shortcut_${app.pkg}_${System.currentTimeMillis()}")
             .setShortLabel(app.label)
             .setLongLabel(app.label)
             .setIcon(icon)

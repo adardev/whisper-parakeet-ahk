@@ -1,5 +1,19 @@
 .class public final Lcom/nemotron/oneui/compat/InstalledApps;
 .super Ljava/lang/Object;
+.method public static freshId(Ljava/lang/String;)Ljava/lang/String;
+    .locals 3
+    new-instance v0, Ljava/lang/StringBuilder;
+    invoke-direct {v0, p0}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+    const-string p0, "_"
+    invoke-virtual {v0, p0}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    invoke-static {}, Ljava/lang/System;->currentTimeMillis()J
+    move-result-wide v1
+    invoke-virtual {v0, v1, v2}, Ljava/lang/StringBuilder;->append(J)Ljava/lang/StringBuilder;
+    invoke-virtual {v0}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v0
+    return-object v0
+.end method
+
 .method public static load(Landroid/content/Context;)Ljava/util/List;
     .locals 8
     invoke-virtual {p0}, Landroid/content/Context;->getPackageManager()Landroid/content/pm/PackageManager;

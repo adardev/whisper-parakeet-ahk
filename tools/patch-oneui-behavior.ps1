@@ -28,6 +28,13 @@ if (-not $manual) {
 }
 Edit-Class 'ShortcutPickerActivity.smali' {
     param($text)
+    if (-not $text.Contains('Lcom/nemotron/oneui/compat/InstalledApps;->freshId')) {
+        $text = [regex]::Replace($text, '(?m)^(\s*)invoke-direct \{(\w+), (\w+), (\w+)\}, Landroidx/core/content/pm/ShortcutInfoCompat\$Builder;-><init>\(Landroid/content/Context;Ljava/lang/String;\)V', {
+            param($m)
+            $idReg = $m.Groups[4].Value
+            "    invoke-static {$idReg}, Lcom/nemotron/oneui/compat/InstalledApps;->freshId(Ljava/lang/String;)Ljava/lang/String;`n    move-result-object $idReg`n" + $m.Value
+        })
+    }
     if ($text.Contains('Lcom/nemotron/oneui/compat/InstalledApps;->load')) { return $text }
     $text.Replace('invoke-super {p0, p1}, Landroidx/appcompat/app/AppCompatActivity;->onCreate(Landroid/os/Bundle;)V', @'
 invoke-super {p0, p1}, Landroidx/appcompat/app/AppCompatActivity;->onCreate(Landroid/os/Bundle;)V
