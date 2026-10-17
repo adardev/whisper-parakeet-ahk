@@ -94,3 +94,7 @@ La reconstrucción con alias conservados compiló con 33.692 clases del donante 
 
 La corrección semGetCurrentUser se aplica tanto a las clases del launcher como a la base HoneyBoard. Tras reinstalar, el proceso permanece activo sin AndroidRuntime fatal en el intervalo observado. La pantalla quedó bloqueada con PIN; la validación visual está pendiente de desbloqueo y no se ha cambiado el HOME predeterminado.
 
+
+### Pulsación larga sobre iconos
+El A54 confirmó un cierre SecurityException READ_FRAME_BUFFER al crear QuickOptionBlurBackground. Ese fondo ahora captura solo la jerarquía de vistas de la Activity mediante Canvas y View.draw, sin SemWindowManager.screenshot. QuickOptionCapture devuelve null si no hay Activity, tamaño válido o memoria suficiente; la ruta existente de BitmapDrawable admite un bitmap nulo. No cambia las acciones del menú. La corrección se conserva en merge-oneui-home.ps1 y tools/oneui-compat/QuickOptionCapture.smali; pendiente de comprobar instalada.
+

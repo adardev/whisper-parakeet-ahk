@@ -499,6 +499,10 @@ foreach ($hbDir in $hbSmaliDirs) {
             $hiddenGetter = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'oneui-compat\ItemData-getHidden.smali.inc'))
             $content = [regex]::Replace($content, '(?s)\.method public final getHidden\(\)Lcom/honeyspace/sdk/database/field/HiddenType;.*?\.end method', $hiddenGetter)
         }
+        if ($sourceDescriptor -eq 'Lcom/honeyspace/ui/common/quickoption/QuickOptionBlurBackground;') {
+            $captureCall = 'iget-object v0, p0, Lcom/honeyspace/ui/common/quickoption/QuickOptionBlurBackground;->context:Landroid/content/Context;' + "`n    invoke-static {v0, v6, v7}, Lcom/nemotron/oneui/compat/QuickOptionCapture;->capture(Landroid/content/Context;II)Landroid/graphics/Bitmap;"
+            $content = $content.Replace('invoke-interface/range {v1 .. v10}, Lcom/honeyspace/sdk/BackgroundUtils;->takeScreenshot(IIZLandroid/graphics/Rect;IIZIZ)Landroid/graphics/Bitmap;', $captureCall)
+        }
         if ($sourceDescriptor -eq 'Lcom/honeyspace/common/performance/DevicePerfInfo;') {
             $ramMethod = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'oneui-compat\DevicePerfInfo-setDeviceTotalRam.smali.inc'))
             $content = [regex]::Replace($content, '(?s)\.method private final setDeviceTotalRam\(\)V.*?\.end method', $ramMethod)
