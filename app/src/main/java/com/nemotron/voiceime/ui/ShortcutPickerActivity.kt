@@ -2,6 +2,7 @@ package com.nemotron.voiceime.ui
 
 import android.app.Activity
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Canvas
 import android.graphics.drawable.Drawable
 import android.os.Bundle
@@ -28,14 +29,22 @@ class ShortcutPickerActivity : AppCompatActivity() {
     private lateinit var listView: ListView
     private lateinit var adapter: ShortcutAdapter
 
-    private val apps = listOf(
-        AppInfo("Instagram", "com.instagram.android", "com.instagram.android.activity.MainTabActivity"),
-        AppInfo("Samsung Health", "com.sec.android.app.shealth", "com.samsung.android.app.shealth.home.HomeMainActivity"),
-        AppInfo("WhatsApp", "com.whatsapp", "com.whatsapp.Main"),
-    )
+    private var apps: List<AppInfo> = emptyList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val pm = packageManager
+        apps = pm.queryIntentActivities(
+            Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER),
+            PackageManager.MATCH_DISABLED_COMPONENTS,
+        ).sortedWith(android.content.pm.ResolveInfo.DisplayNameComparator(pm))
+            .distinctBy { it.activityInfo.packageName }
+            .map { resolved ->
+                val pkg = resolved.activityInfo.packageName
+                val activity = pm.getLaunchIntentForPackage(pkg)?.component?.className
+                    ?: resolved.activityInfo.name
+                AppInfo(resolved.loadLabel(pm).toString(), pkg, activity)
+            }
         setContentView(R.layout.activity_shortcut_picker)
 
         if (!androidx.core.content.pm.ShortcutManagerCompat.isRequestPinShortcutSupported(this)) {

@@ -120,3 +120,9 @@ La última instrucción del usuario exige que no aparezcan Instagram/WhatsApp en
 ### Causa confirmada de los iconos fantasma en memoria
 La captura y el log del A54 mostraron que los triggers sí dejaban HomeOnly.db con una página y cero registros de los destinos, pero WorkspaceViewModel.u(ItemSupplier,boolean) seguía ejecutando addRemainPage/addRemainItem con AppItem sin persistir. El log mostró Health, Instagram, la app de prueba y WhatsApp creados en memoria pese al rechazo SQL. Se añade una salida temprana para AppItem en esa rutina antes de calcular posición o crear páginas; widgets y otros elementos conservan su ruta. WorkspaceViewModel.s(), el chequeo de alta automática, devuelve false. Pendiente de verificar nuevamente instalada; las conclusiones basadas solo en SQL no bastan.
 
+
+### Añadir aplicaciones manualmente y páginas opcionales
+Aclaración final del usuario: puede haber más páginas si él añade iconos; solo debe bloquearse el alta automática. Se eliminan nemotron_one_page y nemotron_no_target_shortcut y se deja de borrar páginas vacías o accesos manuales en cada arranque. El bloqueo de AppItem automático permanece en addRemainItem y en los eventos de paquetes.
+
+Los ajustes nativos incorporan Añadir aplicaciones, que abre ShortcutPickerActivity. La lista ya no está limitada a tres apps: enumera las actividades MAIN/LAUNCHER instaladas (incluidas desactivadas), ordena por nombre, elimina paquetes duplicados y usa el componente activo cuando existe. El usuario pulsa + y confirma el diálogo nativo de fijar acceso; entonces aparece el icono y puede crearse otra página si no cabe. Los futuros paquetes no se añaden por instalarse. El cambio está tanto en Kotlin como en la adaptación smali reproducible (InstalledApps y patch-oneui-behavior.ps1). Las capturas de widgets y los respaldos del layout permanecen locales y no se publican por contener datos personales. Pendiente de comprobar el menú y la adición instalada.
+

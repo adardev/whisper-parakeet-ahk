@@ -7,6 +7,41 @@ function Edit-Class([string]$Name, [scriptblock]$Edit) {
     $result = & $Edit $text
     [IO.File]::WriteAllText($file.FullName, $result, [Text.UTF8Encoding]::new($false))
 }
+# Manual addition uses the public pinned-shortcut flow; installation never
+# authorizes an automatic native AppItem placement.
+$androidNs = 'http://schemas.android.com/apk/res/android'
+$settingsPath = Join-Path $DecodedRoot 'res/xml/settings_preferences.xml'
+[xml]$settingsXml = Get-Content -LiteralPath $settingsPath -Raw
+$manual = $settingsXml.SelectNodes('//*') | Where-Object { $_.GetAttribute('key', $androidNs) -eq 'nemotron_add_apps' } | Select-Object -First 1
+if (-not $manual) {
+    $manual = $settingsXml.CreateElement('Preference')
+    [void]$manual.SetAttribute('key', $androidNs, 'nemotron_add_apps')
+    [void]$manual.SetAttribute('title', $androidNs, 'Añadir aplicaciones')
+    [void]$manual.SetAttribute('summary', $androidNs, 'Elige qué aplicaciones aparecen en Inicio. Las nuevas no se añaden automáticamente.')
+    $intent = $settingsXml.CreateElement('intent')
+    [void]$intent.SetAttribute('action', $androidNs, 'android.intent.action.MAIN')
+    [void]$intent.SetAttribute('targetPackage', $androidNs, 'com.nemotron.voiceime2')
+    [void]$intent.SetAttribute('targetClass', $androidNs, 'com.nemotron.voiceime.ui.ShortcutPickerActivity')
+    [void]$manual.AppendChild($intent)
+    [void]$settingsXml.DocumentElement.PrependChild($manual)
+    $settingsXml.Save($settingsPath)
+}
+Edit-Class 'ShortcutPickerActivity.smali' {
+    param($text)
+    if ($text.Contains('Lcom/nemotron/oneui/compat/InstalledApps;->load')) { return $text }
+    $text.Replace('invoke-super {p0, p1}, Landroidx/appcompat/app/AppCompatActivity;->onCreate(Landroid/os/Bundle;)V', @'
+invoke-super {p0, p1}, Landroidx/appcompat/app/AppCompatActivity;->onCreate(Landroid/os/Bundle;)V
+    invoke-static {p0}, Lcom/nemotron/oneui/compat/InstalledApps;->load(Landroid/content/Context;)Ljava/util/List;
+    move-result-object v0
+    iput-object v0, p0, Lcom/nemotron/voiceime/ui/ShortcutPickerActivity;->apps:Ljava/util/List;
+'@)
+}
+$pickerLayout = Join-Path $DecodedRoot 'res/layout/activity_shortcut_picker.xml'
+if (Test-Path -LiteralPath $pickerLayout) {
+    $pickerText = [IO.File]::ReadAllText($pickerLayout)
+    $pickerText = $pickerText.Replace('App shortcuts', 'Añadir aplicaciones').Replace('Press + on an app to pin its shortcut to home with its native icon.', 'Pulsa + para añadir una aplicación a Inicio. Las apps nuevas no se añaden automáticamente.')
+    [IO.File]::WriteAllText($pickerLayout, $pickerText, [Text.UTF8Encoding]::new($false))
+}
 # Apply the persistent policy at the database boundary, including cold startup.
 $delegate = Get-ChildItem -LiteralPath $DecodedRoot -Recurse -File -Filter '*.smali' | Where-Object { $_.Name -eq 'B.smali' } | Where-Object { [IO.File]::ReadAllText($_.FullName).Contains('.field public final synthetic a:Lcom/honeyspace/data/db/SpaceDB_Impl;') } | Select-Object -First 1
 if (-not $delegate) { throw 'SpaceDB Room delegate missing' }
