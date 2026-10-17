@@ -47,6 +47,32 @@ Edit-Class 'SearchBackupReceiver.smali' {
     param($text)
     $text.Replace('const-string v1, "com.sec.android.app.launcher"', 'const-string v1, "com.nemotron.voiceime2"')
 }
+Edit-Class 'WorkspaceViewModel.smali' {
+    param($text)
+    $text = [regex]::Replace($text, '(?ms)^\.method public final u\(Lcom/nemotron/oneui/shaded/y8/d0;Z\)V.*?^\.end method', {
+        param($m)
+        if ($m.Value.Contains(':nemotron_explicit_item')) { return $m.Value }
+        # HomeOnly's cold-start reconciliation constructs unpersisted AppItems
+        # and even pages. Stop those objects before placement and rendering.
+        [regex]::Replace($m.Value, '(?m)(^\s*\.locals \d+\r?\n)', '$1' + @'
+
+    move-object/from16 v0, p1
+    invoke-virtual {v0}, Lcom/nemotron/oneui/shaded/y8/d0;->getItem()Lcom/honeyspace/sdk/source/entity/BaseItem;
+    move-result-object v0
+    instance-of v0, v0, Lcom/honeyspace/sdk/source/entity/AppItem;
+    if-eqz v0, :nemotron_explicit_item
+    return-void
+    :nemotron_explicit_item
+'@)
+    })
+    [regex]::Replace($text, '(?ms)^\.method public final s\(\)Z.*?^\.end method', @'
+.method public final s()Z
+    .locals 1
+    const/4 v0, 0x0
+    return v0
+.end method
+'@)
+}
 Edit-Class 'ShellTransitionManager.smali' {
     param($text)
     # Remote task/snapshot transitions require signature permissions. Keep the
