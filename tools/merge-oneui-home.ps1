@@ -386,6 +386,8 @@ foreach ($hbDir in $hbSmaliDirs) {
         # A54 has no folding display. Use a public callback implementation
         # instead of Samsung's hidden FoldStateListener constructor.
         $content = $content.Replace('Landroid/hardware/devicestate/DeviceStateManager$FoldStateListener;', 'Lcom/nemotron/oneui/compat/FoldStateListener;')
+        $content = $content.Replace('Landroid/window/BackProgressAnimator$ProgressCallback;', 'Lcom/nemotron/oneui/compat/BackProgressAnimator$ProgressCallback;')
+        $content = $content.Replace('Landroid/window/BackProgressAnimator;', 'Lcom/nemotron/oneui/compat/BackProgressAnimator;')
         foreach ($settingsTable in @('Secure','System','Global')) {
             $content = $content.Replace('Landroid/provider/Settings$' + $settingsTable + ';->getString(Landroid/content/ContentResolver;Ljava/lang/String;)Ljava/lang/String;', 'Lcom/nemotron/oneui/compat/SettingsCompat;->get' + $settingsTable + 'String(Landroid/content/ContentResolver;Ljava/lang/String;)Ljava/lang/String;')
         }
@@ -767,6 +769,11 @@ New-Item -ItemType Directory -Path (Split-Path -Parent $compatTarget) -Force | O
 foreach ($compatSource in Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'oneui-compat') -Filter '*.smali' -File) {
     Copy-Item -LiteralPath $compatSource.FullName -Destination (Join-Path (Split-Path -Parent $compatTarget) $compatSource.Name)
 }
+$hiddenApiVendor = Join-Path $PSScriptRoot 'vendor\hiddenapibypass-6.2'
+Copy-Item -LiteralPath (Join-Path $hiddenApiVendor 'smali\org') -Destination (Join-Path $kotlinFallbackDir 'org') -Recurse
+$licenseDir = Join-Path $base 'assets\licenses'
+New-Item -ItemType Directory -Path $licenseDir -Force | Out-Null
+Copy-Item -LiteralPath (Join-Path $hiddenApiVendor 'LICENSE') -Destination (Join-Path $licenseDir 'hiddenapibypass-6.2.txt')
 & $JavaExe -jar $ApktoolJar b $base -p $FrameworkDir -o $unsigned
 if ($LASTEXITCODE -ne 0) { throw "APKTool rebuild failed. Working files are at $work" }
 & $zipalign -f -p 4 $unsigned $aligned

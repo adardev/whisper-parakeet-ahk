@@ -44,8 +44,32 @@
 .end method
 
 .method public static init(Landroid/content/Context;)V
-    .locals 0
+    .locals 3
     sput-object p0, Lcom/nemotron/oneui/compat/LauncherCompat;->context:Landroid/content/Context;
+    :try_start
+    const-string v0, "Landroid/"
+    const-string v1, "Lcom/android/"
+    const-string v2, "Lcom/samsung/"
+    filled-new-array {v0, v1, v2}, [Ljava/lang/String;
+    move-result-object v0
+    invoke-static {v0}, Lorg/lsposed/hiddenapibypass/HiddenApiBypass;->addHiddenApiExemptions([Ljava/lang/String;)Z
+    move-result v0
+    if-eqz v0, :disabled
+    const-string v1, "Hidden API exemptions enabled"
+    goto :log
+    :disabled
+    const-string v1, "Hidden API exemptions unavailable"
+    :log
+    const-string v0, "NemotronOneUI"
+    invoke-static {v0, v1}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
+    :try_end
+    .catch Ljava/lang/Throwable; {:try_start .. :try_end} :failed
+    return-void
+    :failed
+    move-exception v2
+    const-string v0, "NemotronOneUI"
+    const-string v1, "Hidden API initialization failed"
+    invoke-static {v0, v1, v2}, Landroid/util/Log;->w(Ljava/lang/String;Ljava/lang/String;Ljava/lang/Throwable;)I
     return-void
 .end method
 
