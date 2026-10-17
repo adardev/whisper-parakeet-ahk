@@ -88,3 +88,6 @@ Las pruebas alcanzaron la inflación del escritorio. Se detectaron tipos de vist
 ### Reconstrucción en Windows: conservación de clases
 La reconstrucción limpia detectó una colisión entre clases como Y0/b e y0/b. El integrador conserva los alias de archivos de Apktool (por ejemplo y0.1), valida destinos duplicados y compara los fallbacks por descriptor real. La compilación previa falló al abrir y no se considera funcional. El filtro de iconos nativos consulta también component, porque reference_package_name está vacío en las entradas APP del A54. Se conservan los accesos directos.
 
+
+La reconstrucción con alias conservados compiló con 33.692 clases del donante y 142 fallbacks. El arranque superó la clase Y0.b ausente; apareció una SecurityException en ActivityManager.semGetCurrentUser. Se reemplaza también esa variante Samsung por UserHandle.myUserId. Continúa la comprobación en dispositivo.
+

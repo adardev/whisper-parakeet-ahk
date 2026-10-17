@@ -429,6 +429,7 @@ foreach ($hbDir in $hbSmaliDirs) {
         # instead of Samsung's hidden FoldStateListener constructor.
         $content = $content.Replace('Landroid/hardware/devicestate/DeviceStateManager$FoldStateListener;', 'Lcom/nemotron/oneui/compat/FoldStateListener;')
         $content = $content.Replace('Landroid/app/ActivityManager;->getCurrentUser()I', 'Landroid/os/UserHandle;->myUserId()I')
+        $content = $content.Replace('Landroid/app/ActivityManager;->semGetCurrentUser()I', 'Landroid/os/UserHandle;->myUserId()I')
         foreach ($settingsTable in @('Secure','System','Global')) {
             $content = $content.Replace('Landroid/provider/Settings$' + $settingsTable + ';->getString(Landroid/content/ContentResolver;Ljava/lang/String;)Ljava/lang/String;', 'Lcom/nemotron/oneui/compat/SettingsCompat;->get' + $settingsTable + 'String(Landroid/content/ContentResolver;Ljava/lang/String;)Ljava/lang/String;')
         }
