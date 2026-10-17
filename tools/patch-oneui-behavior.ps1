@@ -50,6 +50,30 @@ if (Test-Path -LiteralPath $pickerLayout) {
     [IO.File]::WriteAllText($pickerLayout, $pickerText, [Text.UTF8Encoding]::new($false))
 }
 # Apply the persistent policy at the database boundary, including cold startup.
+$settingsFragment = Get-ChildItem -LiteralPath $DecodedRoot -Recurse -File -Filter 'SettingsFragment.smali' | Where-Object { [IO.File]::ReadAllText($_.FullName).Contains('.class public final Lcom/android/homescreen/settings/SettingsFragment;') } | Select-Object -First 1
+if (-not $settingsFragment) { throw 'Native Home SettingsFragment missing' }
+$settingsCode = [IO.File]::ReadAllText($settingsFragment.FullName)
+if (-not $settingsCode.Contains(':nemotron_native_setting')) {
+    $settingsCode = [regex]::Replace($settingsCode, '(?m)(\.method public static f\(Lcom/nemotron/oneui/shaded/androidx/preference/Preference;Lcom/android/homescreen/settings/SettingsFragment;\)Lcom/nemotron/oneui/shaded/kotlin/Unit;\r?\n\s*\.locals \d+\r?\n)', '$1' + @'
+
+    move-object/from16 v0, p0
+    invoke-virtual {v0}, Lcom/nemotron/oneui/shaded/androidx/preference/Preference;->getKey()Ljava/lang/String;
+    move-result-object v1
+    const-string v2, "nemotron_add_apps"
+    invoke-virtual {v2, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-eqz v1, :nemotron_native_setting
+    const/4 v1, 0x1
+    invoke-virtual {v0, v1}, Lcom/nemotron/oneui/shaded/androidx/preference/Preference;->setVisible(Z)V
+    new-instance v1, Lcom/nemotron/oneui/compat/AddAppsPreferenceClick;
+    invoke-direct {v1}, Lcom/nemotron/oneui/compat/AddAppsPreferenceClick;-><init>()V
+    invoke-virtual {v0, v1}, Lcom/nemotron/oneui/shaded/androidx/preference/Preference;->setOnPreferenceClickListener(Lcom/nemotron/oneui/shaded/androidx/preference/Preference$OnPreferenceClickListener;)V
+    sget-object v0, Lcom/nemotron/oneui/shaded/kotlin/Unit;->INSTANCE:Lcom/nemotron/oneui/shaded/kotlin/Unit;
+    return-object v0
+    :nemotron_native_setting
+'@)
+    [IO.File]::WriteAllText($settingsFragment.FullName, $settingsCode, [Text.UTF8Encoding]::new($false))
+}
 $delegate = Get-ChildItem -LiteralPath $DecodedRoot -Recurse -File -Filter '*.smali' | Where-Object { $_.Name -eq 'B.smali' } | Where-Object { [IO.File]::ReadAllText($_.FullName).Contains('.field public final synthetic a:Lcom/honeyspace/data/db/SpaceDB_Impl;') } | Select-Object -First 1
 if (-not $delegate) { throw 'SpaceDB Room delegate missing' }
 $delegateCode = [IO.File]::ReadAllText($delegate.FullName)

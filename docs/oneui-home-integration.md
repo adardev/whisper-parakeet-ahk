@@ -129,3 +129,6 @@ Los ajustes nativos incorporan Añadir aplicaciones, que abre ShortcutPickerActi
 
 Cada adición manual usa un ID de acceso nuevo, con marca de tiempo, para que Android vuelva a mostrar la confirmación aunque un acceso antiguo del mismo paquete siga registrado como fijado. Esto permite recrear un icono retirado y añadir duplicados de forma explícita.
 
+
+El controlador SettingsFragment.f ocultaba claves de preferencias desconocidas. La clave nemotron_add_apps ahora se reconoce explícitamente, queda visible y tiene un listener que abre la actividad del selector dentro del mismo paquete. No se depende únicamente de insertar una entrada XML.
+
