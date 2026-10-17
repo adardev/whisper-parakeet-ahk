@@ -178,7 +178,7 @@ function Rewrite-HbXmlText([string] $xmlText) {
     })
 }
 foreach ($sourceFile in Get-ChildItem -LiteralPath $hbRes -Recurse -File) {
-    $relative = $sourceFile.FullName.Substring($hbRes.Length + 1)
+    $relative = [IO.Path]::GetRelativePath($hbRes, $sourceFile.FullName)
     if ($relative -match '^values(?:-[^\\]+)?\\') {
         if ($sourceFile.Name -ieq 'public.xml') { continue }
         [xml] $values = Rewrite-HbXmlText ([IO.File]::ReadAllText($sourceFile.FullName))
@@ -217,7 +217,11 @@ foreach ($sourceFile in Get-ChildItem -LiteralPath $hbRes -Recurse -File) {
     if ($resourceRenames.ContainsKey("$resourceType/$resourceName")) {
         $newFileName = if ($sourceFile.Name.StartsWith('$')) { '$hb_' + $sourceFile.Name.Substring(1) } else { 'hb_' + $sourceFile.Name }
         $relative = Join-Path $resourceDir $newFileName
-    } elseif ($nemOriginalSymbols.Contains("$resourceType/$resourceName")) { continue }
+    # The compiled resource table can contain public symbols whose source
+    # resource was stripped from the decoded Nemotron APK. Keep the donor
+    # resource in that case so AAPT can satisfy the public.xml entry above.
+    } elseif ($nemOriginalSymbols.Contains("$resourceType/$resourceName") -and
+        (Test-Path -LiteralPath (Join-Path $nemRes $relative) -PathType Leaf)) { continue }
     $target = Join-Path $nemRes $relative
     New-Item -ItemType Directory -Path (Split-Path -Parent $target) -Force | Out-Null
     if ($sourceFile.Extension -eq '.xml') {
@@ -381,7 +385,7 @@ foreach ($folder in @('assets', 'lib')) {
     $to = Join-Path $base $folder
     if (-not (Test-Path -LiteralPath $from)) { continue }
     foreach ($file in Get-ChildItem -LiteralPath $from -Recurse -File) {
-        $rel = $file.FullName.Substring($from.Length + 1)
+        $rel = [IO.Path]::GetRelativePath($from, $file.FullName)
         $target = Join-Path $to $rel
         if (Test-Path -LiteralPath $target) { throw "Unexpected asset/library collision: $rel" }
         New-Item -ItemType Directory -Path (Split-Path -Parent $target) -Force | Out-Null
