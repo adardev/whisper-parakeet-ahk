@@ -1,6 +1,21 @@
 .class public final Lcom/nemotron/oneui/compat/LauncherCompat;
 .super Ljava/lang/Object;
 
+.method public static getRoleHolders(Lcom/samsung/android/app/SemRoleManager;Ljava/lang/String;)Ljava/util/List;
+    .locals 1
+    :try_start
+    invoke-virtual {p0, p1}, Lcom/samsung/android/app/SemRoleManager;->getRoleHolders(Ljava/lang/String;)Ljava/util/List;
+    move-result-object v0
+    return-object v0
+    :try_end
+    .catch Ljava/lang/SecurityException; {:try_start .. :try_end} :denied
+    :denied
+    move-exception v0
+    invoke-static {}, Ljava/util/Collections;->emptyList()Ljava/util/List;
+    move-result-object v0
+    return-object v0
+.end method
+
 .method public static getDisplay(Landroid/content/Context;)Landroid/view/Display;
     .locals 2
     :try_start

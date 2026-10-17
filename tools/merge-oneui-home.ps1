@@ -379,6 +379,23 @@ foreach ($hbDir in $hbSmaliDirs) {
         $content = $content.Replace('com.google.android.material.', 'com.nemotron.oneui.shaded.com.google.android.material.')
         $content = [regex]::Replace($content, 'invoke-virtual(/range)? (\{[^}]+\}), Landroid/content/Context;->getDisplay\(\)Landroid/view/Display;', 'invoke-static$1 $2, Lcom/nemotron/oneui/compat/LauncherCompat;->getDisplay(Landroid/content/Context;)Landroid/view/Display;')
         $content = [regex]::Replace($content, 'invoke-virtual(/range)? (\{[^}]+\}), Landroid/content/Context;->createWindowContext\(ILandroid/os/Bundle;\)Landroid/content/Context;', 'invoke-static$1 $2, Lcom/nemotron/oneui/compat/LauncherCompat;->createWindowContext(Landroid/content/Context;ILandroid/os/Bundle;)Landroid/content/Context;')
+        $content = [regex]::Replace($content, 'invoke-virtual(/range)? (\{[^}]+\}), Lcom/samsung/android/app/SemRoleManager;->getRoleHolders\(Ljava/lang/String;\)Ljava/util/List;', 'invoke-static$1 $2, Lcom/nemotron/oneui/compat/LauncherCompat;->getRoleHolders(Lcom/samsung/android/app/SemRoleManager;Ljava/lang/String;)Ljava/util/List;')
+        if ($sourceDescriptor -eq 'Lcom/honeyspace/core/repository/N0;') {
+            $roleMethod = @'
+.method public static final a(Lcom/honeyspace/core/repository/N0;Landroid/content/Context;)Z
+    .locals 1
+    const-class v0, Landroid/app/role/RoleManager;
+    invoke-virtual {p1, v0}, Landroid/content/Context;->getSystemService(Ljava/lang/Class;)Ljava/lang/Object;
+    move-result-object v0
+    check-cast v0, Landroid/app/role/RoleManager;
+    const-string p1, "android.app.role.HOME"
+    invoke-virtual {v0, p1}, Landroid/app/role/RoleManager;->isRoleHeld(Ljava/lang/String;)Z
+    move-result v0
+    return v0
+.end method
+'@
+            $content = [regex]::Replace($content, '(?s)\.method public static final a\(Lcom/honeyspace/core/repository/N0;Landroid/content/Context;\)Z.*?\.end method', $roleMethod)
+        }
         $content = [regex]::Replace($content, 'L[A-Za-z0-9_$/-]+;', {
             param($match)
             if ($oneUiRelocationMap.ContainsKey($match.Value)) { return $oneUiRelocationMap[$match.Value] }
