@@ -345,7 +345,9 @@ foreach ($baseSmaliDir in $nemSmaliDirs) {
         $rel = $file.FullName.Substring($baseSmaliDir.FullName.Length + 1).Replace('\', '/')
         if (-not $rel.StartsWith('kotlin/', [StringComparison]::Ordinal) -and
             -not $rel.StartsWith('kotlinx/coroutines/', [StringComparison]::Ordinal)) { continue }
-        $descriptor = 'L' + $rel.Substring(0, $rel.Length - 6) + ';'
+        $classMatch = [regex]::Match([IO.File]::ReadAllText($file.FullName), '(?m)^\.class\s+(?:[^\r\n]*?\s)?(L[^;\s]+;)')
+        if (-not $classMatch.Success) { continue }
+        $descriptor = $classMatch.Groups[1].Value
         if (-not $oneUiRelocationMap.ContainsKey($descriptor)) {
             $oneUiRelocationMap[$descriptor] = $descriptor.Replace('Lkotlin/', 'Lcom/nemotron/oneui/shaded/kotlin/').Replace('Lkotlinx/coroutines/', 'Lcom/nemotron/oneui/shaded/kotlinx/coroutines/')
         }
@@ -403,7 +405,17 @@ foreach ($hbDir in $hbSmaliDirs) {
             $rel = $descriptor.Substring(1, $descriptor.Length - 2).Replace('/', '\') + '.smali'
         }
         if ($descriptor.StartsWith('Lcom/samsung/android/honeyboard/nemotron/NemotronDictationService')) { continue }
+        # Apktool uses aliases such as y0.1 beside Y0 on Windows. Preserve
+        # those paths: deriving filenames from descriptors loses classes.
+        $sourcePath = $sourceDescriptor.Substring(1, $sourceDescriptor.Length - 2)
+        $targetPath = $descriptor.Substring(1, $descriptor.Length - 2)
+        if (-not $targetPath.EndsWith($sourcePath, [StringComparison]::Ordinal)) {
+            throw "Unexpected class relocation: $sourceDescriptor -> $descriptor"
+        }
+        $prefix = $targetPath.Substring(0, $targetPath.Length - $sourcePath.Length)
+        $rel = $prefix.Replace('/', '\') + $file.FullName.Substring($hbDir.FullName.Length + 1)
         $target = Join-Path $destDir $rel
+        if (Test-Path -LiteralPath $target) { throw "Duplicate smali output path: $target" }
         New-Item -ItemType Directory -Path (Split-Path -Parent $target) -Force | Out-Null
         $content = $content.Replace('Lkotlinx/coroutines/', 'Lcom/nemotron/oneui/shaded/kotlinx/coroutines/')
         $content = $content.Replace('kotlinx.coroutines.', 'com.nemotron.oneui.shaded.kotlinx.coroutines.')
@@ -577,19 +589,19 @@ foreach ($baseSmaliDir in $nemSmaliDirs) {
         } else {
             $rel.Replace('kotlinx\coroutines\', 'com\nemotron\oneui\shaded\kotlinx\coroutines\')
         }
-        $alreadyPresent = $false
-        foreach ($dexDir in Get-ChildItem -LiteralPath $base -Directory | Where-Object { $_.Name -match '^smali(?:_classes\d+)?$' }) {
-            if (Test-Path -LiteralPath (Join-Path $dexDir.FullName $targetRel)) { $alreadyPresent = $true; break }
-        }
-        if ($alreadyPresent) { continue }
-        $target = Join-Path $kotlinFallbackDir $targetRel
         $content = [IO.File]::ReadAllText($file.FullName)
+        $classMatch = [regex]::Match($content, '(?m)^\.class\s+(?:[^\r\n]*?\s)?(L[^;\s]+;)')
+        if (-not $classMatch.Success) { continue }
+        $fallbackDescriptor = $classMatch.Groups[1].Value.Replace('Lkotlin/', 'Lcom/nemotron/oneui/shaded/kotlin/').Replace('Lkotlinx/coroutines/', 'Lcom/nemotron/oneui/shaded/kotlinx/coroutines/')
+        if ($existingClasses.Contains($fallbackDescriptor)) { continue }
+        $target = Join-Path $kotlinFallbackDir (Join-Path $baseSmaliDir.Name $targetRel)
         $content = $content.Replace('Lkotlin/', 'Lcom/nemotron/oneui/shaded/kotlin/')
         $content = $content.Replace('kotlin.', 'com.nemotron.oneui.shaded.kotlin.')
         $content = $content.Replace('Lkotlinx/coroutines/', 'Lcom/nemotron/oneui/shaded/kotlinx/coroutines/')
         $content = $content.Replace('kotlinx.coroutines.', 'com.nemotron.oneui.shaded.kotlinx.coroutines.')
         New-Item -ItemType Directory -Path (Split-Path -Parent $target) -Force | Out-Null
         [IO.File]::WriteAllText($target, $content, [Text.UTF8Encoding]::new($false))
+        [void]$existingClasses.Add($fallbackDescriptor)
         $kotlinFallbackCount++
     }
 }
