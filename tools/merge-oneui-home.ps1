@@ -377,6 +377,9 @@ foreach ($hbDir in $hbSmaliDirs) {
         $content = $content.Replace('androidx.', 'com.nemotron.oneui.shaded.androidx.')
         $content = $content.Replace('Lcom/google/android/material/', 'Lcom/nemotron/oneui/shaded/com/google/android/material/')
         $content = $content.Replace('com.google.android.material.', 'com.nemotron.oneui.shaded.com.google.android.material.')
+        # A54 has no folding display. Use a public callback implementation
+        # instead of Samsung's hidden FoldStateListener constructor.
+        $content = $content.Replace('Landroid/hardware/devicestate/DeviceStateManager$FoldStateListener;', 'Lcom/nemotron/oneui/compat/FoldStateListener;')
         $content = [regex]::Replace($content, 'invoke-virtual(/range)? (\{[^}]+\}), Landroid/content/Context;->getDisplay\(\)Landroid/view/Display;', 'invoke-static$1 $2, Lcom/nemotron/oneui/compat/LauncherCompat;->getDisplay(Landroid/content/Context;)Landroid/view/Display;')
         $content = [regex]::Replace($content, 'invoke-virtual(/range)? (\{[^}]+\}), Landroid/content/Context;->createWindowContext\(ILandroid/os/Bundle;\)Landroid/content/Context;', 'invoke-static$1 $2, Lcom/nemotron/oneui/compat/LauncherCompat;->createWindowContext(Landroid/content/Context;ILandroid/os/Bundle;)Landroid/content/Context;')
         $content = [regex]::Replace($content, 'invoke-virtual(/range)? (\{[^}]+\}), Lcom/samsung/android/app/SemRoleManager;->getRoleHolders\(Ljava/lang/String;\)Ljava/util/List;', 'invoke-static$1 $2, Lcom/nemotron/oneui/compat/LauncherCompat;->getRoleHolders(Lcom/samsung/android/app/SemRoleManager;Ljava/lang/String;)Ljava/util/List;')
@@ -411,21 +414,9 @@ foreach ($hbDir in $hbSmaliDirs) {
         })
         if ($originalDescriptor -eq 'Lcom/honeyspace/ui/honeypots/workspace/viewmodel/WorkspaceViewModel;') {
             $filter = @'
-    invoke-virtual {p1}, Lcom/honeyspace/sdk/source/entity/PackageOperation$Added;->getPackageName()Ljava/lang/String;
-    move-result-object v0
-    const-string v1, "com.instagram.android"
-    invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v1
-    if-nez v1, :nemotron_skip_home_app
-    const-string v1, "com.whatsapp"
-    invoke-virtual {v0, v1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v1
-    if-nez v1, :nemotron_skip_home_app
-    goto :nemotron_continue_home_app
-    :nemotron_skip_home_app
-    sget-object v0, Lkotlin/Unit;->INSTANCE:Lkotlin/Unit;
+    # Package installation must not auto-insert native icons into Home.
+    sget-object v0, Lcom/nemotron/oneui/shaded/kotlin/Unit;->INSTANCE:Lcom/nemotron/oneui/shaded/kotlin/Unit;
     return-object v0
-    :nemotron_continue_home_app
 '@
             $content = [regex]::Replace($content, '(?m)(\.method public final v0\(Lcom/honeyspace/sdk/source/entity/PackageOperation\$Added;L[^;]*ContinuationImpl;\)Ljava/lang/Object;\r?\n\s*\.locals 8\r?\n)', { param($m) $m.Value + $filter }, 1)
         }
@@ -434,6 +425,15 @@ foreach ($hbDir in $hbSmaliDirs) {
             $content = $content.Replace('.method public final onCreate()V', '.method public onCreate()V')
             $content = $content.Replace('.method public final onTerminate()V', '.method public onTerminate()V')
             $content = $content.Replace('.method public final onConfigurationChanged(Landroid/content/res/Configuration;)V', '.method public onConfigurationChanged(Landroid/content/res/Configuration;)V')
+            $superDescriptor = [regex]::Match($content, '(?m)^\.super (L[^;]+;)').Groups[1].Value
+            $content += "`n.method protected attachBaseContext(Landroid/content/Context;)V`n    .locals 0`n    invoke-super {p0, p1}, $superDescriptor`->attachBaseContext(Landroid/content/Context;)V`n    invoke-static {p0}, Lcom/nemotron/oneui/compat/LauncherCompat;->init(Landroid/content/Context;)V`n    return-void`n.end method`n"
+        }
+        if ($sourceDescriptor -eq 'Lcom/honeyspace/common/wrapper/DeviceStateManagerWrapper;') {
+            $content = [regex]::Replace($content, 'new-instance (\w+), Landroid/hardware/devicestate/DeviceStateManager;\s+invoke-direct \{\1\}, Landroid/hardware/devicestate/DeviceStateManager;-><init>\(\)V', 'invoke-static {}, Lcom/nemotron/oneui/compat/LauncherCompat;->getDeviceStateManager()Landroid/hardware/devicestate/DeviceStateManager;' + "`n    move-result-object " + '$1')
+        }
+        if ($sourceDescriptor -eq 'Lcom/honeyspace/sdk/database/entity/ItemData;') {
+            $hiddenGetter = [IO.File]::ReadAllText((Join-Path $PSScriptRoot 'oneui-compat\ItemData-getHidden.smali.inc'))
+            $content = [regex]::Replace($content, '(?s)\.method public final getHidden\(\)Lcom/honeyspace/sdk/database/field/HiddenType;.*?\.end method', $hiddenGetter)
         }
         if ($originalDescriptor -eq 'Lcom/samsung/android/honeyboard/app/HoneyBoardApplication;') {
             $stub = Get-ChildItem -LiteralPath $base -Recurse -Filter 'HoneyBoardApplication.smali' | Select-Object -First 1
@@ -737,7 +737,9 @@ $hbCode = $hbCode.Replace('Landroid/app/Application;->onTerminate()V', 'Lcom/sec
 Write-Host "Injected $insertedClassCount One UI Home classes; reused $duplicateClassCount shared library classes; added $kotlinFallbackCount Kotlin fallback classes."
 $compatTarget = Join-Path $kotlinFallbackDir 'com\nemotron\oneui\compat\LauncherCompat.smali'
 New-Item -ItemType Directory -Path (Split-Path -Parent $compatTarget) -Force | Out-Null
-Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'oneui-compat\LauncherCompat.smali') -Destination $compatTarget
+foreach ($compatSource in Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'oneui-compat') -Filter '*.smali' -File) {
+    Copy-Item -LiteralPath $compatSource.FullName -Destination (Join-Path (Split-Path -Parent $compatTarget) $compatSource.Name)
+}
 & $JavaExe -jar $ApktoolJar b $base -p $FrameworkDir -o $unsigned
 if ($LASTEXITCODE -ne 0) { throw "APKTool rebuild failed. Working files are at $work" }
 & $zipalign -f -p 4 $unsigned $aligned

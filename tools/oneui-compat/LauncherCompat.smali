@@ -1,6 +1,24 @@
 .class public final Lcom/nemotron/oneui/compat/LauncherCompat;
 .super Ljava/lang/Object;
 
+.field private static context:Landroid/content/Context;
+
+.method public static init(Landroid/content/Context;)V
+    .locals 0
+    sput-object p0, Lcom/nemotron/oneui/compat/LauncherCompat;->context:Landroid/content/Context;
+    return-void
+.end method
+
+.method public static getDeviceStateManager()Landroid/hardware/devicestate/DeviceStateManager;
+    .locals 2
+    sget-object v0, Lcom/nemotron/oneui/compat/LauncherCompat;->context:Landroid/content/Context;
+    const-class v1, Landroid/hardware/devicestate/DeviceStateManager;
+    invoke-virtual {v0, v1}, Landroid/content/Context;->getSystemService(Ljava/lang/Class;)Ljava/lang/Object;
+    move-result-object v0
+    check-cast v0, Landroid/hardware/devicestate/DeviceStateManager;
+    return-object v0
+.end method
+
 .method public static getRoleHolders(Lcom/samsung/android/app/SemRoleManager;Ljava/lang/String;)Ljava/util/List;
     .locals 1
     :try_start
