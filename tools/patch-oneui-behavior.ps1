@@ -26,6 +26,7 @@ Edit-Class 'ShellTransitionManager.smali' {
 }
 Edit-Class 'ContextReflection.smali' {
     param($text)
+    if ($text.Contains(':own_profile')) { return $text }
     # The personal profile can use the public API; retain the old route for
     # callers explicitly targeting another profile.
     [regex]::Replace($text, '(?m)(\.method public final startActivityAsUser\(Ljava/lang/Object;Landroid/content/Intent;(Landroid/os/Bundle;)?Landroid/os/UserHandle;\)V\r?\n\s*\.locals \d+\r?\n)', {
