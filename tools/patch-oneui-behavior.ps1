@@ -7,6 +7,46 @@ function Edit-Class([string]$Name, [scriptblock]$Edit) {
     $result = & $Edit $text
     [IO.File]::WriteAllText($file.FullName, $result, [Text.UTF8Encoding]::new($false))
 }
+# Apply the persistent policy at the database boundary, including cold startup.
+$delegate = Get-ChildItem -LiteralPath $DecodedRoot -Recurse -File -Filter '*.smali' | Where-Object { $_.Name -eq 'B.smali' } | Where-Object { [IO.File]::ReadAllText($_.FullName).Contains('.field public final synthetic a:Lcom/honeyspace/data/db/SpaceDB_Impl;') } | Select-Object -First 1
+if (-not $delegate) { throw 'SpaceDB Room delegate missing' }
+$delegateCode = [IO.File]::ReadAllText($delegate.FullName)
+if (-not $delegateCode.Contains('Lcom/nemotron/oneui/compat/HomeOnlyPolicy;->apply')) {
+    $delegateCode = [regex]::Replace($delegateCode, '(?m)(\.method public final onOpen\([^\r\n]+\r?\n\s*\.locals \d+\r?\n)', '$1' + "`n    invoke-static {p1}, Lcom/nemotron/oneui/compat/HomeOnlyPolicy;->apply(Lcom/nemotron/oneui/shaded/androidx/sqlite/SQLiteConnection;)V`n")
+    [IO.File]::WriteAllText($delegate.FullName, $delegateCode, [Text.UTF8Encoding]::new($false))
+}
+$compat = Get-ChildItem -LiteralPath $DecodedRoot -Recurse -File -Filter 'LauncherCompat.smali' | Select-Object -First 1
+$policy = @'
+.class public final Lcom/nemotron/oneui/compat/HomeOnlyPolicy;
+.super Ljava/lang/Object;
+.method public static apply(Lcom/nemotron/oneui/shaded/androidx/sqlite/SQLiteConnection;)V
+    .locals 3
+    const-string v0, "PRAGMA database_list"
+    invoke-interface {p0, v0}, Lcom/nemotron/oneui/shaded/androidx/sqlite/SQLiteConnection;->prepare(Ljava/lang/String;)Lcom/nemotron/oneui/shaded/androidx/sqlite/SQLiteStatement;
+    move-result-object v0
+    invoke-interface {v0}, Lcom/nemotron/oneui/shaded/androidx/sqlite/SQLiteStatement;->step()Z
+    move-result v1
+    if-eqz v1, :close
+    const/4 v1, 0x2
+    invoke-interface {v0, v1}, Lcom/nemotron/oneui/shaded/androidx/sqlite/SQLiteStatement;->getText(I)Ljava/lang/String;
+    move-result-object v1
+    const-string v2, "HomeOnly.db"
+    invoke-virtual {v1, v2}, Ljava/lang/String;->endsWith(Ljava/lang/String;)Z
+    move-result v1
+    invoke-interface {v0}, Lcom/nemotron/oneui/shaded/androidx/sqlite/SQLiteStatement;->close()V
+    if-eqz v1, :done
+'@
+foreach ($sql in Get-Content -LiteralPath (Join-Path $PSScriptRoot 'oneui-compat/home-only-policy.sql')) {
+    if (-not $sql.Trim() -or $sql.TrimStart().StartsWith('--')) { continue }
+    $escaped = $sql.Replace('\','\\').Replace('"','\"')
+    $policy += "`n    const-string v0, `"$escaped`"`n    invoke-static {p0, v0}, Lcom/nemotron/oneui/shaded/androidx/sqlite/SQLite;->execSQL(Lcom/nemotron/oneui/shaded/androidx/sqlite/SQLiteConnection;Ljava/lang/String;)V`n"
+}
+$policy += "`n    goto :done`n    :close`n    invoke-interface {v0}, Lcom/nemotron/oneui/shaded/androidx/sqlite/SQLiteStatement;->close()V`n    :done`n    return-void`n.end method`n"
+[IO.File]::WriteAllText((Join-Path $compat.DirectoryName 'HomeOnlyPolicy.smali'), $policy, [Text.UTF8Encoding]::new($false))
+Edit-Class 'SearchBackupReceiver.smali' {
+    param($text)
+    $text.Replace('const-string v1, "com.sec.android.app.launcher"', 'const-string v1, "com.nemotron.voiceime2"')
+}
 Edit-Class 'ShellTransitionManager.smali' {
     param($text)
     # Remote task/snapshot transitions require signature permissions. Keep the
