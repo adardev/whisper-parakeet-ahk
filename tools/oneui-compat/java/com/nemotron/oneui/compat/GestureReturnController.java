@@ -28,7 +28,6 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.os.Bundle;
 import android.provider.Settings;
-import android.provider.Settings.Global;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
@@ -45,7 +44,7 @@ import java.util.concurrent.Executors;
 /** Visual return for explicitly launched icons. All snapshots stay in memory. */
 public final class GestureReturnController {
     private static final String TAG = "NemotronGestureReturn";
-    private static final boolean ENABLED = true;
+    private static final boolean ENABLED = false;
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
     private static final Handler RENDER;
     static {
@@ -71,8 +70,6 @@ public final class GestureReturnController {
     private boolean down, capturing;
     private volatile boolean claimed;
     private volatile boolean finishing;
-    private boolean nativeMotionMuted;
-    private String savedTransitionScale, savedWindowScale;
     private float downX, downY, lastY;
     private long downTime;
     private boolean preparing, resumed;
@@ -205,7 +202,6 @@ public final class GestureReturnController {
                 if (closed || finishing || claimed) { recycle(result); return; }
                 if (result == null) { close(); return; }
                 try {
-                    muteNativeCloseMotion();
                     recycle(app); app=result;
                     show(); claimed=true;
                     if (!starting || resumed) {
@@ -417,7 +413,6 @@ public final class GestureReturnController {
             lastY = event.getY();
             float dy = downY - lastY, dx = Math.abs(event.getX() - downX);
             if (!claimed && app != null && !capturing && dy > 18 * density && dy > dx * 1.3f) {
-                muteNativeCloseMotion();
                 show(); claimed = true;
                 Log.i(TAG, "visual return tracking");
             }
@@ -449,43 +444,6 @@ public final class GestureReturnController {
         p.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
         p.setTitle("Nemotron icon return");
         ((WindowManager)context.getSystemService(Context.WINDOW_SERVICE)).addView(overlay, p);
-    }
-
-    // The stock Recents animation is still active on top of our snapshot on
-    // Samsung firmware. Briefly pause transition/window motion for this Home
-    // gesture only. ValueAnimator remains untouched so the icon morph runs.
-    private void muteNativeCloseMotion() {
-        if (nativeMotionMuted || closed) return;
-        try {
-            savedTransitionScale=Float.toString(Global.getFloat(context.getContentResolver(), Global.TRANSITION_ANIMATION_SCALE, 1f));
-            savedWindowScale=Float.toString(Global.getFloat(context.getContentResolver(), Global.WINDOW_ANIMATION_SCALE, 1f));
-        } catch (RuntimeException error) { Log.w(TAG, "cannot read animation scales", error); return; }
-        if ("0.0".equals(savedTransitionScale) && "0.0".equals(savedWindowScale)) return;
-        nativeMotionMuted=true;
-        String transition=savedTransitionScale, window=savedWindowScale;
-        IO.execute(() -> {
-            try {
-                String command="settings put global transition_animation_scale 0; settings put global window_animation_scale 0; sleep 1; settings put global transition_animation_scale "
-                        + transition + "; settings put global window_animation_scale " + window;
-                Process process=shell(new String[]{"sh", "-c", command});
-                process.waitFor();
-            } catch (Throwable error) { Log.w(TAG, "could not pause stock transition", error); }
-        });
-        Log.i(TAG, "temporarily paused stock transition motion");
-    }
-
-    private void restoreNativeCloseMotion() {
-        if (!nativeMotionMuted) return;
-        nativeMotionMuted=false;
-        String transition=savedTransitionScale, window=savedWindowScale;
-        IO.execute(() -> {
-            try {
-                String command="settings put global transition_animation_scale " + transition
-                        + "; settings put global window_animation_scale " + window;
-                Process process=shell(new String[]{"sh", "-c", command});
-                process.waitFor();
-            } catch (Throwable error) { Log.w(TAG, "could not restore animation scales", error); }
-        });
     }
 
     private void show() {
@@ -588,7 +546,6 @@ public final class GestureReturnController {
         if (Looper.myLooper() != Looper.getMainLooper()) { MAIN.post(this::close); return; }
         if (closed) return;
         closed = true;
-        restoreNativeCloseMotion();
         if (preview != null) { preview.cancel(); preview=null; }
         if (rawProcess != null) { rawProcess.destroy(); rawProcess = null; }
         unregisterTaskObserver();
