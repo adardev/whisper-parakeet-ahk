@@ -21,13 +21,18 @@ path.
 - The A54 reported Nemotron as both the HOME role holder and active input
   method. HoneyBoard's statistics jobs were not running at the time of the
   snapshot.
-- The phone was at 100% and connected over USB while inspected, so this pass
-  does not claim a measured battery-percentage or mAh reduction.
-- The updated source APK has not been installed. Rebuilding the integrated APK
-  requires merging the A54 HoneyBoard donor into the base APK before merging
-  One UI Home. The first integration attempt used the unmerged base and stopped
-  at the expected missing HoneyBoard scheduler classes. The existing installed
-  Nemotron launcher and keyboard were left in place.
-- Build and tool caches are placed on E: under `E:\NemotronTemp`; the temporary
-  decode tree from the failed integration is also there and can be removed
-  after the integrated build is completed.
+- The integrated Nemotron + HoneyBoard + One UI Home APK was installed on the
+  A54. The HOME role and HoneyBoard input method remained selected, and the
+  launcher stayed running without a reboot.
+- A 30-second idle sample of `/proc/<pid>/stat` showed 10 CPU ticks, about
+  0.33% of one core. The phone was connected over USB; this is an idle CPU
+  sample, not a battery-percentage or mAh comparison, and no valid pre-patch
+  baseline was captured.
+- During the first integrated install, an interrupted Apktool build left an
+  invalid DEX and the app crashed. One UI Home was temporarily restored as the
+  HOME role, then Nemotron was reinstalled after all 23 DEX files passed
+  `dexdump` validation. The merge script now forces DEX regeneration so a
+  partial file cannot be reused after a failed build.
+- Build and tool caches are on E: under `E:\NemotronTemp`; 13.1 GB remained
+  free after installation. Several failed-build decode trees remain there;
+  automatic recursive cleanup was blocked, so they were left untouched.
