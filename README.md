@@ -10,7 +10,7 @@ Las nuevas instalaciones y reactivaciones no crean iconos automáticamente. Inst
 
 **Animaciones:** los accesos propios ya abren la app directamente desde el icono, sin la actividad intermediaria ni el comando de Shizuku cuando la app está habilitada. El cierre por gestos todavía depende de Recientes de Samsung: en el A54 sigue devolviendo un destino nulo. La animación exacta de retorno al icono aún no está resuelta.
 
-**Animación de cierre:** el controlador visual superpuesto quedó deshabilitado porque se dibujaba encima de la animación de Samsung y se percibía trabado. La escala global de animaciones ya no se modifica. El cierre vuelve a usar solamente la transición normal de One UI mientras se investiga por qué Recientes no empareja el acceso agregado manualmente con su icono (`target-null`). Véanse [implementación y resultados](docs/oneui-home-integration.md).
+**Animación de cierre (experimental):** Nemotron detecta el inicio del gesto físico con Shizuku y `getevent`, pausa por un máximo de un segundo la escala `animator_duration_scale` de Samsung y la restaura; su retorno al icono usa cuadros sincronizados por `Choreographer`, independientes de esa escala. Esto busca evitar que la animación central de Recientes se monte con el retorno. La comprobación automatizada por ADB llega tarde y aún muestra un tramo del cierre central; falta confirmar el gesto físico. Si el lector de eventos no está disponible, el gesto conserva el cierre Samsung. Véanse [implementación y resultados](docs/oneui-home-integration.md).
 
 - [Documentación, compilación y estado de pruebas](docs/oneui-home-integration.md)
 - [Limpieza de intermediarios y archivos conservados](docs/oneui-home-cleanup.md)

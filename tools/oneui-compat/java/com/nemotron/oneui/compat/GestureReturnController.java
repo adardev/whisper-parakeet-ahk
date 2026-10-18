@@ -21,6 +21,7 @@ import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.RenderNode;
 import android.graphics.drawable.Drawable;
+import android.view.Choreographer;
 import android.os.Binder;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -44,7 +45,7 @@ import java.util.concurrent.Executors;
 /** Visual return for explicitly launched icons. All snapshots stay in memory. */
 public final class GestureReturnController {
     private static final String TAG = "NemotronGestureReturn";
-    private static final boolean ENABLED = false;
+    private static final boolean ENABLED = true;
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
     private static final Handler RENDER;
     static {
@@ -73,6 +74,8 @@ public final class GestureReturnController {
     private float downX, downY, lastY;
     private long downTime;
     private boolean preparing, resumed;
+    private boolean nativeAnimatorMuted;
+    private String savedAnimatorScale;
     private ValueAnimator preview;
     private boolean isHome(Activity activity) {
         return activity.getClass().getName().equals("com.sec.android.app.launcher.Launcher")
@@ -154,16 +157,18 @@ public final class GestureReturnController {
     }
 
     private static void arm(View source, String pkg, Drawable icon, boolean widget) {
-        if (!ENABLED) return;
-        if (Looper.myLooper() != Looper.getMainLooper()) return;
+        if (!ENABLED) { Log.i(TAG, "arm skipped: disabled"); return; }
+        if (Looper.myLooper() != Looper.getMainLooper()) { Log.i(TAG, "arm skipped: not main thread"); return; }
         if (current != null) current.close();
         if (pkg == null || pkg.equals(source.getContext().getPackageName())
                 || !Settings.canDrawOverlays(source.getContext())
-                || source.getRootView().getWidth() == 0) return;
+                || source.getRootView().getWidth() == 0) { Log.i(TAG, "arm skipped: target/window unavailable pkg=" + pkg + " overlay=" + Settings.canDrawOverlays(source.getContext()) + " width=" + source.getRootView().getWidth()); return; }
         try {
             Class<?> s = Class.forName("rikka.shizuku.Shizuku");
-            if (!(Boolean)s.getMethod("pingBinder").invoke(null)
-                    || (Integer)s.getMethod("checkSelfPermission").invoke(null) != 0) return;
+            boolean ping=(Boolean)s.getMethod("pingBinder").invoke(null);
+            int permission=(Integer)s.getMethod("checkSelfPermission").invoke(null);
+            Log.i(TAG, "Shizuku ping=" + ping + " permission=" + permission);
+            if (!ping || permission != 0) return;
             GestureReturnController controller = new GestureReturnController(source, pkg, icon, widget);
             current = controller;
             controller.prepareWindow();
@@ -179,6 +184,7 @@ public final class GestureReturnController {
     // that route an independent return, without observing or replacing input.
     private void fallbackReturn(boolean starting) {
         if (closed || finishing || claimed || preparing || atm == null || wm == null) return;
+        muteNativeCloseAnimation();
         preparing=true;
         IO.execute(() -> {
             Bitmap bitmap=null;
@@ -385,6 +391,7 @@ public final class GestureReturnController {
         if (action == MotionEvent.ACTION_DOWN) {
             down = event.getY() > height - 30 * density && event.getPointerCount() == 1;
             if (!down) return;
+            muteNativeCloseAnimation();
             downX = event.getX(); downY = lastY = event.getY(); downTime = event.getEventTime();
             capturing = true;
             IO.execute(() -> {
@@ -419,7 +426,7 @@ public final class GestureReturnController {
             if (claimed) { overlay.drag(dy); overlay.postInvalidate(); }
         } else if ((action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) && down) {
             down = false;
-            if (!claimed) { recycle(app); app = null; return; }
+            if (!claimed) { recycle(app); app = null; restoreNativeCloseAnimation(0); return; }
             float dy = downY - lastY;
             boolean complete = action == MotionEvent.ACTION_UP && dy > 48 * density;
             boolean recents = complete && event.getEventTime() - downTime > 600;
@@ -477,24 +484,64 @@ public final class GestureReturnController {
         if (closed || overlay == null) return;
         RectF from = new RectF(overlay.rect);
         RectF to = complete && !recents ? iconRect : new RectF(0, 0, width, height);
-        ValueAnimator animator = ValueAnimator.ofFloat(0, 1);
-        animator.setDuration(complete ? 280 : 180);
-        animator.setInterpolator(new PathInterpolator(0.2f, 0, 0, 1));
-        animator.addUpdateListener(a -> {
+        final long start = android.os.SystemClock.uptimeMillis();
+        final long duration = complete ? 280 : 180;
+        final PathInterpolator interpolator = new PathInterpolator(0.2f, 0, 0, 1);
+        final Choreographer choreographer = Choreographer.getInstance();
+        final Choreographer.FrameCallback[] callback = new Choreographer.FrameCallback[1];
+        callback[0] = frameTimeNanos -> {
             if (closed || overlay == null) return;
-            float t = (Float)a.getAnimatedValue();
+            float raw = Math.min(1f, Math.max(0f,
+                    (frameTimeNanos / 1_000_000L - start) / (float) duration));
+            float t = interpolator.getInterpolation(raw);
             overlay.rect.set(lerp(from.left, to.left, t), lerp(from.top, to.top, t),
                     lerp(from.right, to.right, t), lerp(from.bottom, to.bottom, t));
             overlay.morph = complete && !recents ? t : 0;
-            overlay.postInvalidate();
-        });
-        animator.addListener(new AnimatorListenerAdapter() {
-            @Override public void onAnimationEnd(Animator a) {
-                Log.i(TAG, complete ? "return finished icon=" + iconRect : "gesture cancelled");
+            overlay.postInvalidateOnAnimation();
+            if (raw < 1f) choreographer.postFrameCallback(callback[0]);
+            else {
+                Log.i(TAG, "return frames=" + overlay.draws + " icon=" + iconRect);
+                restoreNativeCloseAnimation(120);
                 MAIN.post(GestureReturnController.this::close);
             }
+        };
+        choreographer.postFrameCallback(callback[0]);
+    }
+
+    // The stock Samsung close animation is driven by ValueAnimator in the
+    // privileged Recents process. Temporarily setting its global duration
+    // scale to zero suppresses that one gesture; our return uses Choreographer
+    // directly, so it remains frame-synchronized and independent of that scale.
+    private void muteNativeCloseAnimation() {
+        if (nativeAnimatorMuted || closed) return;
+        try { savedAnimatorScale = Float.toString(Settings.Global.getFloat(
+                context.getContentResolver(), Settings.Global.ANIMATOR_DURATION_SCALE, 1f)); }
+        catch (RuntimeException error) { Log.w(TAG, "cannot read animator scale", error); return; }
+        if ("0.0".equals(savedAnimatorScale)) return;
+        nativeAnimatorMuted = true;
+        final String restore = savedAnimatorScale;
+        IO.execute(() -> {
+            try {
+                Process process = shell(new String[]{"sh", "-c", "settings put global animator_duration_scale 0; sleep 1; settings put global animator_duration_scale " + restore});
+                Thread safetyRestore = new Thread(() -> { try { process.waitFor(); } catch (InterruptedException ignored) { Thread.currentThread().interrupt(); } }, "Nemotron animator-scale restore");
+                safetyRestore.setDaemon(true);
+                safetyRestore.start();
+                Log.i(TAG, "suppressed stock close animator; saved=" + restore);
+            } catch (Throwable error) { Log.w(TAG, "cannot suppress stock close animator", error); }
         });
-        animator.start();
+    }
+
+    private void restoreNativeCloseAnimation(long delayMs) {
+        if (!nativeAnimatorMuted || savedAnimatorScale == null) return;
+        nativeAnimatorMuted = false;
+        final String restore = savedAnimatorScale;
+        MAIN.postDelayed(() -> IO.execute(() -> {
+            try {
+                Process process = shell(new String[]{"settings", "put", "global", "animator_duration_scale", restore});
+                process.waitFor();
+                Log.i(TAG, "restored animator scale=" + restore);
+            } catch (Throwable error) { Log.w(TAG, "animator scale safety restore", error); }
+        }), delayMs);
     }
 
     private final class ReturnView extends View {
@@ -546,6 +593,7 @@ public final class GestureReturnController {
         if (Looper.myLooper() != Looper.getMainLooper()) { MAIN.post(this::close); return; }
         if (closed) return;
         closed = true;
+        restoreNativeCloseAnimation(0);
         if (preview != null) { preview.cancel(); preview=null; }
         if (rawProcess != null) { rawProcess.destroy(); rawProcess = null; }
         unregisterTaskObserver();
