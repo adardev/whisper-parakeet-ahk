@@ -432,12 +432,11 @@ public final class GestureReturnController {
             if (!claimed) { recycle(app); app = null; restoreNativeCloseAnimation(0); return; }
             float dy = downY - lastY;
             boolean complete = action == MotionEvent.ACTION_UP && dy > 48 * density;
-            boolean recents = complete && event.getEventTime() - downTime > 600;
-            if (recents) close(); // The original gesture keeps handling Overview.
-            else {
-                show(); // Reveal the snapshot only after the live gesture is released.
-                finish(complete, false);
-            }
+            // Gesture duration alone cannot distinguish a slow Home swipe
+            // from Overview. Treat every completed upward swipe as Home;
+            // otherwise slow drags leave Samsung Recents as a floating card.
+            show(); // Reveal the snapshot only after the live gesture is released.
+            finish(complete, false);
         }
     }
 
@@ -495,6 +494,12 @@ public final class GestureReturnController {
         // the app icon with a small damped spring. Choreographer keeps every
         // frame aligned to display vsync (unlike a second ValueAnimator).
         final long duration = complete ? 620 : 360;
+        MAIN.postDelayed(() -> {
+            if (!closed && finishing) {
+                Log.w(TAG, "return animation watchdog; removing stale overlay");
+                close();
+            }
+        }, duration + 1200);
         final Choreographer choreographer = Choreographer.getInstance();
         final Choreographer.FrameCallback[] callback = new Choreographer.FrameCallback[1];
         callback[0] = frameTimeNanos -> {
