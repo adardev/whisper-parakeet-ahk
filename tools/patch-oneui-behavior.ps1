@@ -214,10 +214,11 @@ Edit-Class 'WorkspaceViewModel.smali' {
     param($text)
     $text = [regex]::Replace($text, '(?ms)^\.method public final u\(Lcom/nemotron/oneui/shaded/y8/d0;Z\)V.*?^\.end method', {
         param($m)
-        if ($m.Value.Contains(':nemotron_explicit_item')) { return $m.Value }
+        $method = $m.Value
         # Keep automatically discovered apps off Home, but allow an AppItem
         # explicitly chosen in Nemotron's app selector to use One UI's model.
-        [regex]::Replace($m.Value, '(?m)(^\s*\.locals \d+\r?\n)', '$1' + @'
+        if (-not $method.Contains(':nemotron_explicit_item')) {
+        $method = [regex]::Replace($method, '(?m)(^\s*\.locals \d+\r?\n)', '$1' + @'
 
     move-object/from16 v0, p1
     invoke-virtual {v0}, Lcom/nemotron/oneui/shaded/y8/d0;->getItem()Lcom/honeyspace/sdk/source/entity/BaseItem;
@@ -240,6 +241,35 @@ Edit-Class 'WorkspaceViewModel.smali' {
     return-void
     :nemotron_explicit_item
 '@)
+        }
+        # Never put the explicitly excluded social apps into the live Home view,
+        # even if an older or manually selected row is still emitted by a source.
+        if (-not $method.Contains(':nemotron_social_home_continue')) {
+            $method = [regex]::Replace($method, '(?m)(^\s*\.locals \d+\r?\n)', '$1' + @'
+
+    move-object/from16 v0, p1
+    invoke-virtual {v0}, Lcom/nemotron/oneui/shaded/y8/d0;->getItem()Lcom/honeyspace/sdk/source/entity/BaseItem;
+    move-result-object v0
+    instance-of v1, v0, Lcom/honeyspace/sdk/source/entity/AppItem;
+    if-eqz v1, :nemotron_social_home_continue
+    check-cast v0, Lcom/honeyspace/sdk/source/entity/AppItem;
+    invoke-virtual {v0}, Lcom/honeyspace/sdk/source/entity/AppItem;->getComponent()Lcom/honeyspace/sdk/source/entity/ComponentKey;
+    move-result-object v0
+    invoke-virtual {v0}, Lcom/honeyspace/sdk/source/entity/ComponentKey;->getPackageName()Ljava/lang/String;
+    move-result-object v0
+    const-string v1, "com.whatsapp"
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-nez v1, :nemotron_social_home_drop
+    const-string v1, "com.instagram.android"
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-nez v1, :nemotron_social_home_drop
+    :nemotron_social_home_continue
+'@)
+            $method = [regex]::Replace($method, '(?m)^\.end method$', "    :nemotron_social_home_drop`n    return-void`n.end method")
+        }
+        $method
     })
     [regex]::Replace($text, '(?ms)^\.method public final s\(\)Z.*?^\.end method', @'
 .method public final s()Z
@@ -248,6 +278,38 @@ Edit-Class 'WorkspaceViewModel.smali' {
     return v0
 .end method
 '@)
+}
+Edit-Class 'VerticalApplistViewModel.smali' {
+    param($text)
+    [regex]::Replace($text, '(?ms)^\.method public final f\(Lcom/nemotron/oneui/shaded/h8/d;\)V.*?^\.end method', {
+        param($m)
+        if ($m.Value.Contains(':nemotron_hide_social_icon')) { return $m.Value }
+        [regex]::Replace($m.Value, '(?m)^\s*\.locals 1\s*$', @'
+    .locals 2
+    invoke-virtual {p1}, Lcom/nemotron/oneui/shaded/h8/d;->d()Lcom/honeyspace/sdk/source/entity/IconItem;
+    move-result-object v0
+    instance-of v1, v0, Lcom/honeyspace/sdk/source/entity/AppItem;
+    if-eqz v1, :nemotron_social_visible
+    check-cast v0, Lcom/honeyspace/sdk/source/entity/AppItem;
+    invoke-virtual {v0}, Lcom/honeyspace/sdk/source/entity/AppItem;->getComponent()Lcom/honeyspace/sdk/source/entity/ComponentKey;
+    move-result-object v0
+    invoke-virtual {v0}, Lcom/honeyspace/sdk/source/entity/ComponentKey;->getPackageName()Ljava/lang/String;
+    move-result-object v0
+    const-string v1, "com.whatsapp"
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-nez v1, :nemotron_hide_social_icon
+    const-string v1, "com.instagram.android"
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-nez v1, :nemotron_hide_social_icon
+    :nemotron_social_visible
+    goto :nemotron_continue_social_filter
+    :nemotron_hide_social_icon
+    return-void
+    :nemotron_continue_social_filter
+'@)
+    })
 }
 Edit-Class 'ShellTransitionManager.smali' {
     param($text)
