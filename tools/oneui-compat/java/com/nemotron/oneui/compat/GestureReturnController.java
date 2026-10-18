@@ -419,10 +419,14 @@ public final class GestureReturnController {
             lastY = event.getY();
             float dy = downY - lastY, dx = Math.abs(event.getX() - downX);
             if (!claimed && app != null && !capturing && dy > 18 * density && dy > dx * 1.3f) {
-                show(); claimed = true;
-                Log.i(TAG, "visual return tracking");
+                // Let One UI own the live finger-following gesture. Drawing a
+                // second copy of the task here produces the visible ghosting
+                // seen during a held swipe. We only prepare its final bounds;
+                // the Nemotron return becomes visible after ACTION_UP.
+                claimed = true;
+                Log.i(TAG, "return armed; native gesture remains visible until release");
             }
-            if (claimed) { overlay.drag(dy); overlay.postInvalidate(); }
+            if (claimed && overlay != null) overlay.drag(dy);
         } else if ((action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) && down) {
             down = false;
             if (!claimed) { recycle(app); app = null; restoreNativeCloseAnimation(0); return; }
@@ -430,7 +434,10 @@ public final class GestureReturnController {
             boolean complete = action == MotionEvent.ACTION_UP && dy > 48 * density;
             boolean recents = complete && event.getEventTime() - downTime > 600;
             if (recents) close(); // The original gesture keeps handling Overview.
-            else finish(complete, false);
+            else {
+                show(); // Reveal the snapshot only after the live gesture is released.
+                finish(complete, false);
+            }
         }
     }
 
