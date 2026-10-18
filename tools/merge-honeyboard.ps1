@@ -493,6 +493,9 @@ foreach ($component in $hbApp.ChildNodes) {
     $componentName = $component.GetAttribute('name', $androidNs)
     $componentName = $componentName.Replace('androidx.', 'com.nemotron.honeyboard.shaded.androidx.')
     $componentName = $componentName.Replace('com.google.android.material.', 'com.nemotron.honeyboard.shaded.com.google.android.material.')
+    # Do not carry Samsung diagnostic/telemetry provider into the combined
+    # launcher/IME package. Keyboard input and settings do not depend on it.
+    if ($component.LocalName -eq 'provider' -and $componentName -match 'diagmonagent\.log\.provider\.DiagMonProvider$') { continue }
     if ($component.LocalName -eq 'activity' -and $componentName -match '\.SpeakKeyboardInputAloudShortcut$') {
         $isAccessibilityShortcut = $false
         foreach ($category in $component.SelectNodes('.//category')) {

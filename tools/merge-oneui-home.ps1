@@ -733,6 +733,13 @@ foreach ($tag in @('uses-permission', 'uses-permission-sdk-23', 'permission', 'p
 $nemApp = $nemRoot.application
 $hbApp = $hbRoot.application
 $nemTheme = $nemApp.GetAttribute('theme', $androidNs)
+# The Nemotron base already contains HoneyBoard; remove its DiagMon provider
+# as well as excluding the matching One UI Home provider below.
+foreach ($provider in @($nemApp.SelectNodes('provider'))) {
+    if ($provider.GetAttribute('name', $androidNs) -match 'diagmonagent\.log\.provider\.DiagMonProvider$') {
+        [void]$nemApp.RemoveChild($provider)
+    }
+}
 foreach ($activity in $nemApp.SelectNodes('activity')) {
     if ($nemTheme -and -not $activity.HasAttribute('theme', $androidNs)) {
         [void]$activity.SetAttribute('theme', $androidNs, $nemTheme)
@@ -754,6 +761,10 @@ foreach ($component in $hbApp.ChildNodes) {
             $componentName = $oneUiRelocationMap[$componentDescriptor].Substring(1, $oneUiRelocationMap[$componentDescriptor].Length - 2).Replace('/', '.')
         }
     }
+    # One UI Home's DiagMon provider is Samsung diagnostic/telemetry plumbing,
+    # not a launcher dependency. Avoid eagerly starting it in Nemotron's
+    # shared launcher/IME process.
+    if ($component.LocalName -eq 'provider' -and $componentName -match 'diagmonagent\.log\.provider\.DiagMonProvider$') { continue }
     if ($component.LocalName -eq 'activity' -and $componentName -match '\.SpeakKeyboardInputAloudShortcut$') {
         $isAccessibilityShortcut = $false
         foreach ($category in $component.SelectNodes('.//category')) {
