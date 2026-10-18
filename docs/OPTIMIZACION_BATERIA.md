@@ -57,7 +57,7 @@ Se retiró el controlador de animación reconstruida y su llamada desde `Shortcu
 
 La APK integrada se compiló con Gradle + Apktool 3.0.3, se alineó, firmó con el certificado debug ya instalado y `apksigner verify` pasó. Se instaló por ADB con Nemotron como rol HOME; no se reinició el teléfono. Tras dejarla quieta 15 s con pantalla bloqueada, `top` mostró 0.0 % de CPU para `com.nemotron.voiceime2` y `dumpsys cpuinfo` la redondeó a 0 %; Honeyboard también marcó 0 %. PSS fue 305,961 KiB y RSS 445,550 KiB. Son lecturas puntuales, no una medición de consumo eléctrico; no se midieron mAh ni autonomía.
 
-One UI Home del sistema se deshabilitó por petición del usuario para quitar el diálogo recurrente de selección. Sigue instalado y se puede reactivar por ADB.
+One UI Home del sistema se deshabilitó temporalmente por petición del usuario para quitar el diálogo recurrente de selección. El 18 oct 2026 se reactivó: Samsung Settings necesita su proveedor `com.sec.android.app.launcher.settings` para abrir **Barra de navegación**, y Android impide que Nemotron registre una autoridad duplicada. Nemotron sigue como HOME predeterminado. El diagnóstico y las trazas del fallo están en [oneui-home-integration.md](oneui-home-integration.md#dependencias-de-one-ui-home-para-gestos-y-ajustes-18-oct-2026).
 
 ## Menos trabajo en segundo plano del teclado integrado (18 oct 2026)
 
