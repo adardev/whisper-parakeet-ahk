@@ -331,3 +331,42 @@ Edit-Class 'PackageEventOperator.smali' {
         $m.Value.Replace('move-object/from16 v14, p4', "new-instance v14, Lcom/nemotron/oneui/compat/NoAutoAdd;`n    invoke-direct {v14}, Lcom/nemotron/oneui/compat/NoAutoAdd;-><init>()V")
     })
 }
+
+# The integrated HoneyBoard APK schedules two idle daily jobs for Samsung
+# keyboard usage statistics. Nemotron keeps HoneyBoard as its active IME, but
+# does not need Samsung's periodic statistics/update tasks. Cancel existing
+# jobs at startup and do not enqueue them again.
+foreach ($job in @(
+    @{ File = 'b.smali'; Descriptor = 'Lvi/b;'; ContextGetter = 'a'; JobId = 1 },
+    @{ File = 'c.smali'; Descriptor = 'Lzi/c;'; ContextGetter = 'a'; JobId = 2 }
+)) {
+    $classFile = Get-ChildItem -LiteralPath $DecodedRoot -Recurse -File -Filter $job.File |
+        Where-Object { [regex]::IsMatch([IO.File]::ReadAllText($_.FullName), "(?m)^\.class .*" + [regex]::Escape($job.Descriptor)) } |
+        Select-Object -First 1
+    if (-not $classFile) { throw "Missing HoneyBoard statistics scheduler $($job.Descriptor)" }
+    $code = [IO.File]::ReadAllText($classFile.FullName)
+    if (-not $code.Contains(':nemotron_disable_stats_jobs')) {
+        $replacement = @"
+.method public onCreate()V
+    .locals 3
+    :nemotron_disable_stats_jobs
+    invoke-super {p0}, Loo/b;->onCreate()V
+    invoke-direct {p0}, $($job.Descriptor)->$($job.ContextGetter)()Landroid/content/Context;
+    move-result-object v0
+    const-string v1, "jobscheduler"
+    invoke-virtual {v0, v1}, Landroid/content/Context;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+    move-result-object v0
+    instance-of v1, v0, Landroid/app/job/JobScheduler;
+    if-eqz v1, :nemotron_stats_jobs_done
+    check-cast v0, Landroid/app/job/JobScheduler;
+    const/4 v1, $($job.JobId)
+    invoke-virtual {v0, v1}, Landroid/app/job/JobScheduler;->cancel(I)V
+    :nemotron_stats_jobs_done
+    return-void
+.end method
+"@
+        $code = [regex]::Replace($code, '(?ms)^\.method public onCreate\(\)V.*?^\.end method', $replacement, 1)
+        if ($code -notmatch ':nemotron_disable_stats_jobs') { throw "Could not patch $($job.Descriptor)" }
+        [IO.File]::WriteAllText($classFile.FullName, $code, [Text.UTF8Encoding]::new($false))
+    }
+}
