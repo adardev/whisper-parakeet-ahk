@@ -13,6 +13,9 @@ New-Item -ItemType Directory -Force "$work/host" | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'Assembler compilation failed' }
 & "$JdkHome/bin/java.exe" -cp "$work/host;$ApktoolJar" AssembleCompat (Join-Path $DecodedRoot 'smali_classes23') "$work/classes23.dex"
 if ($LASTEXITCODE -ne 0) { throw 'Compatibility DEX assembly failed' }
+$dexBytes=[IO.File]::ReadAllBytes((Join-Path $work 'classes23.dex'))
+if ([Text.Encoding]::ASCII.GetString($dexBytes,0,7) -ne "dex`n039" -or [BitConverter]::ToInt32($dexBytes,36) -ne 112) { throw 'Unexpected standalone DEX header' }
+if (-not [Text.Encoding]::UTF8.GetString($dexBytes).Contains('Lcom/nemotron/oneui/compat/LauncherCompat;')) { throw 'Required launcher compatibility class missing' }
 $unsigned=Join-Path $work 'unsigned.apk'
 Copy-Item -LiteralPath $BaseApk -Destination $unsigned -Force
 $zip=[IO.Compression.ZipFile]::Open($unsigned, [IO.Compression.ZipArchiveMode]::Update)

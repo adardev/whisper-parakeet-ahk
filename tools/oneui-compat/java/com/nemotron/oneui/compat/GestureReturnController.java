@@ -6,6 +6,8 @@ import android.animation.ValueAnimator;
 import android.app.ActivityOptions;
 import android.app.Activity;
 import android.app.Application;
+import android.app.ActivityManager;
+import android.app.TaskStackListener;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -52,20 +54,32 @@ public final class GestureReturnController {
     private Bitmap home, icon, app;
     private Object monitor, atm, wm;
     private volatile Process rawProcess;
+    private volatile Object taskObserver;
     private int rawMaxX, rawMaxY;
     private ReturnView overlay;
     private volatile boolean closed;
     private boolean down, capturing, claimed, finishing;
     private float downX, downY, lastY;
     private long downTime;
+    private boolean preparing, resumed;
+    private ValueAnimator preview;
+    private boolean isHome(Activity activity) {
+        return activity.getClass().getName().equals("com.sec.android.app.launcher.Launcher")
+                || activity.getClass().getName().equals("com.sec.android.app.launcher.activities.LauncherActivity");
+    }
     private final Application.ActivityLifecycleCallbacks lifecycle = new Application.ActivityLifecycleCallbacks() {
         @Override public void onActivityResumed(Activity activity) {
-            if (activity.getClass().getName().equals("com.sec.android.app.launcher.Launcher")
-                    || activity.getClass().getName().equals("com.sec.android.app.launcher.activities.LauncherActivity"))
-                fallbackReturn();
+            if (isHome(activity)) {
+                resumed=true;
+                Log.i(TAG, "home resumed");
+                if (overlay != null && !finishing) {
+                    if (preview != null) preview.cancel();
+                    finish(true, false);
+                } else fallbackReturn(false);
+            }
         }
         @Override public void onActivityCreated(Activity a, Bundle b) {}
-        @Override public void onActivityStarted(Activity a) {}
+        @Override public void onActivityStarted(Activity a) { if (isHome(a)) { Log.i(TAG, "home started"); fallbackReturn(true); } }
         @Override public void onActivityPaused(Activity a) {}
         @Override public void onActivityStopped(Activity a) {}
         @Override public void onActivitySaveInstanceState(Activity a, Bundle b) {}
@@ -83,7 +97,16 @@ public final class GestureReturnController {
         iconRect = new RectF(bounds);
         // Icon views can include a text label. Keep a square anchored at the top.
         if (iconRect.height() > iconRect.width()) iconRect.bottom = iconRect.top + iconRect.width();
-        home = drawHome(root);
+        try {
+            int size=(Integer)source.getClass().getMethod("iconSize").invoke(source);
+            if (size > 0 && size < iconRect.width()) {
+                float inset=(iconRect.width()-size)/2;
+                iconRect.inset(inset, inset);
+            }
+        } catch (ReflectiveOperationException ignored) {}
+        float alpha=source.getAlpha();
+        source.setAlpha(0);
+        try { home=drawHome(root); } finally { source.setAlpha(alpha); }
         if (image != null) {
             icon = Bitmap.createBitmap(192, 192, Bitmap.Config.ARGB_8888);
             Rect old = new Rect(image.getBounds());
@@ -113,32 +136,48 @@ public final class GestureReturnController {
 
     // Injected scrcpy/ADB input does not pass through Linux evdev. Resume gives
     // that route an independent return, without observing or replacing input.
-    private void fallbackReturn() {
-        if (closed || finishing || claimed || atm == null || wm == null) return;
+    private void fallbackReturn(boolean starting) {
+        if (closed || finishing || claimed || preparing || atm == null || wm == null) return;
+        preparing=true;
         IO.execute(() -> {
             Bitmap bitmap=null;
             try {
                 List<?> tasks=(List<?>)atm.getClass().getMethod("getTasks", int.class, boolean.class, boolean.class, int.class)
                         .invoke(atm, 20, false, false, 0);
                 for (Object task:tasks) {
-                    ComponentName top=(ComponentName)task.getClass().getField("baseActivity").get(task);
-                    if (top != null && pkg.equals(top.getPackageName())) {
+                    ComponentName top=(ComponentName)task.getClass().getField("topActivity").get(task);
+                    if (top == null || top.getPackageName().equals(context.getPackageName())
+                            || top.getPackageName().equals("com.sec.android.app.launcher")) continue;
+                    if (pkg.equals(top.getPackageName())) {
                         bitmap=(Bitmap)wm.getClass().getMethod("snapshotTaskForRecents", int.class)
                                 .invoke(wm, task.getClass().getField("taskId").getInt(task));
-                        break;
                     }
+                    break; // Never animate an old task after the user switched apps.
                 }
             } catch (Throwable error) { Log.w(TAG, "resume snapshot unavailable", error); }
             Bitmap result=bitmap;
             MAIN.post(() -> {
+                preparing=false;
                 if (closed || finishing || claimed) { recycle(result); return; }
                 if (result == null) { close(); return; }
                 try {
                     recycle(app); app=result;
                     show(); claimed=true;
-                    overlay.rect.set(width*0.16f, height*0.08f, width*0.84f, height*0.76f);
-                    Log.i(TAG, "resume return");
-                    finish(true, false);
+                    if (!starting || resumed) {
+                        overlay.rect.set(width*0.12f, height*0.04f, width*0.88f, height*0.80f);
+                        Log.i(TAG, "resume return");
+                        finish(true, false);
+                    } else {
+                        Log.i(TAG, "start return backdrop");
+                        preview=ValueAnimator.ofFloat(0, 1);
+                        preview.setDuration(220);
+                        preview.addUpdateListener(a -> {
+                            if (!closed && !finishing && overlay != null) overlay.drag((Float)a.getAnimatedValue()*height*0.24f);
+                            if (overlay != null) overlay.invalidate();
+                        });
+                        preview.start();
+                        MAIN.postDelayed(() -> { if (!closed && !finishing && !resumed) close(); }, 650);
+                    }
                 } catch (Throwable error) { fail("resume overlay", error); }
             });
         });
@@ -181,14 +220,36 @@ public final class GestureReturnController {
         try {
             atm = service("activity_task", "android.app.IActivityTaskManager$Stub");
             wm = service("window", "android.view.IWindowManager$Stub");
+            try {
+                taskObserver=new TaskObserver();
+                atm.getClass().getMethod("registerTaskStackListener", Class.forName("android.app.ITaskStackListener"))
+                        .invoke(atm, taskObserver);
+            } catch (Throwable error) { Log.w(TAG, "task observer unavailable", error); taskObserver=null; }
             String path = touchscreen();
             if (path == null) throw new IllegalStateException("No direct touchscreen available");
             rawProcess = shell(new String[]{"getevent", "-lt", path});
-            if (closed) { rawProcess.destroy(); return; }
+            if (closed) { rawProcess.destroy(); unregisterTaskObserver(); return; }
             Log.i(TAG, "armed " + pkg + " icon=" + iconRect + " backdrop=" + (home != null));
             Thread reader = new Thread(this::readTouches, "Nemotron return touch");
             reader.setDaemon(true); reader.start();
         } catch (Throwable error) { MAIN.post(() -> fail("Shizuku connection", error)); }
+    }
+
+    private final class TaskObserver extends TaskStackListener {
+        @Override public void onTaskMovedToFront(ActivityManager.RunningTaskInfo task) {
+            ComponentName top=task.topActivity;
+            if (top != null && !top.getPackageName().equals(pkg)
+                    && !top.getPackageName().equals(context.getPackageName())
+                    && !top.getPackageName().equals("com.sec.android.app.launcher")) MAIN.post(() -> { if (!finishing) close(); });
+        }
+    }
+
+    private void unregisterTaskObserver() {
+        Object observer=taskObserver; taskObserver=null;
+        if (observer != null) IO.execute(() -> {
+            try { atm.getClass().getMethod("unregisterTaskStackListener", Class.forName("android.app.ITaskStackListener"))
+                    .invoke(atm, observer); } catch (Throwable ignored) {}
+        });
     }
 
     private static Process shell(String[] command) throws Exception {
@@ -231,6 +292,8 @@ public final class GestureReturnController {
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(rawProcess.getInputStream()))) {
             String line;
             while (!closed && (line=reader.readLine()) != null) {
+                line=line.trim();
+                if (line.isEmpty()) continue;
                 String value = line.substring(line.lastIndexOf(' ')+1).trim();
                 if (line.contains("ABS_MT_SLOT")) slot = (int)Long.parseLong(value, 16);
                 else if (line.contains("ABS_MT_TRACKING_ID") && slot >= 0 && slot < active.length)
@@ -401,7 +464,9 @@ public final class GestureReturnController {
     private void close() {
         if (closed) return;
         closed = true;
+        if (preview != null) { preview.cancel(); preview=null; }
         if (rawProcess != null) { rawProcess.destroy(); rawProcess = null; }
+        unregisterTaskObserver();
         ((Application)context).unregisterActivityLifecycleCallbacks(lifecycle);
         if (monitor != null) { disposeMonitor(monitor); monitor = null; }
         if (overlay != null) {

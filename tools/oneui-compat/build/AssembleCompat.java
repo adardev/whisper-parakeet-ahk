@@ -8,7 +8,9 @@ public final class AssembleCompat {
     public static void main(String[] args) throws Exception {
         Path root=Paths.get(args[0]);
         SmaliBuilder assembler=new SmaliBuilder(root.toFile(), 35);
-        DexBuilder dex=new DexBuilder(new Opcodes(35, -1));
+        // This Apktool writer uses the 112-byte standalone header. API 35 would
+        // advertise container DEX 041 while retaining that older header.
+        DexBuilder dex=new DexBuilder(new Opcodes(28, -1));
         try (java.util.stream.Stream<Path> files=Files.walk(root)) {
             for (Path file:(Iterable<Path>)files.filter(p -> p.toString().endsWith(".smali"))::iterator)
                 assembler.buildFile(root.relativize(file).toString().replace('\\','/'), dex);
