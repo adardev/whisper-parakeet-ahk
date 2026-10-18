@@ -52,12 +52,27 @@ public final class AnimationProbe {
         System.out.println("uid=" + android.os.Process.myUid());
         Object wm = service("window", "android.view.IWindowManager$Stub");
         Object atm = service("activity_task", "android.app.IActivityTaskManager$Stub");
+        Object input = service("input", "android.hardware.input.IInputManager$Stub");
         for (Object svc : new Object[] {wm, atm}) {
             for (Method m : svc.getClass().getMethods()) {
                 String n = m.getName().toLowerCase();
                 if (n.contains("remoteanimation") || n.contains("recents")
                         || n.contains("transitionplayer") || n.contains("activityclientcontroller"))
                     System.out.println(m.toString());
+            }
+        }
+        for (Method m : input.getClass().getMethods())
+            if (m.getName().equals("monitorGestureInput")) System.out.println(m);
+        for (Method m : atm.getClass().getMethods())
+            if (m.getName().equals("getTasks")) System.out.println(m);
+        if (args.length > 0 && args[0].equals("--snapshot")) {
+            Object bmp = wm.getClass().getMethod("snapshotTaskForRecents", int.class)
+                    .invoke(wm, Integer.parseInt(args[1]));
+            System.out.println("snapshot=" + bmp);
+            if (bmp != null) {
+                android.graphics.Bitmap bitmap = (android.graphics.Bitmap) bmp;
+                System.out.println("size=" + bitmap.getWidth() + "x" + bitmap.getHeight());
+                bitmap.recycle();
             }
         }
         if (args.length == 0 || !args[0].equals("--next")) return;

@@ -25,6 +25,9 @@
     invoke-virtual {v3, v0}, Landroid/content/pm/PackageManager;->getLaunchIntentForPackage(Ljava/lang/String;)Landroid/content/Intent;
     move-result-object v3
     if-eqz v3, :fallback
+    invoke-virtual {p0}, Lcom/honeyspace/sdk/transition/ShellTransition$Info;->getIcon()Landroid/graphics/drawable/Drawable;
+    move-result-object v4
+    invoke-static {v1, v0, v4}, Lcom/nemotron/oneui/compat/GestureReturnController;->arm(Landroid/view/View;Ljava/lang/String;Landroid/graphics/drawable/Drawable;)V
     const/4 v4, 0x2
     new-array v4, v4, [I
     invoke-virtual {v1, v4}, Landroid/view/View;->getLocationOnScreen([I)V

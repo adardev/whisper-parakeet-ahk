@@ -1,0 +1,415 @@
+package com.nemotron.oneui.compat;
+
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.animation.ValueAnimator;
+import android.app.ActivityOptions;
+import android.app.Activity;
+import android.app.Application;
+import android.content.ComponentName;
+import android.content.Context;
+import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.Path;
+import android.graphics.PixelFormat;
+import android.graphics.Rect;
+import android.graphics.RectF;
+import android.graphics.RenderNode;
+import android.graphics.drawable.Drawable;
+import android.os.Binder;
+import android.os.Handler;
+import android.os.IBinder;
+import android.os.Looper;
+import android.os.Bundle;
+import android.provider.Settings;
+import android.util.Log;
+import android.view.MotionEvent;
+import android.view.View;
+import android.view.WindowManager;
+import android.view.animation.PathInterpolator;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+/** Visual return for explicitly launched icons. All snapshots stay in memory. */
+public final class GestureReturnController {
+    private static final String TAG = "NemotronGestureReturn";
+    private static final Handler MAIN = new Handler(Looper.getMainLooper());
+    private static final ExecutorService IO = Executors.newSingleThreadExecutor();
+    private static GestureReturnController current;
+    private final Context context;
+    private final String pkg;
+    private final RectF iconRect;
+    private final int width, height;
+    private final float density;
+    private Bitmap home, icon, app;
+    private Object monitor, atm, wm;
+    private volatile Process rawProcess;
+    private int rawMaxX, rawMaxY;
+    private ReturnView overlay;
+    private volatile boolean closed;
+    private boolean down, capturing, claimed, finishing;
+    private float downX, downY, lastY;
+    private long downTime;
+    private final Application.ActivityLifecycleCallbacks lifecycle = new Application.ActivityLifecycleCallbacks() {
+        @Override public void onActivityResumed(Activity activity) {
+            if (activity.getClass().getName().equals("com.sec.android.app.launcher.Launcher")
+                    || activity.getClass().getName().equals("com.sec.android.app.launcher.activities.LauncherActivity"))
+                fallbackReturn();
+        }
+        @Override public void onActivityCreated(Activity a, Bundle b) {}
+        @Override public void onActivityStarted(Activity a) {}
+        @Override public void onActivityPaused(Activity a) {}
+        @Override public void onActivityStopped(Activity a) {}
+        @Override public void onActivitySaveInstanceState(Activity a, Bundle b) {}
+        @Override public void onActivityDestroyed(Activity a) {}
+    };
+
+    private GestureReturnController(View source, String target, Drawable image) {
+        context = source.getContext().getApplicationContext();
+        pkg = target;
+        View root = source.getRootView();
+        width = root.getWidth(); height = root.getHeight();
+        density = context.getResources().getDisplayMetrics().density;
+        Rect bounds = new Rect();
+        source.getGlobalVisibleRect(bounds);
+        iconRect = new RectF(bounds);
+        // Icon views can include a text label. Keep a square anchored at the top.
+        if (iconRect.height() > iconRect.width()) iconRect.bottom = iconRect.top + iconRect.width();
+        home = drawHome(root);
+        if (image != null) {
+            icon = Bitmap.createBitmap(192, 192, Bitmap.Config.ARGB_8888);
+            Rect old = new Rect(image.getBounds());
+            image.setBounds(0, 0, 192, 192);
+            try { image.draw(new Canvas(icon)); }
+            catch (RuntimeException error) { recycle(icon); icon=null; }
+            image.setBounds(old);
+        }
+    }
+
+    public static void arm(View source, String pkg, Drawable icon) {
+        if (Looper.myLooper() != Looper.getMainLooper()) return;
+        if (current != null) current.close();
+        if (pkg == null || pkg.equals(source.getContext().getPackageName())
+                || !Settings.canDrawOverlays(source.getContext())
+                || source.getRootView().getWidth() == 0) return;
+        try {
+            Class<?> s = Class.forName("rikka.shizuku.Shizuku");
+            if (!(Boolean)s.getMethod("pingBinder").invoke(null)
+                    || (Integer)s.getMethod("checkSelfPermission").invoke(null) != 0) return;
+            GestureReturnController controller = new GestureReturnController(source, pkg, icon);
+            current = controller;
+            ((Application)controller.context).registerActivityLifecycleCallbacks(controller.lifecycle);
+            IO.execute(controller::connect);
+        } catch (Throwable error) { Log.w(TAG, "arm unavailable", error); }
+    }
+
+    // Injected scrcpy/ADB input does not pass through Linux evdev. Resume gives
+    // that route an independent return, without observing or replacing input.
+    private void fallbackReturn() {
+        if (closed || finishing || claimed || atm == null || wm == null) return;
+        IO.execute(() -> {
+            Bitmap bitmap=null;
+            try {
+                List<?> tasks=(List<?>)atm.getClass().getMethod("getTasks", int.class, boolean.class, boolean.class, int.class)
+                        .invoke(atm, 20, false, false, 0);
+                for (Object task:tasks) {
+                    ComponentName top=(ComponentName)task.getClass().getField("baseActivity").get(task);
+                    if (top != null && pkg.equals(top.getPackageName())) {
+                        bitmap=(Bitmap)wm.getClass().getMethod("snapshotTaskForRecents", int.class)
+                                .invoke(wm, task.getClass().getField("taskId").getInt(task));
+                        break;
+                    }
+                }
+            } catch (Throwable error) { Log.w(TAG, "resume snapshot unavailable", error); }
+            Bitmap result=bitmap;
+            MAIN.post(() -> {
+                if (closed || finishing || claimed) { recycle(result); return; }
+                if (result == null) { close(); return; }
+                try {
+                    recycle(app); app=result;
+                    show(); claimed=true;
+                    overlay.rect.set(width*0.16f, height*0.08f, width*0.84f, height*0.76f);
+                    Log.i(TAG, "resume return");
+                    finish(true, false);
+                } catch (Throwable error) { fail("resume overlay", error); }
+            });
+        });
+    }
+
+    private static Bitmap drawHome(View root) {
+        try {
+            RenderNode node = new RenderNode("Nemotron return backdrop");
+            node.setPosition(0, 0, root.getWidth(), root.getHeight());
+            Canvas recording = node.beginRecording(root.getWidth(), root.getHeight());
+            root.draw(recording);
+            node.endRecording();
+            Bitmap b = (Bitmap)Class.forName("android.graphics.HardwareRenderer")
+                    .getDeclaredMethod("createHardwareBitmap", RenderNode.class, int.class, int.class)
+                    .invoke(null, node, root.getWidth(), root.getHeight());
+            node.discardDisplayList();
+            return b;
+        } catch (Throwable ignored) {
+            Bitmap b = null;
+            try {
+                b = Bitmap.createBitmap(root.getWidth(), root.getHeight(), Bitmap.Config.ARGB_8888);
+                root.draw(new Canvas(b));
+                return b;
+            } catch (Throwable error) { if (b != null) b.recycle(); return null; }
+        }
+    }
+
+    private static IBinder wrap(IBinder binder) throws Exception {
+        return (IBinder)Class.forName("rikka.shizuku.ShizukuBinderWrapper")
+                .getConstructor(IBinder.class).newInstance(binder);
+    }
+
+    private static Object service(String name, String stub) throws Exception {
+        IBinder binder = (IBinder)Class.forName("rikka.shizuku.SystemServiceHelper")
+                .getMethod("getSystemService", String.class).invoke(null, name);
+        return Class.forName(stub).getMethod("asInterface", IBinder.class).invoke(null, wrap(binder));
+    }
+
+    private void connect() {
+        try {
+            atm = service("activity_task", "android.app.IActivityTaskManager$Stub");
+            wm = service("window", "android.view.IWindowManager$Stub");
+            String path = touchscreen();
+            if (path == null) throw new IllegalStateException("No direct touchscreen available");
+            rawProcess = shell(new String[]{"getevent", "-lt", path});
+            if (closed) { rawProcess.destroy(); return; }
+            Log.i(TAG, "armed " + pkg + " icon=" + iconRect + " backdrop=" + (home != null));
+            Thread reader = new Thread(this::readTouches, "Nemotron return touch");
+            reader.setDaemon(true); reader.start();
+        } catch (Throwable error) { MAIN.post(() -> fail("Shizuku connection", error)); }
+    }
+
+    private static Process shell(String[] command) throws Exception {
+        Method method = Class.forName("rikka.shizuku.Shizuku").getDeclaredMethod("newProcess",
+                String[].class, String[].class, String.class);
+        method.setAccessible(true);
+        return (Process)method.invoke(null, command, null, null);
+    }
+
+    private String touchscreen() throws Exception {
+        Process process = shell(new String[]{"getevent", "-lp"});
+        String path = null;
+        int x = 0, y = 0;
+        boolean direct = false;
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (line.contains("add device ")) {
+                    if (path != null && direct && x > 0 && y > 0) { rawMaxX=x; rawMaxY=y; return path; }
+                    path = line.substring(line.indexOf(":") + 1).trim(); x=0; y=0; direct=false;
+                }
+                if (line.contains("INPUT_PROP_DIRECT")) direct=true;
+                if (line.contains("ABS_MT_POSITION_X")) x = axisMax(line);
+                if (line.contains("ABS_MT_POSITION_Y")) y = axisMax(line);
+            }
+            if (direct && x > 0 && y > 0) { rawMaxX=x; rawMaxY=y; return path; }
+            return null;
+        } finally { process.destroy(); }
+    }
+
+    private static int axisMax(String line) {
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("max (\\d+)").matcher(line);
+        return m.find() ? Integer.parseInt(m.group(1)) : 0;
+    }
+
+    private void readTouches() {
+        boolean[] active = new boolean[16];
+        boolean previous = false, suppressed = false;
+        int slot=0, x=0, y=0;
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(rawProcess.getInputStream()))) {
+            String line;
+            while (!closed && (line=reader.readLine()) != null) {
+                String value = line.substring(line.lastIndexOf(' ')+1).trim();
+                if (line.contains("ABS_MT_SLOT")) slot = (int)Long.parseLong(value, 16);
+                else if (line.contains("ABS_MT_TRACKING_ID") && slot >= 0 && slot < active.length)
+                    active[slot] = !value.equals("ffffffff");
+                else if (slot == 0 && line.contains("ABS_MT_POSITION_X")) x = (int)Long.parseLong(value, 16);
+                else if (slot == 0 && line.contains("ABS_MT_POSITION_Y")) y = (int)Long.parseLong(value, 16);
+                else if (line.contains("SYN_REPORT")) {
+                    int count=0; for (boolean a : active) if (a) count++;
+                    if (count > 1) {
+                        if (previous) dispatch(MotionEvent.ACTION_CANCEL, x, y);
+                        previous=false; suppressed=true;
+                    } else if (count == 0) {
+                        if (previous) dispatch(MotionEvent.ACTION_UP, x, y);
+                        previous=false; suppressed=false;
+                    } else if (!suppressed && active[0]) {
+                        dispatch(previous ? MotionEvent.ACTION_MOVE : MotionEvent.ACTION_DOWN, x, y);
+                        previous=true;
+                    }
+                }
+            }
+        } catch (Throwable error) { if (!closed) Log.w(TAG, "touch source ended", error); }
+        finally { MAIN.post(this::close); }
+    }
+
+    private void dispatch(int action, int x, int y) {
+        float screenX = x * (width - 1f) / rawMaxX, screenY = y * (height - 1f) / rawMaxY;
+        long now = android.os.SystemClock.uptimeMillis();
+        MAIN.post(() -> {
+            if (closed) return;
+            MotionEvent event = MotionEvent.obtain(now, now, action, screenX, screenY, 0);
+            try { touch(event); }
+            catch (Throwable error) { fail("gesture", error); }
+            finally { event.recycle(); }
+        });
+    }
+
+    private void touch(MotionEvent event) throws Exception {
+        if (closed || finishing) return;
+        int action = event.getActionMasked();
+        if (action == MotionEvent.ACTION_DOWN) {
+            down = event.getY() > height - 30 * density && event.getPointerCount() == 1;
+            if (!down) return;
+            downX = event.getX(); downY = lastY = event.getY(); downTime = event.getEventTime();
+            capturing = true;
+            IO.execute(() -> {
+                Bitmap captured = null;
+                try {
+                    List<?> tasks = (List<?>)atm.getClass().getMethod("getTasks", int.class, boolean.class, boolean.class, int.class)
+                            .invoke(atm, 1, false, false, 0);
+                    if (!tasks.isEmpty()) {
+                        Object task = tasks.get(0);
+                        ComponentName top = (ComponentName)task.getClass().getField("topActivity").get(task);
+                        if (top != null && pkg.equals(top.getPackageName())) {
+                            int id = task.getClass().getField("taskId").getInt(task);
+                            captured = (Bitmap)wm.getClass().getMethod("snapshotTaskForRecents", int.class).invoke(wm, id);
+                        }
+                    }
+                } catch (Throwable error) { Log.w(TAG, "snapshot unavailable", error); }
+                Bitmap result = captured;
+                MAIN.post(() -> {
+                    capturing = false;
+                    if (closed || !down) { recycle(result); return; }
+                    recycle(app); app = result;
+                    if (app == null) close();
+                });
+            });
+        } else if (action == MotionEvent.ACTION_MOVE && down) {
+            lastY = event.getY();
+            float dy = downY - lastY, dx = Math.abs(event.getX() - downX);
+            if (!claimed && app != null && !capturing && dy > 18 * density && dy > dx * 1.3f) {
+                show(); claimed = true;
+                Log.i(TAG, "visual return tracking");
+            }
+            if (claimed) { overlay.drag(dy); overlay.invalidate(); }
+        } else if ((action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) && down) {
+            down = false;
+            if (!claimed) { recycle(app); app = null; return; }
+            float dy = downY - lastY;
+            boolean complete = action == MotionEvent.ACTION_UP && dy > 48 * density;
+            boolean recents = complete && event.getEventTime() - downTime > 600;
+            if (recents) close(); // The original gesture keeps handling Overview.
+            else finish(complete, false);
+        }
+    }
+
+    private void show() {
+        overlay = new ReturnView(context);
+        WindowManager.LayoutParams p = new WindowManager.LayoutParams(width, height,
+                WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+                        | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
+                        | WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
+                PixelFormat.TRANSLUCENT);
+        p.gravity = android.view.Gravity.TOP | android.view.Gravity.LEFT;
+        p.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
+        p.setTitle("Nemotron icon return");
+        ((WindowManager)context.getSystemService(Context.WINDOW_SERVICE)).addView(overlay, p);
+    }
+
+    private void finish(boolean complete, boolean recents) {
+        finishing = true;
+        RectF from = new RectF(overlay.rect);
+        RectF to = complete && !recents ? iconRect : new RectF(0, 0, width, height);
+        if (complete) {
+            Intent intent = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+                    .setComponent(new ComponentName("com.nemotron.voiceime2",
+                            "com.sec.android.app.launcher.activities.LauncherActivity"));
+            if (recents) intent = new Intent().setComponent(new ComponentName("com.sec.android.app.launcher", "com.android.quickstep.RecentsActivity"));
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_NO_ANIMATION);
+            try { context.startActivity(intent, ActivityOptions.makeCustomAnimation(context, 0, 0).toBundle()); }
+            catch (RuntimeException error) { fail("return home", error); return; }
+        }
+        ValueAnimator animator = ValueAnimator.ofFloat(0, 1);
+        animator.setDuration(complete ? 280 : 180);
+        animator.setInterpolator(new PathInterpolator(0.2f, 0, 0, 1));
+        animator.addUpdateListener(a -> {
+            if (closed || overlay == null) return;
+            float t = (Float)a.getAnimatedValue();
+            overlay.rect.set(lerp(from.left, to.left, t), lerp(from.top, to.top, t),
+                    lerp(from.right, to.right, t), lerp(from.bottom, to.bottom, t));
+            overlay.morph = complete && !recents ? t : 0;
+            overlay.invalidate();
+        });
+        animator.addListener(new AnimatorListenerAdapter() {
+            @Override public void onAnimationEnd(Animator a) {
+                Log.i(TAG, complete ? "return finished icon=" + iconRect : "gesture cancelled");
+                close();
+            }
+        });
+        animator.start();
+    }
+
+    private final class ReturnView extends View {
+        final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+        final Path clip = new Path();
+        final RectF rect = new RectF(0, 0, width, height);
+        float morph;
+        ReturnView(Context context) { super(context); setWillNotDraw(false); }
+        void drag(float dy) {
+            float scale = Math.max(0.65f, 1 - Math.max(0, dy) / (height * 1.5f));
+            float w = width * scale, h = height * scale;
+            float cx = width / 2f, cy = height / 2f - dy * 0.3f;
+            rect.set(cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2);
+        }
+        @Override protected void onDraw(Canvas canvas) {
+            canvas.drawColor(Color.BLACK);
+            if (home != null && !home.isRecycled()) canvas.drawBitmap(home, null, new RectF(0, 0, width, height), paint);
+            float fade = Math.max(0, (morph - 0.60f) / 0.40f);
+            int save = canvas.save();
+            clip.reset(); clip.addRoundRect(rect, lerp(44 * density, rect.width() * 0.25f, morph),
+                    lerp(44 * density, rect.width() * 0.25f, morph), Path.Direction.CW);
+            canvas.clipPath(clip);
+            paint.setAlpha((int)(255 * (1 - fade)));
+            if (app != null && !app.isRecycled()) canvas.drawBitmap(app, null, rect, paint);
+            if (icon != null && !icon.isRecycled()) {
+                paint.setAlpha((int)(255 * fade)); canvas.drawBitmap(icon, null, rect, paint);
+            }
+            paint.setAlpha(255); canvas.restoreToCount(save);
+        }
+    }
+
+    private static float lerp(float a, float b, float t) { return a + (b - a) * t; }
+    private static void recycle(Bitmap bitmap) { if (bitmap != null && !bitmap.isRecycled()) bitmap.recycle(); }
+    private static void disposeMonitor(Object monitor) {
+        try { monitor.getClass().getMethod("dispose").invoke(monitor); } catch (Throwable ignored) {}
+    }
+    private void fail(String where, Throwable error) { Log.w(TAG, where, error); close(); }
+    private void close() {
+        if (closed) return;
+        closed = true;
+        if (rawProcess != null) { rawProcess.destroy(); rawProcess = null; }
+        ((Application)context).unregisterActivityLifecycleCallbacks(lifecycle);
+        if (monitor != null) { disposeMonitor(monitor); monitor = null; }
+        if (overlay != null) {
+            try { ((WindowManager)context.getSystemService(Context.WINDOW_SERVICE)).removeViewImmediate(overlay); }
+            catch (RuntimeException ignored) {}
+            overlay = null;
+        }
+        recycle(home); recycle(icon); recycle(app); home = icon = app = null;
+        if (current == this) current = null;
+    }
+}

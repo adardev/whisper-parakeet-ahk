@@ -826,6 +826,7 @@ New-Item -ItemType Directory -Path (Split-Path -Parent $compatTarget) -Force | O
 foreach ($compatSource in Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot 'oneui-compat') -Filter '*.smali' -File) {
     Copy-Item -LiteralPath $compatSource.FullName -Destination (Join-Path (Split-Path -Parent $compatTarget) $compatSource.Name)
 }
+& (Join-Path $PSScriptRoot 'build-oneui-java-compat.ps1') -DecodedRoot $base -ApktoolJar $ApktoolJar -AndroidSdk $AndroidSdk
 $hiddenApiVendor = Join-Path $PSScriptRoot 'vendor\hiddenapibypass-6.2'
 Copy-Item -LiteralPath (Join-Path $hiddenApiVendor 'smali\org') -Destination (Join-Path $kotlinFallbackDir 'org') -Recurse
 $licenseDir = Join-Path $base 'assets\licenses'
