@@ -24,31 +24,24 @@ class AntiScrollAccessibilityService : AccessibilityService() {
     private var homeScrollDistancePx = 0
     private var lastHomeScrollAt = 0L
     private var lastHomeFeedFirstItem = NO_ITEM_INDEX
-    @Volatile private var lastInstagramActivityCheckAt = 0L
-    @Volatile private var lastHomeActivityCheckAt = 0L
     @Volatile private var lastProfileSurfaceCheckAt = 0L
-    @Volatile private var lastDirectSurfaceCheckAt = 0L
-    @Volatile private var lastTabTreeCheckAt = 0L
-    @Volatile private var isInstagramSystemProfileSurface = false
-    @Volatile private var isInstagramSystemDirectSurface = false
 
     override fun onServiceConnected() {
         super.onServiceConnected()
         val info = serviceInfo ?: AccessibilityServiceInfo()
         info.eventTypes = AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
-            AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED or
             AccessibilityEvent.TYPE_VIEW_SCROLLED or
             AccessibilityEvent.TYPE_VIEW_CLICKED or
             AccessibilityEvent.TYPE_VIEW_SELECTED
         info.feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
-        // Agrupa ráfagas de cambios visuales sin afectar los gestos largos.
+        // Evita pedir a Android cada cambio de contenido de listas y feeds.
         info.notificationTimeout = EVENT_COALESCE_MS
-        // Instagram omite el source de algunos RecyclerViews si no se pide el
-        // árbol completo. Sin él, Direct y perfiles se confunden con Inicio.
-        info.flags = AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS or
-            AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS
-        info.packageNames = arrayOf(AddictionGuard.INSTAGRAM, AddictionGuard.WHATSAPP, "com.android.settings")
+        // Solo necesitamos IDs de vistas en cambios de pantalla; incluir vistas
+        // irrelevantes infla innecesariamente los árboles de Instagram.
+        info.flags = AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS
+        info.packageNames = arrayOf(AddictionGuard.INSTAGRAM, AddictionGuard.WHATSAPP)
         serviceInfo = info
+        refreshInstagramTabFromWindow()
         DnsEnforcer.startMonitoring(this)
         Log.i(TAG, "onServiceConnected eventTypes=${serviceInfo.eventTypes}")
     }
@@ -62,9 +55,11 @@ class AntiScrollAccessibilityService : AccessibilityService() {
 
         when (pkg) {
             AddictionGuard.INSTAGRAM -> {
-                refreshInstagramScreenIfNeeded(event)
-                refreshInstagramProfileSurfaceIfNeeded(event)
-                refreshInstagramDirectSurfaceIfNeeded(event)
+                if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+                    refreshInstagramScreenIfNeeded(event)
+                    refreshInstagramProfileSurfaceIfNeeded(event)
+                    refreshInstagramDirectSurfaceIfNeeded(event)
+                }
                 updateInstagramTabFromClick(event)
                 // El ViewPager de una página de perfil puede parecerse al del
                 // visor de Reels. La pantalla de perfil siempre tiene
@@ -114,8 +109,8 @@ class AntiScrollAccessibilityService : AccessibilityService() {
     }
 
     /**
-     * Solo se consulta la actividad cuando cambia de ventana, nunca en cada
-     * scroll. DirectThreadActivity desarma el contador y evita bloquear chats.
+     * La clase de ventana es suficiente para separar el feed y los modales.
+     * No ejecutar dumpsys desde los callbacks de accesibilidad.
      */
     private fun refreshInstagramScreenIfNeeded(event: AccessibilityEvent) {
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
@@ -136,55 +131,47 @@ class AntiScrollAccessibilityService : AccessibilityService() {
             isInstagramMainTab = true
             selectedInstagramTab = TAB_UNKNOWN
         }
-        val now = android.os.SystemClock.elapsedRealtime()
-        if (now - lastInstagramActivityCheckAt < ACTIVITY_CHECK_GAP_MS) return
-        lastInstagramActivityCheckAt = now
-        if (!ShizukuManager.hasPermission()) return
-        Thread {
-            val top = ShizukuManager.execShellCapture(
-                "dumpsys activity activities | grep -m1 topResumedActivity"
-            ) ?: return@Thread
-            isInstagramMainTab = top.contains("com.instagram.android/.activity.MainTabActivity")
-            isInstagramConversationSurface = top.contains("com.instagram.modal.") ||
-                top.contains("Direct")
-            if (!isInstagramMainTab) {
-                resetHomeScrollCounter()
-            }
-        }.start()
+        isInstagramMainTab = windowClass.contains(".activity.MainTabActivity")
+        isInstagramConversationSurface = windowClass.contains("com.instagram.modal.") ||
+            windowClass.contains("Direct", ignoreCase = true)
+        if (!isInstagramMainTab || isInstagramConversationSurface) resetHomeScrollCounter()
     }
 
     /** Registra la entrada a un perfil antes del primer gesto de scroll. */
     private fun refreshInstagramProfileSurfaceIfNeeded(event: AccessibilityEvent) {
-        if (event.eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED &&
-            event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
+        if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         isExternalProfileSurface()
     }
 
     /** Direct también usa MainTabActivity; se desarma antes de cualquier scroll. */
     private fun refreshInstagramDirectSurfaceIfNeeded(event: AccessibilityEvent) {
-        if (event.eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED &&
-            event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
-        val now = android.os.SystemClock.elapsedRealtime()
-        if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
-            now - lastDirectSurfaceCheckAt < SURFACE_TREE_CHECK_GAP_MS) return
-        lastDirectSurfaceCheckAt = now
+        if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         val root = rootInActiveWindow ?: return
         try {
             updateDirectSurfaceFromTree(root)
-            // Reuse this tree read to recover the selected tab after service
-            // reconnects; do not fetch rootInActiveWindow again for every event.
-            if (now - lastTabTreeCheckAt >= SURFACE_TREE_CHECK_GAP_MS) {
-                val searchTabs = root.findAccessibilityNodeInfosByViewId(INSTAGRAM_SEARCH_TAB_ID)
-                try {
-                    if (searchTabs.any { it.isSelected }) selectedInstagramTab = TAB_SEARCH
-                    else if (isTabSelected(root, INSTAGRAM_HOME_TAB_ID)) selectedInstagramTab = TAB_HOME
-                } finally {
-                    searchTabs.forEach { it.recycle() }
-                }
-                lastTabTreeCheckAt = now
-            }
+            refreshInstagramTabFromRoot(root)
         } finally {
             root.recycle()
+        }
+    }
+
+    private fun refreshInstagramTabFromWindow() {
+        val root = rootInActiveWindow ?: return
+        try {
+            refreshInstagramTabFromRoot(root)
+            updateDirectSurfaceFromTree(root)
+        } finally {
+            root.recycle()
+        }
+    }
+
+    private fun refreshInstagramTabFromRoot(root: AccessibilityNodeInfo) {
+        val searchTabs = root.findAccessibilityNodeInfosByViewId(INSTAGRAM_SEARCH_TAB_ID)
+        try {
+            if (searchTabs.any { it.isSelected }) selectedInstagramTab = TAB_SEARCH
+            else if (isTabSelected(root, INSTAGRAM_HOME_TAB_ID)) selectedInstagramTab = TAB_HOME
+        } finally {
+            searchTabs.forEach { it.recycle() }
         }
     }
 
@@ -231,17 +218,20 @@ class AntiScrollAccessibilityService : AccessibilityService() {
                 selectedInstagramTab = TAB_OTHER
                 isInstagramExternalProfileSurface = false
                 isInstagramDirectSurface = false
+                isInstagramConversationSurface = false
             }
             "Message" -> {
                 selectedInstagramTab = TAB_OTHER
                 isInstagramExternalProfileSurface = false
                 isInstagramDirectSurface = true
+                isInstagramConversationSurface = true
                 resetHomeScrollCounter()
             }
             "Profile" -> {
                 selectedInstagramTab = TAB_OTHER
                 isInstagramExternalProfileSurface = true
                 isInstagramDirectSurface = false
+                isInstagramConversationSurface = false
             }
             else -> {
                 if (event.eventType != AccessibilityEvent.TYPE_VIEW_CLICKED) return
@@ -258,59 +248,20 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         return selectedInstagramTab == TAB_SEARCH
     }
 
-    /** Se ejecuta solo cuando aparece un Reel, nunca en el scroll normal. */
+    /** Los modales de Direct se marcan al cambiar de ventana; no consultar dumpsys. */
     private fun shouldBlockReels(): Boolean {
-        if (!ShizukuManager.hasPermission()) return !isInstagramConversationSurface
-        val top = ShizukuManager.execShellCapture(
-            "dumpsys activity activities | grep -m1 topResumedActivity"
-        ) ?: return !isInstagramConversationSurface
-        isInstagramConversationSurface = top.contains("com.instagram.modal.") || top.contains("Direct")
-        isInstagramMainTab = top.contains("com.instagram.android/.activity.MainTabActivity")
-        return !isInstagramConversationSurface
+        return !isInstagramConversationSurface && !isInstagramDirectSurface
     }
 
-    /** Consulta la actividad como máximo una vez por segundo durante el feed. */
+    /** El estado de la pestaña se actualiza con cambios de pantalla y toques. */
     private fun canCountHomeScroll(): Boolean {
-        val now = android.os.SystemClock.elapsedRealtime()
-        if (now - lastHomeActivityCheckAt >= HOME_ACTIVITY_CHECK_GAP_MS &&
-            ShizukuManager.hasPermission()) {
-            lastHomeActivityCheckAt = now
-            val top = ShizukuManager.execShellCapture(
-                "dumpsys activity activities | grep -m1 topResumedActivity"
-            )
-            isInstagramMainTab = top?.contains("com.instagram.android/.activity.MainTabActivity") == true
-            isInstagramConversationSurface = top?.contains("com.instagram.modal.") == true ||
-                top?.contains("Direct") == true
-            refreshSystemInstagramSurface()
-        }
-        if (!isInstagramMainTab || isInstagramConversationSurface || isInstagramDirectSurface ||
-            isExternalProfileSurface()) {
-            resetHomeScrollCounter()
-            return false
-        }
-        if (isInstagramSystemProfileSurface || isInstagramSystemDirectSurface) {
-            if (isInstagramSystemProfileSurface) isInstagramExternalProfileSurface = true
-            if (isInstagramSystemDirectSurface) isInstagramDirectSurface = true
+        if (!isInstagramMainTab || selectedInstagramTab != TAB_HOME ||
+            isInstagramConversationSurface || isInstagramDirectSurface ||
+            isInstagramExternalProfileSurface) {
             resetHomeScrollCounter()
             return false
         }
         return true
-    }
-
-    /** La UI real decide: Inicio es la única superficie que puede contar. */
-    private fun refreshSystemInstagramSurface() {
-        if (!ShizukuManager.hasPermission()) {
-            isInstagramSystemProfileSurface = false
-            isInstagramSystemDirectSurface = false
-            return
-        }
-        val marker = ShizukuManager.execShellCapture(
-            "uiautomator dump /dev/tty 2>/dev/null | grep -m1 -E " +
-                "'profile_action_bar|direct_inbox_action_bar|direct_thread_header|thread_fragment_container'"
-        ).orEmpty()
-        isInstagramSystemProfileSurface = marker.contains("profile_action_bar")
-        isInstagramSystemDirectSurface = marker.contains("direct_inbox_action_bar") ||
-            marker.contains("direct_thread_header") || marker.contains("thread_fragment_container")
     }
 
     /**
@@ -422,8 +373,7 @@ class AntiScrollAccessibilityService : AccessibilityService() {
      * visibles; esa es la firma que recibimos en los eventos reales del teléfono.
      */
     private fun isHomeFeedScrollCandidate(event: AccessibilityEvent): Boolean {
-        if (event.eventType != AccessibilityEvent.TYPE_VIEW_SCROLLED &&
-            event.eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) return false
+        if (event.eventType != AccessibilityEvent.TYPE_VIEW_SCROLLED) return false
         if (event.className?.toString()?.contains("RecyclerView") != true) return false
         return event.toIndex - event.fromIndex in HOME_FEED_VISIBLE_ITEMS
     }
@@ -482,11 +432,7 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         private const val HOME_SCROLL_LIMIT_PX = 5_000
         private const val SCROLL_SESSION_GAP_MS = 4_000L
         private const val EVENT_COALESCE_MS = 200L
-        private const val ACTIVITY_CHECK_GAP_MS = 500L
-        // Solo una comprobación de actividad por sesión continua de scroll.
-        private const val HOME_ACTIVITY_CHECK_GAP_MS = 4_000L
         private const val PROFILE_SURFACE_CHECK_GAP_MS = 750L
-        private const val SURFACE_TREE_CHECK_GAP_MS = 500L
         private const val MAX_PROFILE_NODES = 120
         private const val MAX_PROFILE_SCROLL_ANCESTORS = 12
         private const val INSTAGRAM_DIRECT_TAB_ID = "com.instagram.android:id/direct_tab"

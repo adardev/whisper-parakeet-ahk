@@ -8,9 +8,9 @@ Código Android de Nemotron y herramientas para integrar componentes Samsung.
 
 Las nuevas instalaciones y reactivaciones no crean iconos automáticamente. Instagram y WhatsApp solo aparecen si el usuario añade sus accesos. Los widgets y los iconos existentes conservan su ruta nativa.
 
-**Animaciones:** los accesos propios ya abren la app directamente desde el icono, sin la actividad intermediaria ni el comando de Shizuku cuando la app está habilitada. El cierre por gestos todavía depende de Recientes de Samsung: en el A54 sigue devolviendo un destino nulo. La animación exacta de retorno al icono aún no está resuelta.
+**Animaciones:** se retiró el overlay que imitaba el retorno al icono. La integración conserva el lanzamiento y cierre nativos de One UI; el mapeo de paquetes de los accesos Nemotron ayuda a identificar la app, pero no garantiza que Samsung encuentre el icono de destino al cerrar. Véanse [implementación y resultados](docs/oneui-home-integration.md).
 
-**Animación de cierre (experimental):** Nemotron detecta el inicio del gesto físico con Shizuku y `getevent`, pausa por un máximo de un segundo la escala `animator_duration_scale` de Samsung y la restaura; su retorno al icono usa cuadros sincronizados por `Choreographer`, independientes de esa escala. Esto busca evitar que la animación central de Recientes se monte con el retorno. La comprobación automatizada por ADB llega tarde y aún muestra un tramo del cierre central; falta confirmar el gesto físico. Si el lector de eventos no está disponible, el gesto conserva el cierre Samsung. Véanse [implementación y resultados](docs/oneui-home-integration.md).
+**Batería:** el 18 de octubre se redujeron los eventos y lecturas de interfaz del servicio anti-scroll para evitar escaneo continuo y comandos `dumpsys`/`uiautomator` durante el desplazamiento. La compilación de código fuente pasó; la APK integrada aún requiere reconstrucción e instalación para que el cambio llegue al A54. Véase [el registro de optimización](docs/battery-optimization.md).
 
 - [Documentación, compilación y estado de pruebas](docs/oneui-home-integration.md)
 - [Limpieza de intermediarios y archivos conservados](docs/oneui-home-cleanup.md)
