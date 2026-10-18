@@ -27,6 +27,8 @@ class AntiScrollAccessibilityService : AccessibilityService() {
     @Volatile private var lastInstagramActivityCheckAt = 0L
     @Volatile private var lastHomeActivityCheckAt = 0L
     @Volatile private var lastProfileSurfaceCheckAt = 0L
+    @Volatile private var lastDirectSurfaceCheckAt = 0L
+    @Volatile private var lastTabTreeCheckAt = 0L
     @Volatile private var isInstagramSystemProfileSurface = false
     @Volatile private var isInstagramSystemDirectSurface = false
 
@@ -155,16 +157,32 @@ class AntiScrollAccessibilityService : AccessibilityService() {
     private fun refreshInstagramProfileSurfaceIfNeeded(event: AccessibilityEvent) {
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED &&
             event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
-        isExternalProfileSurface(forceRefresh = true)
+        isExternalProfileSurface()
     }
 
     /** Direct también usa MainTabActivity; se desarma antes de cualquier scroll. */
     private fun refreshInstagramDirectSurfaceIfNeeded(event: AccessibilityEvent) {
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED &&
             event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
+            now - lastDirectSurfaceCheckAt < SURFACE_TREE_CHECK_GAP_MS) return
+        lastDirectSurfaceCheckAt = now
         val root = rootInActiveWindow ?: return
         try {
             updateDirectSurfaceFromTree(root)
+            // Reuse this tree read to recover the selected tab after service
+            // reconnects; do not fetch rootInActiveWindow again for every event.
+            if (now - lastTabTreeCheckAt >= SURFACE_TREE_CHECK_GAP_MS) {
+                val searchTabs = root.findAccessibilityNodeInfosByViewId(INSTAGRAM_SEARCH_TAB_ID)
+                try {
+                    if (searchTabs.any { it.isSelected }) selectedInstagramTab = TAB_SEARCH
+                    else if (isTabSelected(root, INSTAGRAM_HOME_TAB_ID)) selectedInstagramTab = TAB_HOME
+                } finally {
+                    searchTabs.forEach { it.recycle() }
+                }
+                lastTabTreeCheckAt = now
+            }
         } finally {
             root.recycle()
         }
@@ -172,14 +190,7 @@ class AntiScrollAccessibilityService : AccessibilityService() {
 
     /** Cubre un rebind del servicio justo antes de un gesto en Mensajes. */
     private fun isDirectSurfaceNow(): Boolean {
-        if (isInstagramDirectSurface) return true
-        val root = rootInActiveWindow ?: return false
-        try {
-            updateDirectSurfaceFromTree(root)
-            return isInstagramDirectSurface
-        } finally {
-            root.recycle()
-        }
+        return isInstagramDirectSurface
     }
 
     private fun updateDirectSurfaceFromTree(root: AccessibilityNodeInfo) {
@@ -244,22 +255,7 @@ class AntiScrollAccessibilityService : AccessibilityService() {
 
     /** Search se reconoce por su pestaña seleccionada, no por el último toque. */
     private fun isInstagramSearchSurfaceNow(): Boolean {
-        val root = rootInActiveWindow ?: return selectedInstagramTab == TAB_SEARCH
-        try {
-            val tabs = root.findAccessibilityNodeInfosByViewId(INSTAGRAM_SEARCH_TAB_ID)
-            try {
-                val isSearch = tabs.any { it.isSelected }
-                if (isSearch) selectedInstagramTab = TAB_SEARCH
-                // En algunos scrolls Instagram entrega una ventana parcial:
-                // en ese caso la pestaña no viene en el árbol aunque el
-                // evento de selección ya confirmó que estamos en Search.
-                return isSearch || selectedInstagramTab == TAB_SEARCH
-            } finally {
-                tabs.forEach { it.recycle() }
-            }
-        } finally {
-            root.recycle()
-        }
+        return selectedInstagramTab == TAB_SEARCH
     }
 
     /** Se ejecuta solo cuando aparece un Reel, nunca en el scroll normal. */
@@ -490,6 +486,7 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         // Solo una comprobación de actividad por sesión continua de scroll.
         private const val HOME_ACTIVITY_CHECK_GAP_MS = 4_000L
         private const val PROFILE_SURFACE_CHECK_GAP_MS = 750L
+        private const val SURFACE_TREE_CHECK_GAP_MS = 500L
         private const val MAX_PROFILE_NODES = 120
         private const val MAX_PROFILE_SCROLL_ANCESTORS = 12
         private const val INSTAGRAM_DIRECT_TAB_ID = "com.instagram.android:id/direct_tab"

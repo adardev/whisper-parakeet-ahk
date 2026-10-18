@@ -15,6 +15,9 @@ class AirplaneModeScheduleReceiver : BroadcastReceiver() {
                     try {
                         val alreadyEnabled = SleepModeController.isEnabled(context)
                         if (alreadyEnabled == enable) {
+                            // Refresh persisted state and the QS tile even if Android
+                            // delivered a stale/duplicate scheduled alarm.
+                            SleepModeController.markScheduledState(context, enable)
                             Log.i(TAG, "Sleep Mode a las ${if (enable) "23:00" else "08:00"}: ya estaba ${if (enable) "activo" else "apagado"}; sin cambios")
                         } else {
                             val result = SleepModeController.setEnabled(context, enable)

@@ -49,6 +49,7 @@ class NightAirplaneScreenReceiver : BroadcastReceiver() {
                 }
             } else if (!airplaneModeOn && (isNightWindow() || SleepModeController.isEnabled(context)) && isScreenInteractive(context)) {
                 // Outside the morning wake window this is only a pause until the next lock.
+                if (isNightWindow()) SleepModeController.markScheduledState(context, true)
                 preferences(context).edit()
                     .putBoolean(KEY_TEMPORARY_FIT3, true)
                     .putBoolean(KEY_PENDING, false)
@@ -133,10 +134,12 @@ class NightAirplaneScreenReceiver : BroadcastReceiver() {
             null -> Log.w(TAG, "bloqueo nocturno pendiente: Shizuku aún no permite consultar el modo avión")
             true -> {
                 if (fit3NightConfirmed) prefs.edit().putBoolean(KEY_PENDING, false).apply()
+                if (fit3NightConfirmed) SleepModeController.markScheduledState(context, true)
                 Log.d(TAG, "bloqueo nocturno: modo avión ya activo")
             }
             false -> if (ShizukuManager.setAirplaneMode(true)) {
                 if (fit3NightConfirmed) prefs.edit().putBoolean(KEY_PENDING, false).apply()
+                if (fit3NightConfirmed) SleepModeController.markScheduledState(context, true)
                 Log.i(TAG, "bloqueo nocturno: modo avión activado")
             } else {
                 Log.w(TAG, "bloqueo nocturno sigue pendiente; no se pudo activar")
