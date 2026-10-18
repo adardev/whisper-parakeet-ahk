@@ -224,3 +224,41 @@ Se comprobó además el límite de acceso: el proveedor nativo `content://com.se
 Registro histórico del primer intento: pausaba durante el gesto `transition_animation_scale` y `window_animation_scale`, dejando activa la animación propia. La grabación mostró que ambas se montaban. Se retiró esa estrategia; las mediciones originales y la restauración de sus escalas se conservan aquí como historial, no describen la APK actual.
 
 Comprobación en el A54: un sondeo cada 100 ms leyó primero `0.5/0.5`, después `0/0` durante tres muestras y finalmente `0.5/0.5` desde la cuarta muestra en adelante. Tras cerrar, las tres escalas (`transition`, `window` y `animator`) quedaron en `0.5`. En ese retorno se registraron 10 dibujos en 144 ms, con pausa máxima de 18 ms. Esta prueba comprueba el cambio y la restauración de las escalas y el renderizado; **la captura automatizada por scrcpy no permite concluir que la superposición visual ya desapareció**, porque la inyección no reproduce el mismo trayecto de entrada del panel táctil. Se solicitó al usuario confirmar con un gesto físico si se quitó el solapamiento. No se debe marcar como equivalencia visual con One UI hasta recibir esa comprobación.
+
+### Accesos añadidos como actividad directa (17 oct 2026)
+
+`ShortcutPickerActivity` ahora fija un intent `MAIN`/`LAUNCHER` con el componente real de la app seleccionada, en vez de apuntar primero a `ShortcutActivity` de Nemotron. El ID usa el paquete y un sufijo temporal; `ShortcutCloseTarget` reconoce el prefijo si el paquete coincide con el componente del intent. Los accesos antiguos que apuntan al trampoline siguen siendo reconocidos. Esto elimina el trampoline de la ruta de apertura y expone el componente real de la app.
+
+Se reconstruyó y firmó `Nemotron-OneUIHome-DirectAppShortcuts.apk` con la clave debug existente y se instaló por ADB sin reiniciar. La app quedó en `LauncherActivity`. No se abrió ni añadió una app desde el selector durante esa comprobación.
+
+**Límite:** Android sigue registrando esos elementos como accesos fijados por Nemotron, no como filas `AppItem` creadas por One UI Home del sistema. El Recents del sistema continúa usando su propio modelo y puede devolver `target-null`; apuntar al componente real no le da acceso al `SearchableView` ni al ID persistente de una fila de One UI. Por tanto, este cambio mejora la identidad y apertura del destino, pero no confirma ni garantiza la animación nativa hacia el icono. La prueba visual requiere añadir un app que el usuario elija y cerrar esa app con un gesto físico.
+
+### Eliminación de la animación simulada (17 oct 2026)
+
+Se retiró por completo la animación de retorno propia: `ShortcutCloseTarget` ya no la arma al tocar iconos ni al preparar opciones de lanzamiento; `GestureReturnController` quedó como stub vacío por compatibilidad; `build-oneui-java-compat.ps1` elimina las clases antiguas y sintéticas de ese controlador antes de ensamblar el DEX, evitando que una compilación reutilice código obsoleto. La apertura conserva las opciones de origen del icono; no se dibuja una ventana, captura u overlay para el cierre. La compilación `Nemotron-OneUIHome-NoCopiedAnimation.apk` se instaló en el A54 sin reiniciar. Confirmación posterior: `LauncherActivity` quedó en primer plano y `logcat AndroidRuntime:E` no mostró errores nuevos.
+
+### Selector de apps: el toast sin añadir el icono
+
+La implementación anterior solo guardaba el paquete en `nemotron_launcher/manual_apps` y enseñaba un toast. No llamaba al launcher ni a `ShortcutManagerCompat`, así que el icono no podía aparecer. Se retiró ese comportamiento engañoso. El botón ahora solicita el pin real de un acceso a Inicio mediante `ShortcutManagerCompat.requestPinShortcut`, usa un intent `MAIN`/`LAUNCHER` con el componente de la app seleccionada como destino y muestra que hay que confirmar la solicitud. Para paquetes ya autorizados el botón dice `Actualizar` y vuelve a enviar la solicitud; para los demás dice `+`.
+
+La selección manual sigue siendo la única que habilita el filtro del modelo; la política de base ya no bloquea inserciones de `AppItem` y no vuelve a borrar WhatsApp/Instagram/Samsung Health. `WorkspaceViewModel.s()` y el operador de eventos de instalación mantienen desactivadas las altas automáticas. **Límite comprobado:** pedir un pin crea un acceso administrado por el launcher, no demuestra que One UI lo persista como fila `APP`; ese acceso puede seguir siendo `deepshortcut`, por lo que no se garantiza la animación nativa de cierre al icono. No describirlo como `AppItem` hasta verificar la fila de base y el gesto real.
+
+La corrección está en Kotlin y `patch-oneui-behavior.ps1` ahora falla la compilación si el selector integrado no incluye una llamada real a `requestPinShortcut`; así evita volver a empaquetar silenciosamente un picker que solo muestra un toast. La APK del cambio debe instalarse y probarse en el A54 antes de afirmar que el icono apareció.
+
+### Resultado de la corrección del destino de cierre (17 oct 2026)
+
+La prueba en el A54 mostró que la solicitud de pin podía crear una fila `AppItem` y una fila `ShortcutItem` duplicada. Se corrigió el icono para dibujar el drawable adaptativo completo y conservar su margen. También se añadió limpieza de la fila duplicada y un mapeo del paquete/componente en `ShortcutCloseTarget`.
+
+**Diagnóstico histórico, revisado el 17 oct 2026:** una compilación anterior mostró `target-null`, y se atribuyó a que One UI no encontraba el ID en el modelo de páginas. Esa conclusión fue prematura: el resolver local no reconocía el paquete del acceso porque conservaba el prefijo `nemotron_app_` al extraerlo. La corrección vigente se documenta a continuación; falta validar visualmente el gesto físico con esa compilación.
+
+### Corrección del destino de los accesos Nemotron (17 oct 2026)
+
+Al revisar la ruta del acceso que publica `ShortcutPickerActivity`, se encontró un error dentro de `ShortcutCloseTarget.targetPackage`: para el ID `nemotron_app_com.whatsapp_<timestamp>`, el parser quitaba el sufijo temporal pero conservaba el prefijo `nemotron_app_`. Por eso comparaba `nemotron_app_com.whatsapp` con el paquete real `com.whatsapp`; el acceso no podía coincidir con el destino de cierre. El parser ahora toma solo el segmento de paquete entre el prefijo y el último guion bajo. También se eliminó de `ShellTransitionManager.startShellTransitionForShortcut` el desvío antiguo que iniciaba la app con `makeScaleUpAnimation`; One UI conserva su ruta original de apertura y Nemotron no superpone una animación propia.
+
+Se reconstruyó y firmó `D:\Nemotron-build\Nemotron-ShortcutTargetMatch.apk` y se instaló en el A54. Nemotron quedó en `LauncherActivity`; una prueba de gesto ADB volvió a Inicio y `logcat` no mostró errores de `AndroidRuntime`. Esa entrada ADB no equivale a un gesto físico y la captura disponible no permite confirmar visualmente la animación exacta hacia el icono. El parche corrige el error verificable de asociación del paquete, pero la equivalencia visual requiere una comprobación con el dedo en el dispositivo.
+
+### Restauración del retorno visual Nemotron con resguardos (17 oct 2026)
+
+Por petición del usuario se recupera el retorno visual de la versión de resorte `43ad4fb`, con seguimiento del gesto y captura del app/icono. Se conserva el gesto y el lanzamiento nativos de One UI: el controlador ya no inicia otra `LauncherActivity` desde `ACTION_UP`, evitando dos rutas de navegación y el solapamiento que podía dejar una ventana encima. El cierre se dibuja al reanudarse Home y el overlay tiene watchdogs de gesto y animación; los swipes cancelados cierran o limpian la captura y restauran la escala. La escala de animadores se conserva antes de silenciar el cierre Samsung y un proceso shell restaura ese valor a los dos segundos incluso si el controlador se cierra.
+
+`ShortcutCloseTarget.attachCookie` vuelve a armar el controlador para los lanzamientos; la compilación DEX vuelve a incluir `GestureReturnController`. Instagram y Nemotron no se han optimizado para batería en esta pasada: la prioridad fue recuperar la animación solicitada. La APK debe compilarse, instalarse y comprobarse con gesto físico antes de dar por buena su fluidez o la ausencia completa de bloqueos.

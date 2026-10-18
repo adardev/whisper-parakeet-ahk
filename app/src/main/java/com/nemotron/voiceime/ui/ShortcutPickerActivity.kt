@@ -2,6 +2,7 @@ package com.nemotron.voiceime.ui
 
 import android.app.Activity
 import android.content.Intent
+import android.content.ComponentName
 import android.content.pm.PackageManager
 import android.graphics.Canvas
 import android.graphics.drawable.Drawable
@@ -21,8 +22,7 @@ import androidx.appcompat.app.AppCompatActivity
 import com.nemotron.voiceime.R
 
 /**
- * Lista de apps con un botón + por cada una para fijar su atajo al home
- * con su icono nativo, uno a la vez.
+ * Lista de apps que el usuario puede solicitar añadir a Inicio.
  */
 class ShortcutPickerActivity : AppCompatActivity() {
 
@@ -48,7 +48,7 @@ class ShortcutPickerActivity : AppCompatActivity() {
         setContentView(R.layout.activity_shortcut_picker)
 
         if (!androidx.core.content.pm.ShortcutManagerCompat.isRequestPinShortcutSupported(this)) {
-            Toast.makeText(this, "This launcher does not support pinned shortcuts", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Inicio no acepta solicitudes de iconos", Toast.LENGTH_SHORT).show()
             finish()
             return
         }
@@ -62,58 +62,63 @@ class ShortcutPickerActivity : AppCompatActivity() {
         val drawable = try {
             shortcutDrawable(app)
         } catch (_: Throwable) {
-            Toast.makeText(this, "App not installed: ${app.pkg}", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "No se pudo cargar ${app.label}", Toast.LENGTH_SHORT).show()
             return
         }
 
-        val bitmap: android.graphics.Bitmap
-        val icon: androidx.core.graphics.drawable.IconCompat
-
-        if (drawable is android.graphics.drawable.AdaptiveIconDrawable) {
-            // Para adaptive icons: renderiza el foreground (logo) en alta resolución
-            // (108dp × density) y usa createWithAdaptiveBitmap para la máscara nativa.
-            val size = (108 * resources.displayMetrics.density).toInt()
-            bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
-            val canvas = Canvas(bitmap)
-            drawable.foreground?.setBounds(0, 0, size, size)
-            drawable.foreground?.draw(canvas)
-            icon = androidx.core.graphics.drawable.IconCompat.createWithAdaptiveBitmap(bitmap)
-        } else {
-            // Iconos legacy: renderiza en alta resolución sin fondo
-            bitmap = renderToBitmap(drawable)
-            icon = androidx.core.graphics.drawable.IconCompat.createWithBitmap(bitmap)
-        }
-
-        val intent = Intent(this, ShortcutActivity::class.java).apply {
-            action = Intent.ACTION_MAIN
-            putExtra(ShortcutActivity.EXTRA_PACKAGE, app.pkg)
-            putExtra(ShortcutActivity.EXTRA_ACTIVITY, app.activity)
-        }
-
-        val shortcut = androidx.core.content.pm.ShortcutInfoCompat.Builder(this, "shortcut_${app.pkg}_${System.currentTimeMillis()}")
-            .setShortLabel(app.label)
-            .setLongLabel(app.label)
-            .setIcon(icon)
-            .setIntent(intent)
-            .build()
-
-        androidx.core.content.pm.ShortcutManagerCompat.requestPinShortcut(this, shortcut, null)
-    }
-
-    private fun renderToBitmap(drawable: Drawable): android.graphics.Bitmap {
         val size = (108 * resources.displayMetrics.density).toInt()
-        val bitmap = android.graphics.Bitmap.createBitmap(size, size, android.graphics.Bitmap.Config.ARGB_8888)
+        val bitmap = android.graphics.Bitmap.createBitmap(
+            size, size, android.graphics.Bitmap.Config.ARGB_8888
+        )
         val canvas = Canvas(bitmap)
         drawable.setBounds(0, 0, size, size)
         drawable.draw(canvas)
-        return bitmap
+        // Keep the package icon's adaptive background and safe-zone padding.
+        val icon = androidx.core.graphics.drawable.IconCompat.createWithBitmap(bitmap)
+
+        val launchIntent = Intent(Intent.ACTION_MAIN).apply {
+            addCategory(Intent.CATEGORY_LAUNCHER)
+            component = ComponentName(app.pkg, app.activity)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+        }
+        val shortcut = androidx.core.content.pm.ShortcutInfoCompat.Builder(
+            this, "nemotron_app_${app.pkg}_${System.currentTimeMillis()}"
+        )
+            .setShortLabel(app.label)
+            .setLongLabel(app.label)
+            .setIcon(icon)
+            .setIntent(launchIntent)
+            .build()
+
+        if (!androidx.core.content.pm.ShortcutManagerCompat.requestPinShortcut(this, shortcut, null)) {
+            Toast.makeText(this, "No se pudo enviar la solicitud a Inicio", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val prefs = getSharedPreferences("nemotron_launcher", MODE_PRIVATE)
+        val selected = prefs.getStringSet("manual_apps", emptySet()).orEmpty().toMutableSet()
+        selected.add(app.pkg)
+        prefs.edit().putStringSet("manual_apps", selected).commit()
+        adapter.notifyDataSetChanged()
+        Toast.makeText(this, "Confirma añadir ${app.label} a Inicio", Toast.LENGTH_SHORT).show()
     }
 
     data class AppInfo(val label: String, val pkg: String, val activity: String)
 
-    private fun shortcutDrawable(app: AppInfo): Drawable = packageManager.getApplicationIcon(
+    private fun shortcutDrawable(app: AppInfo): android.graphics.drawable.Drawable = packageManager.getApplicationIcon(
         if (app.pkg == INSTAGRAM_PACKAGE) packageName else app.pkg
     )
+
+    private fun renderToBitmap(drawable: Drawable): android.graphics.Bitmap {
+        val size = (108 * resources.displayMetrics.density).toInt()
+        return android.graphics.Bitmap.createBitmap(
+            size, size, android.graphics.Bitmap.Config.ARGB_8888
+        ).also { bitmap ->
+            val canvas = Canvas(bitmap)
+            drawable.setBounds(0, 0, size, size)
+            drawable.draw(canvas)
+        }
+    }
 
     inner class ShortcutAdapter : BaseAdapter() {
         override fun getCount(): Int = apps.size
@@ -129,11 +134,14 @@ class ShortcutPickerActivity : AppCompatActivity() {
             val labelView = view.findViewById<TextView>(R.id.appLabel)
             val pkgView = view.findViewById<TextView>(R.id.appPackage)
             val btn = view.findViewById<Button>(R.id.btnAddShortcut)
+            val selected = getSharedPreferences("nemotron_launcher", MODE_PRIVATE)
+                .getStringSet("manual_apps", emptySet()).orEmpty().contains(app.pkg)
 
             val icon = try { shortcutDrawable(app) } catch (_: Throwable) { null }
             if (icon != null) iconView.setImageDrawable(icon)
             labelView.text = app.label
             pkgView.text = app.pkg
+            btn.text = if (selected) "Actualizar" else "+"
 
             btn.setOnClickListener {
                 requestShortcut(app)

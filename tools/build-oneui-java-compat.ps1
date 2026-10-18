@@ -13,6 +13,8 @@ if (-not (Test-Path "$JdkHome/bin/javac.exe")) {
 if (-not $JdkHome) { throw 'A JDK with javac is required for the gesture compatibility code.' }
 $work = Join-Path (Split-Path -Parent $DecodedRoot) 'java-compat'
 New-Item -ItemType Directory -Force "$work/classes", "$work/dex", "$work/host" | Out-Null
+$staleClasses = Get-ChildItem "$work/classes" -Recurse -File -Filter 'GestureReturnController*.class' -ErrorAction SilentlyContinue
+if ($staleClasses) { $staleClasses | Remove-Item -Force }
 $jar = Join-Path $AndroidSdk 'platforms/android-36/android.jar'
 $sources = (Get-ChildItem (Join-Path $PSScriptRoot 'oneui-compat/java') -Recurse -Filter '*.java').FullName
 & "$JdkHome/bin/javac.exe" --release 8 -Xlint:-options -cp $jar -d "$work/classes" $sources
@@ -25,6 +27,8 @@ if ($LASTEXITCODE -ne 0) { throw 'Gesture DEX compilation failed' }
 & "$JdkHome/bin/javac.exe" --release 8 -Xlint:-options -cp $ApktoolJar -d "$work/host" (Join-Path $PSScriptRoot 'oneui-compat/build/DisassembleCompat.java')
 if ($LASTEXITCODE -ne 0) { throw 'Compatibility disassembler compilation failed' }
 $destination = Join-Path $DecodedRoot 'smali_classes23'
+$staleSmali = Get-ChildItem $destination -Recurse -File -Filter 'GestureReturnController*.smali' -ErrorAction SilentlyContinue
+if ($staleSmali) { $staleSmali | Remove-Item -Force }
 & "$JdkHome/bin/java.exe" -cp "$work/host;$ApktoolJar" DisassembleCompat "$work/dex/classes.dex" $destination
 if ($LASTEXITCODE -ne 0) { throw 'Gesture compatibility disassembly failed' }
-Write-Host 'Gesture return controller compiled; framework stubs excluded.'
+Write-Host 'Compatibility helpers and the guarded icon-return animation compiled; framework stubs excluded.'

@@ -3,7 +3,6 @@ package com.nemotron.oneui.compat;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
-import android.app.ActivityOptions;
 import android.app.Activity;
 import android.app.Application;
 import android.app.ActivityManager;
@@ -20,8 +19,6 @@ import android.graphics.PixelFormat;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.RenderNode;
-import android.graphics.RenderEffect;
-import android.graphics.Shader;
 import android.graphics.drawable.Drawable;
 import android.view.Choreographer;
 import android.os.Binder;
@@ -73,8 +70,8 @@ public final class GestureReturnController {
     private boolean capturing;
     private volatile boolean claimed;
     private volatile boolean finishing;
+    private volatile boolean homeGestureDetected;
     private float downX, downY, lastY;
-    private long downTime;
     private boolean preparing, resumed;
     private boolean nativeAnimatorMuted;
     private String savedAnimatorScale;
@@ -95,6 +92,7 @@ public final class GestureReturnController {
             if (isHome(activity)) {
                 resumed=true;
                 Log.i(TAG, "home resumed");
+                if (!homeGestureDetected) { close(); return; }
                 if (overlay != null && overlay.active && !finishing) {
                     if (preview != null) preview.cancel();
                     finish(true, false);
@@ -102,7 +100,12 @@ public final class GestureReturnController {
             }
         }
         @Override public void onActivityCreated(Activity a, Bundle b) {}
-        @Override public void onActivityStarted(Activity a) { if (isHome(a)) { Log.i(TAG, "home started"); fallbackReturn(true); } }
+        @Override public void onActivityStarted(Activity a) {
+            if (!isHome(a)) return;
+            Log.i(TAG, "home started");
+            if (homeGestureDetected) fallbackReturn(true);
+            else close(); // Key/button/ADB navigation stays entirely native.
+        }
         @Override public void onActivityPaused(Activity a) {}
         @Override public void onActivityStopped(Activity a) {}
         @Override public void onActivitySaveInstanceState(Activity a, Bundle b) {}
@@ -180,7 +183,6 @@ public final class GestureReturnController {
             if (!ping || permission != 0) return;
             GestureReturnController controller = new GestureReturnController(source, pkg, icon, widget);
             current = controller;
-            controller.prepareWindow();
             ((Application)controller.context).registerActivityLifecycleCallbacks(controller.lifecycle);
             IO.execute(controller::connect);
         } catch (Throwable error) {
@@ -230,7 +232,7 @@ public final class GestureReturnController {
                         preview=ValueAnimator.ofFloat(0, 1);
                         preview.setDuration(220);
                         preview.addUpdateListener(a -> {
-                            if (!closed && !finishing && overlay != null) overlay.dragToIcon((Float)a.getAnimatedValue()*height*0.24f);
+                            if (!closed && !finishing && overlay != null) overlay.drag((Float)a.getAnimatedValue()*height*0.24f);
                             if (overlay != null) overlay.postInvalidate();
                         });
                         preview.start();
@@ -296,6 +298,12 @@ public final class GestureReturnController {
     private final class TaskObserver extends TaskStackListener {
         @Override public void onTaskMovedToFront(ActivityManager.RunningTaskInfo task) {
             ComponentName top=task.topActivity;
+            if (top != null && top.getPackageName().equals("com.sec.android.app.launcher")
+                    && !top.getClassName().equals("com.sec.android.app.launcher.activities.LauncherActivity")
+                    && !top.getClassName().equals("com.sec.android.app.launcher.Launcher")) {
+                MAIN.post(GestureReturnController.this::close);
+                return;
+            }
             if (top != null && !top.getPackageName().equals(pkg)
                     && !top.getPackageName().equals(context.getPackageName())
                     && !top.getPackageName().equals("com.sec.android.app.launcher")) MAIN.post(() -> { if (!finishing) close(); });
@@ -400,9 +408,10 @@ public final class GestureReturnController {
         if (action == MotionEvent.ACTION_DOWN) {
             down = event.getY() > height - 30 * density && event.getPointerCount() == 1;
             if (!down) return;
+            homeGestureDetected = false;
             MAIN.postDelayed(gestureWatchdog, 5000);
             muteNativeCloseAnimation();
-            downX = event.getX(); downY = lastY = event.getY(); downTime = event.getEventTime();
+            downX = event.getX(); downY = lastY = event.getY();
             capturing = true;
             IO.execute(() -> {
                 Bitmap captured = null;
@@ -429,28 +438,26 @@ public final class GestureReturnController {
         } else if (action == MotionEvent.ACTION_MOVE && down) {
             lastY = event.getY();
             float dy = downY - lastY, dx = Math.abs(event.getX() - downX);
+            if (dy > 18 * density && dy > dx * 1.3f) homeGestureDetected = true;
             if (!claimed && app != null && !capturing && dy > 18 * density && dy > dx * 1.3f) {
-                // Take over visually only after the task snapshot is ready.
-                // The opaque blurred-home backdrop hides Samsung's live task
-                // surface so the finger-following preview is drawn once.
                 show(); claimed = true;
-                Log.i(TAG, "finger-following app preview");
+                Log.i(TAG, "visual return tracking");
             }
-            if (claimed && overlay != null) {
-                overlay.dragToIcon(dy);
-                overlay.postInvalidateOnAnimation();
-            }
+            if (claimed) { overlay.drag(dy); overlay.postInvalidate(); }
         } else if ((action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) && down) {
             MAIN.removeCallbacks(gestureWatchdog);
             down = false;
-            if (!claimed) { recycle(app); app = null; restoreNativeCloseAnimation(0); return; }
             float dy = downY - lastY;
             boolean complete = action == MotionEvent.ACTION_UP && dy > 48 * density;
-            // Gesture duration alone cannot distinguish a slow Home swipe
-            // from Overview. Treat every completed upward swipe as Home;
-            // otherwise slow drags leave Samsung Recents as a floating card.
-            show(); // Reveal the snapshot only after the live gesture is released.
-            finish(complete, false);
+            if (!complete) {
+                if (claimed || action == MotionEvent.ACTION_CANCEL) close();
+                else { recycle(app); app = null; restoreNativeCloseAnimation(0); }
+                return;
+            }
+            if (!claimed && app != null) { show(); claimed = true; }
+            // The system owns the Home gesture. Animate only when its launcher
+            // activity resumes; never start a second Home task from this view.
+            MAIN.postDelayed(() -> { if (!closed && !finishing) close(); }, 1800);
         }
     }
 
@@ -486,17 +493,10 @@ public final class GestureReturnController {
 
     private void finish(boolean complete, boolean recents) {
         if (closed || finishing) return;
+        if (!complete || recents) { close(); return; }
         finishing = true;
         RENDER.post(() -> animateReturn(complete, recents));
-        if (complete) {
-            Intent intent = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
-                    .setComponent(new ComponentName("com.nemotron.voiceime2",
-                            "com.sec.android.app.launcher.activities.LauncherActivity"));
-            if (recents) intent = new Intent().setComponent(new ComponentName("com.sec.android.app.launcher", "com.android.quickstep.RecentsActivity"));
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_NO_ANIMATION);
-            try { context.startActivity(intent, ActivityOptions.makeCustomAnimation(context, 0, 0).toBundle()); }
-            catch (RuntimeException error) { fail("return home", error); return; }
-        }
+        MAIN.postDelayed(() -> { if (!closed && finishing) close(); }, 2200);
     }
 
     private void animateReturn(boolean complete, boolean recents) {
@@ -508,12 +508,6 @@ public final class GestureReturnController {
         // the app icon with a small damped spring. Choreographer keeps every
         // frame aligned to display vsync (unlike a second ValueAnimator).
         final long duration = complete ? 620 : 360;
-        MAIN.postDelayed(() -> {
-            if (!closed && finishing) {
-                Log.w(TAG, "return animation watchdog; removing stale overlay");
-                close();
-            }
-        }, duration + 1200);
         final Choreographer choreographer = Choreographer.getInstance();
         final Choreographer.FrameCallback[] callback = new Choreographer.FrameCallback[1];
         callback[0] = frameTimeNanos -> {
@@ -550,7 +544,7 @@ public final class GestureReturnController {
         final String restore = savedAnimatorScale;
         IO.execute(() -> {
             try {
-                Process process = shell(new String[]{"sh", "-c", "settings put global animator_duration_scale 0; sleep 1; settings put global animator_duration_scale " + restore});
+                Process process = shell(new String[]{"sh", "-c", "settings put global animator_duration_scale 0; sleep 2; settings put global animator_duration_scale " + restore});
                 Thread safetyRestore = new Thread(() -> { try { process.waitFor(); } catch (InterruptedException ignored) { Thread.currentThread().interrupt(); } }, "Nemotron animator-scale restore");
                 safetyRestore.setDaemon(true);
                 safetyRestore.start();
@@ -574,31 +568,20 @@ public final class GestureReturnController {
 
     private final class ReturnView extends View {
         final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
-        final Paint backdropPaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
         final Path clip = new Path();
         final RectF rect = new RectF(0, 0, width, height);
         float morph;
         volatile boolean active;
         int draws;
         long firstDraw, lastDraw, longestGap;
-        ReturnView(Context context) {
-            super(context); setWillNotDraw(false);
-            if (android.os.Build.VERSION.SDK_INT >= 31) {
-                try {
-                    Object effect=RenderEffect.createBlurEffect(
-                            18 * density, 18 * density, Shader.TileMode.CLAMP);
-                    Paint.class.getMethod("setRenderEffect", RenderEffect.class)
-                            .invoke(backdropPaint, effect);
-                } catch (Throwable error) { Log.w(TAG, "backdrop blur unavailable", error); }
-            }
-        }
-        void dragToIcon(float dy) {
-            if (Looper.myLooper() != RENDER.getLooper()) { RENDER.post(() -> dragToIcon(dy)); return; }
+        ReturnView(Context context) { super(context); setWillNotDraw(false); }
+        void drag(float dy) {
+            if (Looper.myLooper() != RENDER.getLooper()) { RENDER.post(() -> drag(dy)); return; }
             if (closed || finishing) return;
-            float progress = Math.min(1f, Math.max(0f, dy / (height * 0.82f)));
-            float eased = 1f - (float)Math.pow(1f - progress, 1.15f);
-            rect.set(lerp(0, iconRect.left, eased), lerp(0, iconRect.top, eased),
-                    lerp(width, iconRect.right, eased), lerp(height, iconRect.bottom, eased));
+            float scale = Math.max(0.65f, 1 - Math.max(0, dy) / (height * 1.5f));
+            float w = width * scale, h = height * scale;
+            float cx = width / 2f, cy = height / 2f - dy * 0.3f;
+            rect.set(cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2);
         }
         @Override protected void onDraw(Canvas canvas) {
             if (!active || closed) return;
@@ -607,9 +590,7 @@ public final class GestureReturnController {
             else longestGap=Math.max(longestGap, now-lastDraw);
             lastDraw=now; draws++;
             canvas.drawColor(Color.BLACK);
-            if (home != null && !home.isRecycled()) canvas.drawBitmap(home, null,
-                    new RectF(0, 0, width, height), backdropPaint);
-            canvas.drawColor(0x26000000);
+            if (home != null && !home.isRecycled()) canvas.drawBitmap(home, null, new RectF(0, 0, width, height), paint);
             float fade = Math.max(0, (morph - 0.60f) / 0.40f);
             int save = canvas.save();
             float radius=lerp(44*density, widget ? 20*density : rect.width()*0.25f, morph);
@@ -634,6 +615,7 @@ public final class GestureReturnController {
         if (Looper.myLooper() != Looper.getMainLooper()) { MAIN.post(this::close); return; }
         if (closed) return;
         closed = true;
+        MAIN.removeCallbacks(gestureWatchdog);
         restoreNativeCloseAnimation(0);
         if (preview != null) { preview.cancel(); preview=null; }
         if (rawProcess != null) { rawProcess.destroy(); rawProcess = null; }

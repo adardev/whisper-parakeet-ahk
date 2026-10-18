@@ -54,20 +54,86 @@ if (-not $manual) {
 }
 Edit-Class 'ShortcutPickerActivity.smali' {
     param($text)
-    if (-not $text.Contains('Lcom/nemotron/oneui/compat/InstalledApps;->freshId')) {
-        $text = [regex]::Replace($text, '(?m)^(\s*)invoke-direct \{(\w+), (\w+), (\w+)\}, Landroidx/core/content/pm/ShortcutInfoCompat\$Builder;-><init>\(Landroid/content/Context;Ljava/lang/String;\)V', {
-            param($m)
-            $idReg = $m.Groups[4].Value
-            "    invoke-static {$idReg}, Lcom/nemotron/oneui/compat/InstalledApps;->freshId(Ljava/lang/String;)Ljava/lang/String;`n    move-result-object $idReg`n" + $m.Value
-        })
-    }
-    if ($text.Contains('Lcom/nemotron/oneui/compat/InstalledApps;->load')) { return $text }
-    $text.Replace('invoke-super {p0, p1}, Landroidx/appcompat/app/AppCompatActivity;->onCreate(Landroid/os/Bundle;)V', @'
+    if (-not $text.Contains('Lcom/nemotron/oneui/compat/InstalledApps;->load')) {
+        $text = $text.Replace('invoke-super {p0, p1}, Landroidx/appcompat/app/AppCompatActivity;->onCreate(Landroid/os/Bundle;)V', @'
 invoke-super {p0, p1}, Landroidx/appcompat/app/AppCompatActivity;->onCreate(Landroid/os/Bundle;)V
     invoke-static {p0}, Lcom/nemotron/oneui/compat/InstalledApps;->load(Landroid/content/Context;)Ljava/util/List;
     move-result-object v0
     iput-object v0, p0, Lcom/nemotron/voiceime/ui/ShortcutPickerActivity;->apps:Ljava/util/List;
 '@)
+    }
+    $text = [regex]::Replace($text, '(?ms)^\.method private final requestShortcut\(Lcom/nemotron/voiceime/ui/ShortcutPickerActivity\$AppInfo;\)V.*?^\.end method', @'
+.method private final requestShortcut(Lcom/nemotron/voiceime/ui/ShortcutPickerActivity$AppInfo;)V
+    .locals 12
+    invoke-direct {p0, p1}, Lcom/nemotron/voiceime/ui/ShortcutPickerActivity;->shortcutDrawable(Lcom/nemotron/voiceime/ui/ShortcutPickerActivity$AppInfo;)Landroid/graphics/drawable/Drawable;
+    move-result-object v0
+    invoke-direct {p0, v0}, Lcom/nemotron/voiceime/ui/ShortcutPickerActivity;->renderToBitmap(Landroid/graphics/drawable/Drawable;)Landroid/graphics/Bitmap;
+    move-result-object v1
+    invoke-static {v1}, Landroidx/core/graphics/drawable/IconCompat;->createWithBitmap(Landroid/graphics/Bitmap;)Landroidx/core/graphics/drawable/IconCompat;
+    move-result-object v2
+    invoke-virtual {p1}, Lcom/nemotron/voiceime/ui/ShortcutPickerActivity$AppInfo;->getPkg()Ljava/lang/String;
+    move-result-object v3
+    new-instance v4, Ljava/lang/StringBuilder;
+    const-string v5, "nemotron_app_"
+    invoke-direct {v4, v5}, Ljava/lang/StringBuilder;-><init>(Ljava/lang/String;)V
+    invoke-virtual {v4, v3}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    move-result-object v4
+    const-string v5, "_"
+    invoke-virtual {v4, v5}, Ljava/lang/StringBuilder;->append(Ljava/lang/String;)Ljava/lang/StringBuilder;
+    move-result-object v4
+    invoke-static {}, Ljava/lang/System;->currentTimeMillis()J
+    move-result-wide v7
+    invoke-virtual {v4, v7, v8}, Ljava/lang/StringBuilder;->append(J)Ljava/lang/StringBuilder;
+    move-result-object v4
+    invoke-virtual {v4}, Ljava/lang/StringBuilder;->toString()Ljava/lang/String;
+    move-result-object v4
+    new-instance v6, Landroidx/core/content/pm/ShortcutInfoCompat$Builder;
+    invoke-direct {v6, p0, v4}, Landroidx/core/content/pm/ShortcutInfoCompat$Builder;-><init>(Landroid/content/Context;Ljava/lang/String;)V
+    invoke-virtual {p1}, Lcom/nemotron/voiceime/ui/ShortcutPickerActivity$AppInfo;->getLabel()Ljava/lang/String;
+    move-result-object v5
+    invoke-virtual {v6, v5}, Landroidx/core/content/pm/ShortcutInfoCompat$Builder;->setShortLabel(Ljava/lang/CharSequence;)Landroidx/core/content/pm/ShortcutInfoCompat$Builder;
+    move-result-object v6
+    invoke-virtual {v6, v5}, Landroidx/core/content/pm/ShortcutInfoCompat$Builder;->setLongLabel(Ljava/lang/CharSequence;)Landroidx/core/content/pm/ShortcutInfoCompat$Builder;
+    move-result-object v6
+    invoke-virtual {v6, v2}, Landroidx/core/content/pm/ShortcutInfoCompat$Builder;->setIcon(Landroidx/core/graphics/drawable/IconCompat;)Landroidx/core/content/pm/ShortcutInfoCompat$Builder;
+    move-result-object v6
+    new-instance v9, Landroid/content/Intent;
+    const-string v5, "android.intent.action.MAIN"
+    invoke-direct {v9, v5}, Landroid/content/Intent;-><init>(Ljava/lang/String;)V
+    const-string v5, "android.intent.category.LAUNCHER"
+    invoke-virtual {v9, v5}, Landroid/content/Intent;->addCategory(Ljava/lang/String;)Landroid/content/Intent;
+    invoke-virtual {p1}, Lcom/nemotron/voiceime/ui/ShortcutPickerActivity$AppInfo;->getActivity()Ljava/lang/String;
+    move-result-object v5
+    new-instance v10, Landroid/content/ComponentName;
+    invoke-direct {v10, v3, v5}, Landroid/content/ComponentName;-><init>(Ljava/lang/String;Ljava/lang/String;)V
+    invoke-virtual {v9, v10}, Landroid/content/Intent;->setComponent(Landroid/content/ComponentName;)Landroid/content/Intent;
+    const v5, 0x10200000
+    invoke-virtual {v9, v5}, Landroid/content/Intent;->addFlags(I)Landroid/content/Intent;
+    invoke-virtual {v6, v9}, Landroidx/core/content/pm/ShortcutInfoCompat$Builder;->setIntent(Landroid/content/Intent;)Landroidx/core/content/pm/ShortcutInfoCompat$Builder;
+    move-result-object v6
+    invoke-virtual {v6}, Landroidx/core/content/pm/ShortcutInfoCompat$Builder;->build()Landroidx/core/content/pm/ShortcutInfoCompat;
+    move-result-object v11
+    const/4 v5, 0x0
+    invoke-static {p0, v11, v5}, Landroidx/core/content/pm/ShortcutManagerCompat;->requestPinShortcut(Landroid/content/Context;Landroidx/core/content/pm/ShortcutInfoCompat;Landroid/content/IntentSender;)Z
+    move-result v5
+    if-eqz v5, :nemotron_pin_failed
+    invoke-static {p0, v3}, Lcom/nemotron/oneui/compat/InstalledApps;->selectManually(Landroid/content/Context;Ljava/lang/String;)V
+    const-string v4, "Confirma anadir la app a Inicio"
+    goto :nemotron_pin_toast
+    :nemotron_pin_failed
+    const-string v4, "No se pudo solicitar el icono a Inicio"
+    :nemotron_pin_toast
+    const/4 v5, 0x0
+    invoke-static {p0, v4, v5}, Landroid/widget/Toast;->makeText(Landroid/content/Context;Ljava/lang/CharSequence;I)Landroid/widget/Toast;
+    move-result-object v0
+    invoke-virtual {v0}, Landroid/widget/Toast;->show()V
+    return-void
+.end method
+'@)
+    if (-not $text.Contains('ShortcutManagerCompat;->requestPinShortcut')) {
+        throw 'ShortcutPickerActivity must request a real Home pin; refusing to build a toast-only picker.'
+    }
+    $text
 }
 $pickerLayout = Join-Path $DecodedRoot 'res/layout/activity_shortcut_picker.xml'
 if (Test-Path -LiteralPath $pickerLayout) {
@@ -144,8 +210,8 @@ Edit-Class 'WorkspaceViewModel.smali' {
     $text = [regex]::Replace($text, '(?ms)^\.method public final u\(Lcom/nemotron/oneui/shaded/y8/d0;Z\)V.*?^\.end method', {
         param($m)
         if ($m.Value.Contains(':nemotron_explicit_item')) { return $m.Value }
-        # HomeOnly's cold-start reconciliation constructs unpersisted AppItems
-        # and even pages. Stop those objects before placement and rendering.
+        # Keep automatically discovered apps off Home, but allow an AppItem
+        # explicitly chosen in Nemotron's app selector to use One UI's model.
         [regex]::Replace($m.Value, '(?m)(^\s*\.locals \d+\r?\n)', '$1' + @'
 
     move-object/from16 v0, p1
@@ -153,6 +219,19 @@ Edit-Class 'WorkspaceViewModel.smali' {
     move-result-object v0
     instance-of v0, v0, Lcom/honeyspace/sdk/source/entity/AppItem;
     if-eqz v0, :nemotron_explicit_item
+    move-object/from16 v0, p1
+    invoke-virtual {v0}, Lcom/nemotron/oneui/shaded/y8/d0;->getItem()Lcom/honeyspace/sdk/source/entity/BaseItem;
+    move-result-object v0
+    check-cast v0, Lcom/honeyspace/sdk/source/entity/AppItem;
+    invoke-virtual {v0}, Lcom/honeyspace/sdk/source/entity/AppItem;->getComponent()Lcom/honeyspace/sdk/source/entity/ComponentKey;
+    move-result-object v0
+    invoke-virtual {v0}, Lcom/honeyspace/sdk/source/entity/ComponentKey;->getPackageName()Ljava/lang/String;
+    move-result-object v1
+    move-object/from16 v3, p0
+    iget-object v2, v3, Lcom/honeyspace/ui/honeypots/workspace/viewmodel/WorkspaceViewModel;->e:Landroid/content/Context;
+    invoke-static {v2, v1}, Lcom/nemotron/oneui/compat/InstalledApps;->isManuallySelected(Landroid/content/Context;Ljava/lang/String;)Z
+    move-result v0
+    if-nez v0, :nemotron_explicit_item
     return-void
     :nemotron_explicit_item
 '@)
@@ -167,16 +246,10 @@ Edit-Class 'WorkspaceViewModel.smali' {
 }
 Edit-Class 'ShellTransitionManager.smali' {
     param($text)
-    if (-not $text.Contains(':nemotron_original_shortcut_launch')) {
-        $text = [regex]::Replace($text, '(?m)(\.method public final startShellTransitionForShortcut\([^\r\n]+\r?\n\s*\.locals \d+\r?\n)', '$1' + @'
-
-    invoke-static {p1, p2}, Lcom/nemotron/oneui/compat/ShortcutCloseTarget;->launch(Lcom/honeyspace/sdk/transition/ShellTransition$Info;Lcom/honeyspace/sdk/source/entity/ShortcutItem;)Z
-    move-result v0
-    if-eqz v0, :nemotron_original_shortcut_launch
-    return-void
-    :nemotron_original_shortcut_launch
-'@)
-    }
+    # Older builds short-circuited One UI's normal pinned-shortcut launch and
+    # substituted a scale-up ActivityOptions launch. That bypasses the native
+    # launcher transition path; leave the original method body intact.
+    $text = [regex]::Replace($text, '(?ms)(\.method public final startShellTransitionForShortcut\([^\r\n]+\r?\n\s*\.locals \d+\s+)invoke-static \{p1, p2\}, Lcom/nemotron/oneui/compat/ShortcutCloseTarget;->launch\([^\r\n]+\r?\n\s*move-result v0\s+if-eqz v0, :cond_0\s+return-void\s+:cond_0\s+', '$1')
     # Remote task/snapshot transitions require signature permissions. Keep the
     # original launch routing, with Android's ordinary ActivityOptions instead.
     [regex]::Replace($text, '(?ms)^(\.method public final (?:getLaunchOptions|getActivityLaunchOptions)\([^\r\n]+\r?\n).*?^\.end method', {
