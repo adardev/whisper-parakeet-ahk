@@ -1,8 +1,5 @@
 .method public final getHidden()Lcom/honeyspace/sdk/database/field/HiddenType;
     .locals 2
-    iget-object v0, p0, Lcom/honeyspace/sdk/database/entity/ItemData;->type:Lcom/honeyspace/sdk/database/field/ItemType;
-    sget-object v1, Lcom/honeyspace/sdk/database/field/ItemType;->APP:Lcom/honeyspace/sdk/database/field/ItemType;
-    if-ne v0, v1, :original
     iget-object v1, p0, Lcom/honeyspace/sdk/database/entity/ItemData;->component:Ljava/lang/String;
     if-eqz v1, :reference
     const-string v0, "com.instagram.android/"

@@ -178,7 +178,7 @@ $policy = @'
 .class public final Lcom/nemotron/oneui/compat/HomeOnlyPolicy;
 .super Ljava/lang/Object;
 .method public static apply(Lcom/nemotron/oneui/shaded/androidx/sqlite/SQLiteConnection;)V
-    .locals 3
+    .locals 4
     const-string v0, "PRAGMA database_list"
     invoke-interface {p0, v0}, Lcom/nemotron/oneui/shaded/androidx/sqlite/SQLiteConnection;->prepare(Ljava/lang/String;)Lcom/nemotron/oneui/shaded/androidx/sqlite/SQLiteStatement;
     move-result-object v0
@@ -190,9 +190,14 @@ $policy = @'
     move-result-object v1
     const-string v2, "HomeOnly.db"
     invoke-virtual {v1, v2}, Ljava/lang/String;->endsWith(Ljava/lang/String;)Z
-    move-result v1
+    move-result v3
     invoke-interface {v0}, Lcom/nemotron/oneui/shaded/androidx/sqlite/SQLiteStatement;->close()V
-    if-eqz v1, :done
+    if-nez v3, :apply_policy
+    const-string v2, "OneUI.db"
+    invoke-virtual {v1, v2}, Ljava/lang/String;->endsWith(Ljava/lang/String;)Z
+    move-result v3
+    if-eqz v3, :done
+    :apply_policy
 '@
 foreach ($sql in Get-Content -LiteralPath (Join-Path $PSScriptRoot 'oneui-compat/home-only-policy.sql')) {
     if (-not $sql.Trim() -or $sql.TrimStart().StartsWith('--')) { continue }

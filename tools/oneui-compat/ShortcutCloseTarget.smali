@@ -5,7 +5,6 @@
 # existing close-target animation can find the real icon. No animation is drawn.
 .method public static attachCookie(Lcom/honeyspace/sdk/transition/ShellTransition$Info;Landroid/app/ActivityOptions;)V
     .locals 2
-    invoke-static {p0}, Lcom/nemotron/oneui/compat/GestureReturnController;->armInfo(Ljava/lang/Object;)V
     :cookie_start
     invoke-virtual {p0}, Lcom/honeyspace/sdk/transition/ShellTransition$Info;->getId()I
     move-result v0

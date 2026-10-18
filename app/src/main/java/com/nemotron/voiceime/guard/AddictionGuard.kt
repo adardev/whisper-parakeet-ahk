@@ -84,20 +84,34 @@ object AddictionGuard {
         val current = Settings.Secure
             .getString(resolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES).orEmpty()
         val list = current.split(':').filter { it.isNotBlank() }.toMutableSet()
-        if (enabled) list.add(comp) else list.remove(comp)
-
-        val servicesUpdated = runCatching {
-            Settings.Secure.putString(
-                resolver,
-                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
-                list.joinToString(":")
-            )
+        val wasEnabled = comp in list
+        val remainingServices = list.size - if (wasEnabled) 1 else 0
+        val desiredAccessibilityEnabled = enabled ||
+            (if (wasEnabled) remainingServices else list.size) > 0
+        val accessibilityEnabled = runCatching {
+            Settings.Secure.getInt(resolver, Settings.Secure.ACCESSIBILITY_ENABLED, 0) == 1
         }.getOrDefault(false)
-        val flagUpdated = runCatching {
+
+        // Launcher and keyboard startup can both reach this code. Rewriting an
+        // unchanged secure setting can make Samsung reconnect the service.
+        if (wasEnabled == enabled && accessibilityEnabled == desiredAccessibilityEnabled) return
+
+        var servicesUpdated = true
+        if (wasEnabled != enabled) {
+            if (enabled) list.add(comp) else list.remove(comp)
+            servicesUpdated = runCatching {
+                Settings.Secure.putString(
+                    resolver,
+                    Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
+                    list.joinToString(":")
+                )
+            }.getOrDefault(false)
+        }
+        val flagUpdated = if (accessibilityEnabled == desiredAccessibilityEnabled) true else runCatching {
             Settings.Secure.putInt(
                 resolver,
                 Settings.Secure.ACCESSIBILITY_ENABLED,
-                if (enabled || list.isNotEmpty()) 1 else 0
+                if (desiredAccessibilityEnabled) 1 else 0
             )
         }.getOrDefault(false)
 

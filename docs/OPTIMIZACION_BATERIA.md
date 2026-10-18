@@ -44,3 +44,17 @@ La app se estaba agregando a sí misma a la lista de excepciones de Doze al inic
 Se quitó la autoexcepción de `AutoFreezeScheduler`. El receptor ahora respeta exclusivamente la lista de excepciones configurada por el usuario, congela y detiene primero las apps elegidas y después solicita Doze. Si no hay apps elegidas, solicita Doze directamente. Así Android puede incluir Nemotron en reposo profundo cuando corresponde y no interrumpe el trabajo retrasado de congelación.
 
 La corrección se compiló desde Kotlin y también se aplicó al DEX de la variante integrada One UI Home para no perder el launcher ni la animación reconstruida. Se firmó con el mismo certificado debug que la instalación existente y se instaló en el A54 sin reiniciar. Se verificó el rol HOME de Nemotron, que One UI Home sigue habilitado como respaldo y que Nemotron ya no figura en la lista de excepciones de Doze. En tres muestras `top`, el proceso marcó entre 0.0 % y 0.2 % de CPU; el PSS se estabilizó cerca de 297,808 KiB después del arranque (375,925 KiB durante el arranque). Son lecturas puntuales, no una comparación energética controlada ni una medida en mAh. No se probó un ciclo completo de pantalla apagada después de esta instalación.
+
+## Reducción de trabajo repetido en Nemotron (18 oct 2026)
+
+Se aplicaron tres cambios conservadores al launcher/teclado integrado:
+
+- `AddictionGuard` ahora compara las listas y el flag de accesibilidad antes de escribir `Settings.Secure`; evita reescribirlos cuando el estado ya es correcto y provocar reconexiones innecesarias del servicio.
+- `NemotronApp` ya no vuelve a persistir en cada arranque dos preferencias que ya se leen como activadas por defecto.
+- `CarDetector.refresh()` agrupa las solicitudes simultáneas de arranque/binder y limita las consultas repetidas a una cada 30 s; la consulta se ejecuta en un hilo de prioridad mínima.
+
+Se retiró el controlador de animación reconstruida y su llamada desde `ShortcutCloseTarget`; la ruta de cierre deja de dibujar overlays/capturas y queda a cargo de las transiciones nativas de Android/One UI. Se conservaron la asociación del destino y la opción de lanzamiento que necesita la integración de accesos.
+
+La APK integrada se compiló con Gradle + Apktool 3.0.3, se alineó, firmó con el certificado debug ya instalado y `apksigner verify` pasó. Se instaló por ADB con Nemotron como rol HOME; no se reinició el teléfono. Tras dejarla quieta 15 s con pantalla bloqueada, `top` mostró 0.0 % de CPU para `com.nemotron.voiceime2` y `dumpsys cpuinfo` la redondeó a 0 %; Honeyboard también marcó 0 %. PSS fue 305,961 KiB y RSS 445,550 KiB. Son lecturas puntuales, no una medición de consumo eléctrico; no se midieron mAh ni autonomía.
+
+One UI Home del sistema se deshabilitó por petición del usuario para quitar el diálogo recurrente de selección. Sigue instalado y se puede reactivar por ADB.
