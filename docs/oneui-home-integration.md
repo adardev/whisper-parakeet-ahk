@@ -182,3 +182,23 @@ Se corrigió además la generación rápida del DEX: el escritor emitía una cab
 `install-oneui-nemotron.ps1` habilita ahora `SYSTEM_ALERT_WINDOW` para el retorno visual y fija explícitamente la actividad HOME, además del rol HOME. El controlador requiere Shizuku autorizado y activo; no sustituye el componente privilegiado de Recientes. Las grabaciones y capturas con contenido personal permanecen locales y no se incorporan a Git.
 
 La compilación posterior ya se instaló correctamente. Se encontró y corrigió un `NumberFormatException` del lector de `getevent`: las líneas tenían espacios finales y el último token resultaba vacío; ahora se recorta la línea antes de analizarla. Shizuku estaba detenido y se reinició con su ejecutable instalado. En una prueba de gesto inyectado, `home started` ocurrió a las 20:29:57.928, `home resumed` a las 20:29:57.938 y la captura estuvo lista a las 20:29:58.109: unos 181 ms después del primer callback. El retorno acabó a las 20:29:58.327 en `RectF(801,2018,1027,2244)`. **La captura tardía de esta alternativa sigue sin demostrar continuidad equivalente al gesto nativo.** Se inició una comprobación independiente con el gesto físico, porque la inyección de ADB no atraviesa el touchscreen leído por `getevent`. Después del retorno no quedó un proceso `getevent` en la lista de procesos.
+
+### Aperturas generales y renderizado separado
+
+La primera prueba física sí registró `visual return tracking` tres veces y terminó en el icono de WhatsApp. El usuario informó que se veía a tirones; la grabación confirmó que no bastaba con registrar el destino correcto. No se considera resuelto por esos registros.
+
+- `ShortcutCloseTarget.attachCookie` llama a `GestureReturnController.armInfo` desde las opciones comunes de apertura. Se leen la vista origen, el intent, el drawable, el tipo y el usuario de `ShellTransition.Info`. Se conserva el filtro del perfil actual. Los accesos propios de Nemotron mantienen además su ruta directa específica; no hay una condición que limite el efecto a WhatsApp.
+- Para widgets, se mantiene el rectángulo completo y se captura la vista del widget como destino, en vez de convertirla en un icono cuadrado. Se comprobó la activación con Microsoft To Do: `RectF(41,1001,791,1853)`. Los widgets que no abren una actividad no requieren animación de retorno.
+- La ventana se crea al abrir la aplicación, inicialmente sin contenido y con opacidad de ventana 0.01, para no bloquear los toques de la app. Se activa únicamente durante el retorno. La precarga no ejecuta una animación continua.
+- La ventana, su `ViewRoot`, el animador y el dibujo usan el `HandlerThread` **Nemotron icon renderer**, con prioridad de pantalla. Así no comparten la cola de dibujo con la carga de Inicio. La destrucción de la ventana y el reciclado de las capturas se realizan en esa misma cola. El listener y los callbacks de actividad se liberan al cerrar.
+- La siguiente revisión también procesa los eventos del gesto y la recepción de su captura en el hilo de renderizado. Los toques que empiezan fuera de la franja inferior se descartan en el lector antes de publicar trabajo de UI. Los widgets conservan un radio de esquina independiente del icono.
+
+Mediciones del dibujo instalado con renderizado separado (A54, escalas del sistema originales 0.5):
+
+| Apertura | Dibujos | Intervalo entre primer y último dibujo | Mayor pausa entre dibujos |
+| --- | ---: | ---: | ---: |
+| Obsidian, primera prueba | 10 | 139 ms | 18 ms |
+| Obsidian, con grabación | 10 | 134 ms | 20 ms |
+| Microsoft To Do desde widget, con grabación | 10 | 132 ms | 23 ms |
+
+Estos valores proceden de `ReturnView.onDraw`; **no son una medición de FPS de toda la transición de Android**. El video `gesture-threaded-1.mp4` confirma que la ruta de gesto inyectado todavía deja ver primero la reducción central y después el movimiento al destino. La continuidad de esa ruta sigue pendiente. Se pidió una nueva prueba física de iconos y widgets para la versión con renderizado separado; no debe confundirse con la primera grabación física anterior. Los clips personales permanecen fuera de Git.
