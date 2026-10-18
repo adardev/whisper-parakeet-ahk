@@ -33,7 +33,6 @@ import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowManager;
-import android.view.animation.PathInterpolator;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.io.BufferedReader;
@@ -485,18 +484,21 @@ public final class GestureReturnController {
         RectF from = new RectF(overlay.rect);
         RectF to = complete && !recents ? iconRect : new RectF(0, 0, width, height);
         final long start = android.os.SystemClock.uptimeMillis();
-        final long duration = complete ? 280 : 180;
-        final PathInterpolator interpolator = new PathInterpolator(0.2f, 0, 0, 1);
+        // Give the return enough time to read clearly, then let it settle into
+        // the app icon with a small damped spring. Choreographer keeps every
+        // frame aligned to display vsync (unlike a second ValueAnimator).
+        final long duration = complete ? 620 : 360;
         final Choreographer choreographer = Choreographer.getInstance();
         final Choreographer.FrameCallback[] callback = new Choreographer.FrameCallback[1];
         callback[0] = frameTimeNanos -> {
             if (closed || overlay == null) return;
             float raw = Math.min(1f, Math.max(0f,
                     (frameTimeNanos / 1_000_000L - start) / (float) duration));
-            float t = interpolator.getInterpolation(raw);
+            float t = raw >= 1f ? 1f
+                    : 1f - (float)(Math.exp(-11f * raw) * Math.cos(11f * raw));
             overlay.rect.set(lerp(from.left, to.left, t), lerp(from.top, to.top, t),
                     lerp(from.right, to.right, t), lerp(from.bottom, to.bottom, t));
-            overlay.morph = complete && !recents ? t : 0;
+            overlay.morph = complete && !recents ? Math.max(0f, Math.min(1f, t)) : 0;
             overlay.postInvalidateOnAnimation();
             if (raw < 1f) choreographer.postFrameCallback(callback[0]);
             else {
