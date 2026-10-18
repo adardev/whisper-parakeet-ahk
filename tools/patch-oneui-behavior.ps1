@@ -7,6 +7,32 @@ function Edit-Class([string]$Name, [scriptblock]$Edit) {
     $result = & $Edit $text
     [IO.File]::WriteAllText($file.FullName, $result, [Text.UTF8Encoding]::new($false))
 }
+# A wrapper shortcut's publisher is Nemotron, but its running task belongs to
+# the destination app. Samsung otherwise only matches AppItem/package pairs.
+Edit-Class 'CloseTarget$DefaultImpls.smali' {
+    param($text)
+    if ($text.Contains(':nemotron_original_match')) { return $text }
+    [regex]::Replace($text, '(?m)(\.method private static isPackageAndUserMatchedItem\([^\r\n]+\r?\n\s*\.locals \d+\r?\n)', '$1' + @'
+
+    invoke-static {p1, p2}, Lcom/nemotron/oneui/compat/ShortcutCloseTarget;->matches(Lcom/honeyspace/sdk/source/entity/BaseItem;Lcom/honeyspace/sdk/transition/CloseTarget$Key;)Z
+    move-result v0
+    if-eqz v0, :nemotron_original_match
+    return v0
+    :nemotron_original_match
+'@)
+}
+$closeAdapters = Get-ChildItem -LiteralPath $DecodedRoot -Recurse -File -Filter '*.smali' | Where-Object { $_.Name -in @('A.smali','P0.smali','Z0.smali','r0.1.smali') }
+foreach ($adapter in $closeAdapters) {
+    $code = [IO.File]::ReadAllText($adapter.FullName)
+    $pattern = 'new-instance p0, Lcom/honeyspace/sdk/transition/CloseTarget\$Value;\s+instance-of p1, p1, L[^;]+;\s+invoke-direct \{p0, (\w+), (\w+), p1\}, Lcom/honeyspace/sdk/transition/CloseTarget\$Value;-><init>\(Landroid/view/View;Landroid/content/ComponentName;Z\)V'
+    if ($code -match $pattern) {
+        $code = [regex]::Replace($code, $pattern, {
+            param($m)
+            'invoke-static {' + $m.Groups[1].Value + ', ' + $m.Groups[2].Value + ', p1}, Lcom/nemotron/oneui/compat/ShortcutCloseTarget;->value(Landroid/view/View;Landroid/content/ComponentName;Lcom/honeyspace/sdk/source/entity/ModelItemSupplier;)Lcom/honeyspace/sdk/transition/CloseTarget$Value;' + "`n    move-result-object p0"
+        })
+        [IO.File]::WriteAllText($adapter.FullName, $code, [Text.UTF8Encoding]::new($false))
+    }
+}
 # Manual addition uses the public pinned-shortcut flow; installation never
 # authorizes an automatic native AppItem placement.
 $androidNs = 'http://schemas.android.com/apk/res/android'
@@ -141,6 +167,16 @@ Edit-Class 'WorkspaceViewModel.smali' {
 }
 Edit-Class 'ShellTransitionManager.smali' {
     param($text)
+    if (-not $text.Contains(':nemotron_original_shortcut_launch')) {
+        $text = [regex]::Replace($text, '(?m)(\.method public final startShellTransitionForShortcut\([^\r\n]+\r?\n\s*\.locals \d+\r?\n)', '$1' + @'
+
+    invoke-static {p1, p2}, Lcom/nemotron/oneui/compat/ShortcutCloseTarget;->launch(Lcom/honeyspace/sdk/transition/ShellTransition$Info;Lcom/honeyspace/sdk/source/entity/ShortcutItem;)Z
+    move-result v0
+    if-eqz v0, :nemotron_original_shortcut_launch
+    return-void
+    :nemotron_original_shortcut_launch
+'@)
+    }
     # Remote task/snapshot transitions require signature permissions. Keep the
     # original launch routing, with Android's ordinary ActivityOptions instead.
     [regex]::Replace($text, '(?ms)^(\.method public final (?:getLaunchOptions|getActivityLaunchOptions)\([^\r\n]+\r?\n).*?^\.end method', {
@@ -149,6 +185,7 @@ Edit-Class 'ShellTransitionManager.smali' {
     .locals 2
     invoke-static {}, Landroid/app/ActivityOptions;->makeBasic()Landroid/app/ActivityOptions;
     move-result-object v0
+    invoke-static {p1, v0}, Lcom/nemotron/oneui/compat/ShortcutCloseTarget;->attachCookie(Lcom/honeyspace/sdk/transition/ShellTransition$Info;Landroid/app/ActivityOptions;)V
     new-instance v1, Lcom/honeyspace/transition/utils/ActivityOptionsWrapper;
     invoke-direct {v1, v0}, Lcom/honeyspace/transition/utils/ActivityOptionsWrapper;-><init>(Landroid/app/ActivityOptions;)V
     return-object v1

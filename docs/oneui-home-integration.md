@@ -132,3 +132,22 @@ Cada adición manual usa un ID de acceso nuevo, con marca de tiempo, para que An
 
 El controlador SettingsFragment.f ocultaba claves de preferencias desconocidas. La clave nemotron_add_apps ahora se reconoce explícitamente, queda visible y tiene un listener que abre la actividad del selector dentro del mismo paquete. No se depende únicamente de insertar una entrada XML.
 
+### Accesos manuales: apertura directa y diagnóstico del cierre (17 octubre 2026)
+
+El menú **Añadir aplicaciones** se comprobó visualmente en los ajustes nativos del A54. El usuario confirmó que el filtrado y las adiciones manuales funcionan. El problema posterior es la animación de retorno: los accesos publicados por Nemotron se identificaban como accesos del paquete del launcher, y `ShortcutActivity` abría la app con `ShizukuManager.launchApp` (`am start`), creando una apertura independiente del icono.
+
+Cambios reproducibles en `tools/patch-oneui-behavior.ps1` y `tools/oneui-compat/ShortcutCloseTarget.smali`:
+
+- `ShellTransitionManager.startShellTransitionForShortcut`: intercepta únicamente accesos propios de Nemotron. Para apps habilitadas del perfil actual resuelve el intent de lanzamiento real y abre desde el contexto del icono. Conserva el flujo anterior como alternativa si no puede abrirse directamente.
+- La apertura conserva `Intent.sourceBounds`, calculado con la posición y tamaño reales de la vista, y usa `ActivityOptions.makeScaleUpAnimation`. No fija coordenadas del A54 en el parche.
+- `attachCookie`: conserva el ID del elemento con el mecanismo original `ObjectWrapper`/`ActivityOptionsCompat.setLaunchCookie`, también en las opciones básicas de las aplicaciones nativas. No restaura las llamadas a snapshots que requieren permisos de firma y causaban crashes.
+- `CloseTarget.DefaultImpls.isPackageAndUserMatchedItem`: reconoce el paquete destino y el perfil de los accesos propios. Admite IDs antiguos `shortcut_paquete` y los nuevos `shortcut_paquete_marcaTemporal`; no convierte enlaces profundos de terceros en aplicaciones.
+- Adaptadores nativos de workspace, dock y carpetas: el valor del destino puede incluir el componente real de la app en vez de un componente nulo. Se conserva el comportamiento original de accesos ajenos.
+- No se cambian los filtros de instalaciones, los triggers, las páginas ni las posiciones de los iconos del usuario.
+
+**Resultado medido y límite pendiente:** la APK instalada registró `I/NemotronCloseTarget: direct icon launch` al abrir WhatsApp y la actividad visible fue `com.whatsapp/.home.ui.HomeActivity`. No se registró el paso por `ShortcutActivity` en esa apertura. Sin embargo, al cerrar mediante gesto, el registro fue `HoneySpace.AppCloseAnimationDelegate` del proceso del **One UI original** (PID 2427 en esa prueba), con `target-null`; Nemotron era otro proceso (PID 32454). Por tanto, esto confirma la corrección de la ruta de apertura, **no confirma una animación de cierre equivalente a la nativa**.
+
+`adb shell cmd overlay lookup android android:string/config_recentsComponentName` devolvió `com.sec.android.app.launcher/com.android.quickstep.RecentsActivity`. El rol HOME seleccionado es `com.nemotron.voiceime2`, pero eso no cambia el componente de Recientes del framework. Los permisos `CONTROL_REMOTE_APP_TRANSITION_ANIMATIONS` y `MANAGE_ACTIVITY_TASKS` están restringidos a firma/privilegio/Recientes en este firmware. `cmd overlay help` indica que fabricar un overlay requiere root. No se ha modificado esa configuración ni se han deshabilitado las dependencias Samsung. El retorno exacto por gestos sigue pendiente de una integración admitida con ese componente; no se publica como solucionado.
+
+Las escalas de animación usadas temporalmente para observar el cierre se restauraron a sus valores previos: `animator_duration_scale=0.5`, `transition_animation_scale=0.5`, `window_animation_scale=0.5`. Capturas, bases de datos y registros con contenido personal permanecen locales en `app/build`.
+
