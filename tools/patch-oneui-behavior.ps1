@@ -242,33 +242,6 @@ Edit-Class 'WorkspaceViewModel.smali' {
     :nemotron_explicit_item
 '@)
         }
-        # Never put the explicitly excluded social apps into the live Home view,
-        # even if an older or manually selected row is still emitted by a source.
-        if (-not $method.Contains(':nemotron_social_home_continue')) {
-            $method = [regex]::Replace($method, '(?m)(^\s*\.locals \d+\r?\n)', '$1' + @'
-
-    move-object/from16 v0, p1
-    invoke-virtual {v0}, Lcom/nemotron/oneui/shaded/y8/d0;->getItem()Lcom/honeyspace/sdk/source/entity/BaseItem;
-    move-result-object v0
-    instance-of v1, v0, Lcom/honeyspace/sdk/source/entity/AppItem;
-    if-eqz v1, :nemotron_social_home_continue
-    check-cast v0, Lcom/honeyspace/sdk/source/entity/AppItem;
-    invoke-virtual {v0}, Lcom/honeyspace/sdk/source/entity/AppItem;->getComponent()Lcom/honeyspace/sdk/source/entity/ComponentKey;
-    move-result-object v0
-    invoke-virtual {v0}, Lcom/honeyspace/sdk/source/entity/ComponentKey;->getPackageName()Ljava/lang/String;
-    move-result-object v0
-    const-string v1, "com.whatsapp"
-    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v1
-    if-nez v1, :nemotron_social_home_drop
-    const-string v1, "com.instagram.android"
-    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
-    move-result v1
-    if-nez v1, :nemotron_social_home_drop
-    :nemotron_social_home_continue
-'@)
-            $method = [regex]::Replace($method, '(?m)^\.end method$', "    :nemotron_social_home_drop`n    return-void`n.end method")
-        }
         $method
     })
     [regex]::Replace($text, '(?ms)^\.method public final s\(\)Z.*?^\.end method', @'
