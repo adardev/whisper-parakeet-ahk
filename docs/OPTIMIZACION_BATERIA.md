@@ -36,3 +36,11 @@ El teléfono estaba al 100 %, conectado por USB, en modo avión y con ahorro de 
 ## Estado de la medición energética
 
 No se midió consumo real en mAh ni porcentaje de batería en una prueba desenchufada. Para saber si estas optimizaciones reducen la batería hace falta repetir una sesión de duración comparable, con misma señal, brillo, modo de energía y uso. No se recomienda quitar más servicios de Instagram sin identificar su función: algunos pueden afectar los mensajes directos.
+
+## Ajuste adicional de batería de Nemotron (18 oct 2026)
+
+La app se estaba agregando a sí misma a la lista de excepciones de Doze al iniciar `AutoFreezeScheduler`, aunque no estuviera en la lista elegida por el usuario. Además, `AutoFreezeScreenReceiver` volvía a añadirla al procesar `ACTION_SCREEN_OFF` y podía forzar Doze antes de terminar el trabajo de congelar las apps seleccionadas.
+
+Se quitó la autoexcepción de `AutoFreezeScheduler`. El receptor ahora respeta exclusivamente la lista de excepciones configurada por el usuario, congela y detiene primero las apps elegidas y después solicita Doze. Si no hay apps elegidas, solicita Doze directamente. Así Android puede incluir Nemotron en reposo profundo cuando corresponde y no interrumpe el trabajo retrasado de congelación.
+
+La corrección se compiló desde Kotlin y también se aplicó al DEX de la variante integrada One UI Home para no perder el launcher ni la animación reconstruida. Se firmó con el mismo certificado debug que la instalación existente y se instaló en el A54 sin reiniciar. Se verificó el rol HOME de Nemotron, que One UI Home sigue habilitado como respaldo y que Nemotron ya no figura en la lista de excepciones de Doze. En tres muestras `top`, el proceso marcó entre 0.0 % y 0.2 % de CPU; el PSS se estabilizó cerca de 297,808 KiB después del arranque (375,925 KiB durante el arranque). Son lecturas puntuales, no una comparación energética controlada ni una medida en mAh. No se probó un ciclo completo de pantalla apagada después de esta instalación.

@@ -23,9 +23,11 @@ class AutoFreezeScreenReceiver : BroadcastReceiver() {
             Intent.ACTION_SCREEN_OFF -> {
                 cancelPendingFreeze()
                 applyDozeExempt(ctx)
-                forceDoze(ctx)
                 val apps = SecureStore.getAutoFreezeApps(ctx).toList()
-                if (apps.isEmpty()) return
+                if (apps.isEmpty()) {
+                    forceDoze(ctx)
+                    return
+                }
                 val delay = if (SecureStore.isAutoFreezeTestMode(ctx)) 0L else FREEZE_DELAY_MS
                 val freezeRunnable = Runnable {
                     pendingFreeze = null
@@ -154,12 +156,14 @@ class AutoFreezeScreenReceiver : BroadcastReceiver() {
             val stopApps = SecureStore.getStopOnUnlockApps(ctx).toList()
             for (pkg in stopApps) ShizukuManager.stopApp(pkg)
             Log.d(TAG, "Froze ${apps.size} apps, stopped on lock: $stopApps")
+            // Freeze selected apps before entering deep idle. If force-idle is
+            // applied at screen-off, Android can suspend this delayed work.
+            forceDoze(ctx)
         }.start()
     }
 
     private fun applyDozeExempt(ctx: Context) {
-        val exempt = SecureStore.getDozeExemptApps(ctx).toMutableSet()
-        exempt.add(ctx.packageName)
+        val exempt = SecureStore.getDozeExemptApps(ctx)
         if (exempt.isEmpty()) return
         Thread {
             if (!ShizukuManager.hasPermission()) return@Thread
