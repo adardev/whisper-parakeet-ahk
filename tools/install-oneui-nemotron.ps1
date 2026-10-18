@@ -11,13 +11,13 @@ function Invoke-Device([string[]]$CommandArgs) {
 }
 Invoke-Device @('get-state')
 Invoke-Device @('install', '--no-incremental', '-r', (Resolve-Path -LiteralPath $Apk).Path)
-# Samsung's keyboard picker and Recents retain dependencies on these packages.
-# Disabling the original IME package crashed system_server on the A54.
-Invoke-Device @('shell','pm','enable','--user','0','com.samsung.android.honeyboard')
+# Keep the integrated Nemotron IME selected and disable Samsung's standalone
+# keyboard so Android cannot switch back to it after an update.
 Invoke-Device @('shell','pm','enable','--user','0','com.sec.android.app.launcher')
-Invoke-Device @('shell','ime','enable','com.samsung.android.honeyboard/.service.HoneyBoardService')
 Invoke-Device @('shell','ime','enable','com.nemotron.voiceime2/com.samsung.android.honeyboard.service.HoneyBoardService')
 Invoke-Device @('shell','ime','set','com.nemotron.voiceime2/com.samsung.android.honeyboard.service.HoneyBoardService')
+Invoke-Device @('shell','ime','disable','com.samsung.android.honeyboard/.service.HoneyBoardService')
+Invoke-Device @('shell','pm','disable-user','--user','0','com.samsung.android.honeyboard')
 Invoke-Device @('shell','pm','grant','com.nemotron.voiceime2','android.permission.PACKAGE_USAGE_STATS')
 Invoke-Device @('shell','appops','set','com.nemotron.voiceime2','GET_USAGE_STATS','allow')
 Invoke-Device @('shell','appops','set','com.nemotron.voiceime2','SYSTEM_ALERT_WINDOW','allow')
