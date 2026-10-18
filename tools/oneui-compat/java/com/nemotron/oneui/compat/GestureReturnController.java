@@ -20,6 +20,8 @@ import android.graphics.PixelFormat;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.RenderNode;
+import android.graphics.RenderEffect;
+import android.graphics.Shader;
 import android.graphics.drawable.Drawable;
 import android.view.Choreographer;
 import android.os.Binder;
@@ -67,7 +69,8 @@ public final class GestureReturnController {
     private int rawMaxX, rawMaxY;
     private volatile ReturnView overlay;
     private volatile boolean closed;
-    private boolean down, capturing;
+    private volatile boolean down;
+    private boolean capturing;
     private volatile boolean claimed;
     private volatile boolean finishing;
     private float downX, downY, lastY;
@@ -76,6 +79,13 @@ public final class GestureReturnController {
     private boolean nativeAnimatorMuted;
     private String savedAnimatorScale;
     private ValueAnimator preview;
+    private final Runnable gestureWatchdog = () -> {
+        if (!closed && down && !finishing) {
+            Log.w(TAG, "gesture watchdog; clearing preview");
+            down = false;
+            close();
+        }
+    };
     private boolean isHome(Activity activity) {
         return activity.getClass().getName().equals("com.sec.android.app.launcher.Launcher")
                 || activity.getClass().getName().equals("com.sec.android.app.launcher.activities.LauncherActivity");
@@ -220,7 +230,7 @@ public final class GestureReturnController {
                         preview=ValueAnimator.ofFloat(0, 1);
                         preview.setDuration(220);
                         preview.addUpdateListener(a -> {
-                            if (!closed && !finishing && overlay != null) overlay.drag((Float)a.getAnimatedValue()*height*0.24f);
+                            if (!closed && !finishing && overlay != null) overlay.dragToIcon((Float)a.getAnimatedValue()*height*0.24f);
                             if (overlay != null) overlay.postInvalidate();
                         });
                         preview.start();
@@ -390,6 +400,7 @@ public final class GestureReturnController {
         if (action == MotionEvent.ACTION_DOWN) {
             down = event.getY() > height - 30 * density && event.getPointerCount() == 1;
             if (!down) return;
+            MAIN.postDelayed(gestureWatchdog, 5000);
             muteNativeCloseAnimation();
             downX = event.getX(); downY = lastY = event.getY(); downTime = event.getEventTime();
             capturing = true;
@@ -419,15 +430,18 @@ public final class GestureReturnController {
             lastY = event.getY();
             float dy = downY - lastY, dx = Math.abs(event.getX() - downX);
             if (!claimed && app != null && !capturing && dy > 18 * density && dy > dx * 1.3f) {
-                // Let One UI own the live finger-following gesture. Drawing a
-                // second copy of the task here produces the visible ghosting
-                // seen during a held swipe. We only prepare its final bounds;
-                // the Nemotron return becomes visible after ACTION_UP.
-                claimed = true;
-                Log.i(TAG, "return armed; native gesture remains visible until release");
+                // Take over visually only after the task snapshot is ready.
+                // The opaque blurred-home backdrop hides Samsung's live task
+                // surface so the finger-following preview is drawn once.
+                show(); claimed = true;
+                Log.i(TAG, "finger-following app preview");
             }
-            if (claimed && overlay != null) overlay.drag(dy);
+            if (claimed && overlay != null) {
+                overlay.dragToIcon(dy);
+                overlay.postInvalidateOnAnimation();
+            }
         } else if ((action == MotionEvent.ACTION_UP || action == MotionEvent.ACTION_CANCEL) && down) {
+            MAIN.removeCallbacks(gestureWatchdog);
             down = false;
             if (!claimed) { recycle(app); app = null; restoreNativeCloseAnimation(0); return; }
             float dy = downY - lastY;
@@ -560,20 +574,31 @@ public final class GestureReturnController {
 
     private final class ReturnView extends View {
         final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+        final Paint backdropPaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
         final Path clip = new Path();
         final RectF rect = new RectF(0, 0, width, height);
         float morph;
         volatile boolean active;
         int draws;
         long firstDraw, lastDraw, longestGap;
-        ReturnView(Context context) { super(context); setWillNotDraw(false); }
-        void drag(float dy) {
-            if (Looper.myLooper() != RENDER.getLooper()) { RENDER.post(() -> drag(dy)); return; }
+        ReturnView(Context context) {
+            super(context); setWillNotDraw(false);
+            if (android.os.Build.VERSION.SDK_INT >= 31) {
+                try {
+                    Object effect=RenderEffect.createBlurEffect(
+                            18 * density, 18 * density, Shader.TileMode.CLAMP);
+                    Paint.class.getMethod("setRenderEffect", RenderEffect.class)
+                            .invoke(backdropPaint, effect);
+                } catch (Throwable error) { Log.w(TAG, "backdrop blur unavailable", error); }
+            }
+        }
+        void dragToIcon(float dy) {
+            if (Looper.myLooper() != RENDER.getLooper()) { RENDER.post(() -> dragToIcon(dy)); return; }
             if (closed || finishing) return;
-            float scale = Math.max(0.65f, 1 - Math.max(0, dy) / (height * 1.5f));
-            float w = width * scale, h = height * scale;
-            float cx = width / 2f, cy = height / 2f - dy * 0.3f;
-            rect.set(cx - w / 2, cy - h / 2, cx + w / 2, cy + h / 2);
+            float progress = Math.min(1f, Math.max(0f, dy / (height * 0.82f)));
+            float eased = 1f - (float)Math.pow(1f - progress, 1.15f);
+            rect.set(lerp(0, iconRect.left, eased), lerp(0, iconRect.top, eased),
+                    lerp(width, iconRect.right, eased), lerp(height, iconRect.bottom, eased));
         }
         @Override protected void onDraw(Canvas canvas) {
             if (!active || closed) return;
@@ -582,7 +607,9 @@ public final class GestureReturnController {
             else longestGap=Math.max(longestGap, now-lastDraw);
             lastDraw=now; draws++;
             canvas.drawColor(Color.BLACK);
-            if (home != null && !home.isRecycled()) canvas.drawBitmap(home, null, new RectF(0, 0, width, height), paint);
+            if (home != null && !home.isRecycled()) canvas.drawBitmap(home, null,
+                    new RectF(0, 0, width, height), backdropPaint);
+            canvas.drawColor(0x26000000);
             float fade = Math.max(0, (morph - 0.60f) / 0.40f);
             int save = canvas.save();
             float radius=lerp(44*density, widget ? 20*density : rect.width()*0.25f, morph);
