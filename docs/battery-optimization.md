@@ -36,3 +36,24 @@ path.
 - Build and tool caches are on E: under `E:\NemotronTemp`; 13.1 GB remained
   free after installation. Several failed-build decode trees remain there;
   automatic recursive cleanup was blocked, so they were left untouched.
+
+## BBVA compatibility: make the accessibility guard opt-in — 18 October 2026
+
+The A54 showed Nemotron's `AntiScrollAccessibilityService` enabled globally.
+Although its event filter only accepts Instagram and WhatsApp, BBVA rejected
+access while that service was enabled; the user confirmed BBVA allowed access
+after it was paused. `SecureStore` had hard-coded the anti-addiction guard to
+`true`, and its Settings row was not a switch, so Nemotron re-enabled the
+service on app startup. DNS enforcement was also incorrectly treated as a
+reason to keep Accessibility enabled.
+
+The guard is now a real opt-in switch in Settings and migrates the old forced
+state to off once. DNS monitoring starts from `NemotronApp` independently, so
+it no longer requires the global Accessibility service. The integrated APK
+(Nemotron + HoneyBoard + One UI Home) was rebuilt and installed on the A54.
+Verification showed Nemotron as HOME and the selected IME, Samsung's standalone
+keyboard disabled, and no enabled or bound Nemotron Accessibility service. The
+device was not rebooted. The Instagram/WhatsApp anti-scroll guard remains off
+until explicitly enabled; enabling it may again cause banking apps to refuse
+access. BBVA was not reopened after this install, as the user had already
+confirmed the temporary pause restored access.

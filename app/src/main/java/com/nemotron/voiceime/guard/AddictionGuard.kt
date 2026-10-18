@@ -36,7 +36,7 @@ object AddictionGuard {
     fun isEnabled(ctx: Context): Boolean = SecureStore.isAddictionGuardEnabled(ctx)
 
     fun isServiceNeeded(ctx: Context): Boolean =
-        isEnabled(ctx) || SecureStore.isDnsEnforcerEnabled(ctx)
+        isEnabled(ctx)
 
     /** True si se está reproduciendo un Status (activity StatusPlayback en pantalla). */
     fun isWhatsAppStatus(event: AccessibilityEvent): Boolean =
@@ -63,8 +63,8 @@ object AddictionGuard {
     // ── Activación del servicio de accesibilidad (WRITE_SECURE_SETTINGS) ──
 
     fun applyEnabled(ctx: Context) {
-        setAccessibilityServiceEnabled(ctx, isServiceNeeded(ctx))
-        if (isServiceNeeded(ctx)) {
+        setAccessibilityServiceEnabled(ctx, isEnabled(ctx))
+        if (SecureStore.isDnsEnforcerEnabled(ctx)) {
             DnsEnforcer.startMonitoring(ctx)
         } else {
             DnsEnforcer.stopMonitoring(ctx)

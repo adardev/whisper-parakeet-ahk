@@ -38,9 +38,7 @@ class NemotronApp : com.samsung.android.honeyboard.app.HoneyBoardApplication() {
         instance = this
         com.nemotron.voiceime.dhizuku.AirplaneModeSchedule.scheduleNext(this)
 
-        if (com.nemotron.voiceime.guard.AddictionGuard.isServiceNeeded(this)) {
-            com.nemotron.voiceime.guard.AddictionGuard.applyEnabled(this)
-        }
+        com.nemotron.voiceime.guard.AddictionGuard.applyEnabled(this)
         Shizuku.addBinderReceivedListener(binderListener)
         Shizuku.addBinderDeadListener(binderDeadListener)
         registerDndReceiver()
@@ -60,9 +58,7 @@ class NemotronApp : com.samsung.android.honeyboard.app.HoneyBoardApplication() {
                     AutoFreezeScheduler.start(this)
                     AutoFreezeScheduler.recover(this)
                 }
-                if (com.nemotron.voiceime.guard.AddictionGuard.isServiceNeeded(this)) {
-                    com.nemotron.voiceime.guard.AddictionGuard.applyEnabled(this)
-                }
+                com.nemotron.voiceime.guard.AddictionGuard.applyEnabled(this)
                 CarDetector.refresh(this)
                 AutoAndroidAuto.reconcile(this)
             }
@@ -143,9 +139,7 @@ class NemotronApp : com.samsung.android.honeyboard.app.HoneyBoardApplication() {
                 AutoFreezeScheduler.start(this)
                 AutoFreezeScheduler.recover(this)
             }
-            if (com.nemotron.voiceime.guard.AddictionGuard.isServiceNeeded(this)) {
-                com.nemotron.voiceime.guard.AddictionGuard.applyEnabled(this)
-            }
+            com.nemotron.voiceime.guard.AddictionGuard.applyEnabled(this)
             CarDetector.refresh(this)
             AutoAndroidAuto.reconcile(this)
         }

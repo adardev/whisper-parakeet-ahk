@@ -23,6 +23,7 @@ object SecureStore {
     private const val KEY_DOZE_EXEMPT = "doze_exempt_apps"
     private const val KEY_STOP_ON_UNLOCK = "stop_on_unlock_apps"
     private const val KEY_GUARD_ENABLED = "addiction_guard_enabled"
+    private const val KEY_GUARD_OPT_IN_MIGRATED = "addiction_guard_opt_in_migrated"
     private const val KEY_DNS_ENFORCER_ENABLED = "dns_enforcer_enabled"
     private const val KEY_DNS_HOSTNAME = "dns_hostname"
     private const val KEY_DND_LOCK_ENABLED = "dnd_lock_enabled"
@@ -289,10 +290,28 @@ object SecureStore {
 
     // ── Guard anti-adicción (bloquear Reels / scroll de Inicio / Status) ─
 
-    fun isAddictionGuardEnabled(@Suppress("UNUSED_PARAMETER") ctx: Context): Boolean = true
+    /**
+     * The accessibility guard is opt-in. Older builds forced it on, which
+     * caused banking apps to reject Nemotron even when they received no events.
+     * Migrate that forced-on state to off once; users can re-enable it here.
+     */
+    fun isAddictionGuardEnabled(ctx: Context): Boolean {
+        val prefs = plainPrefs(ctx)
+        if (!prefs.getBoolean(KEY_GUARD_OPT_IN_MIGRATED, false)) {
+            prefs.edit()
+                .putBoolean(KEY_GUARD_ENABLED, false)
+                .putBoolean(KEY_GUARD_OPT_IN_MIGRATED, true)
+                .apply()
+            return false
+        }
+        return prefs.getBoolean(KEY_GUARD_ENABLED, false)
+    }
 
-    fun setAddictionGuardEnabled(ctx: Context, @Suppress("UNUSED_PARAMETER") enabled: Boolean) {
-        plainPrefs(ctx).edit().putBoolean(KEY_GUARD_ENABLED, true).apply()
+    fun setAddictionGuardEnabled(ctx: Context, enabled: Boolean) {
+        plainPrefs(ctx).edit()
+            .putBoolean(KEY_GUARD_ENABLED, enabled)
+            .putBoolean(KEY_GUARD_OPT_IN_MIGRATED, true)
+            .apply()
     }
 
     /** DNS enforcement is mandatory while this app is installed. */

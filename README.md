@@ -10,7 +10,7 @@ Las nuevas instalaciones y reactivaciones no crean iconos automáticamente. Inst
 
 **Animaciones:** se retiró el overlay que imitaba el retorno al icono. La integración conserva el lanzamiento y cierre nativos de One UI; el mapeo de paquetes de los accesos Nemotron ayuda a identificar la app, pero no garantiza que Samsung encuentre el icono de destino al cerrar. Véanse [implementación y resultados](docs/oneui-home-integration.md).
 
-**Batería:** el 18 de octubre se redujeron los eventos y lecturas de interfaz del servicio anti-scroll para evitar escaneo continuo y comandos `dumpsys`/`uiautomator` durante el desplazamiento. La compilación de código fuente pasó; la APK integrada aún requiere reconstrucción e instalación para que el cambio llegue al A54. Véase [el registro de optimización](docs/battery-optimization.md).
+**Batería y compatibilidad bancaria:** el 18 de octubre se redujeron los eventos y lecturas de interfaz del servicio anti-scroll. Tras confirmar que BBVA bloqueaba el acceso con el servicio de Accesibilidad activo, el guard quedó como opción manual apagada por defecto y el monitor DNS se desacopló de Accesibilidad. La APK integrada se reconstruyó e instaló en el A54; Nemotron sigue como Inicio y teclado. Véase [el registro de optimización](docs/battery-optimization.md).
 
 - [Documentación, compilación y estado de pruebas](docs/oneui-home-integration.md)
 - [Limpieza de intermediarios y archivos conservados](docs/oneui-home-cleanup.md)

@@ -7,7 +7,6 @@ import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import com.nemotron.voiceime.dhizuku.ShizukuManager
-import com.nemotron.voiceime.dhizuku.DnsEnforcer
 import java.util.Locale
 
 /**
@@ -42,7 +41,6 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         info.packageNames = arrayOf(AddictionGuard.INSTAGRAM, AddictionGuard.WHATSAPP)
         serviceInfo = info
         refreshInstagramTabFromWindow()
-        DnsEnforcer.startMonitoring(this)
         Log.i(TAG, "onServiceConnected eventTypes=${serviceInfo.eventTypes}")
     }
 
@@ -104,7 +102,6 @@ class AntiScrollAccessibilityService : AccessibilityService() {
     override fun onInterrupt() {}
 
     override fun onDestroy() {
-        DnsEnforcer.stopMonitoring(this)
         super.onDestroy()
     }
 

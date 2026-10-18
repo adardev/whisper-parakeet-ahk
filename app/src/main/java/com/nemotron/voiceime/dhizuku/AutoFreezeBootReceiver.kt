@@ -13,8 +13,6 @@ class AutoFreezeBootReceiver : BroadcastReceiver() {
             Log.d("AutoFreezeBoot", "Auto-freeze enabled, registering receiver")
             AutoFreezeScheduler.start(ctx)
         }
-        if (com.nemotron.voiceime.guard.AddictionGuard.isServiceNeeded(ctx)) {
-            com.nemotron.voiceime.guard.AddictionGuard.applyEnabled(ctx)
-        }
+        com.nemotron.voiceime.guard.AddictionGuard.applyEnabled(ctx)
     }
 }

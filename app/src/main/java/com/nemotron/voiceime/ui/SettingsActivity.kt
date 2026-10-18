@@ -27,9 +27,25 @@ class SettingsActivity : AppCompatActivity() {
     class SettingsFragment : PreferenceFragmentCompat() {
         override fun onCreatePreferences(savedInstanceState: Bundle?, rootKey: String?) {
             setPreferencesFromResource(R.xml.preferences, rootKey)
+            setupAddictionGuardPreference()
             updateStatusSummary()
             setupHealthPrefs()
             setupAodTest()
+        }
+
+        private fun setupAddictionGuardPreference() {
+            val ctx = context ?: return
+            val guard = preferenceScreen.findPreference<androidx.preference.SwitchPreferenceCompat>(
+                "addiction_guard_enabled"
+            ) ?: return
+            guard.isChecked = SecureStore.isAddictionGuardEnabled(ctx)
+            guard.onPreferenceChangeListener =
+                androidx.preference.Preference.OnPreferenceChangeListener { _, value ->
+                    val enabled = value as? Boolean ?: return@OnPreferenceChangeListener false
+                    SecureStore.setAddictionGuardEnabled(ctx, enabled)
+                    com.nemotron.voiceime.guard.AddictionGuard.applyEnabled(ctx)
+                    true
+                }
         }
 
         private fun setupAodTest() {

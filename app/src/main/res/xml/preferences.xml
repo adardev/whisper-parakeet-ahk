@@ -16,10 +16,11 @@
     </PreferenceCategory>
 
     <PreferenceCategory app:title="Anti-addiction">
-        <Preference
+        <SwitchPreferenceCompat
             app:key="addiction_guard_enabled"
             app:title="@string/guard_title"
-            app:summary="@string/guard_summary" />
+            app:summary="@string/guard_summary"
+            app:defaultValue="false" />
         <Preference
             app:key="dnd_lock_enabled"
             app:title="@string/dnd_lock_title"
