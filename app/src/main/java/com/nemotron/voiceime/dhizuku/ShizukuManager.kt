@@ -165,14 +165,22 @@ object ShizukuManager {
                 }
                 val sb = StringBuilder()
                 val deadline = System.currentTimeMillis() + 5000L
+                var completed = false
                 while (System.currentTimeMillis() < deadline) {
                     if (!out.ready()) {
                         Thread.sleep(10)
                         continue
                     }
                     val line = out.readLine() ?: break
-                    if (line.contains(marker)) break
+                    if (line.contains(marker)) {
+                        completed = true
+                        break
+                    }
                     sb.appendLine(line)
+                }
+                if (!completed) {
+                    Log.w(TAG, "capture timed out before completion: $cmd")
+                    return null
                 }
                 return sb.toString().trim()
             } catch (t: Throwable) {
@@ -285,9 +293,17 @@ object ShizukuManager {
     }
 
     fun isAppHidden(packageName: String): Boolean {
-        if (!hasPermission()) return false
-        val out = execShellCapture("pm list packages -d") ?: return false
-        return out.contains(packageName)
+        return getDisabledPackages()?.contains(packageName) ?: false
+    }
+
+    /** Returns disabled package names, or null when Shizuku/query is unavailable. */
+    fun getDisabledPackages(): Set<String>? {
+        if (!hasPermission()) return null
+        val out = execShellCapture("pm list packages -d") ?: return null
+        return out.lineSequence()
+            .map { it.trim() }
+            .filter { it.startsWith("package:") }
+            .mapTo(mutableSetOf()) { it.removePrefix("package:") }
     }
 
     /** Returns which of [packages] are still in disabled state (freeze persists). */

@@ -14,7 +14,6 @@ import android.widget.Toast
  * Detecta qué tile fue presionado y abre la app correspondiente.
  */
 class TilePreferencesActivity : Activity() {
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -32,7 +31,7 @@ class TilePreferencesActivity : Activity() {
                 "com.nemotron.voiceime.dhizuku.AndroidAutoTileService" ->
                     listOf("com.google.android.projection.gearhead" to null)
                 "com.nemotron.voiceime.dhizuku.TelegramTileService" -> {
-                    runTermuxOrcaCommand()
+                    startActivity(Intent(this, OrcaCommandActivity::class.java))
                     emptyList()
                 }
                 "com.nemotron.voiceime.dhizuku.GmsTileService" ->
@@ -90,28 +89,7 @@ class TilePreferencesActivity : Activity() {
             }
         }
 
-        // Delay para que dé tiempo a abrir la app antes de cerrar
-        Handler(Looper.getMainLooper()).postDelayed({ finish() }, 500)
-    }
-
-    private fun runTermuxOrcaCommand() {
-        try {
-            val intent = Intent("com.termux.RUN_COMMAND").apply {
-                component = ComponentName("com.termux", "com.termux.app.RunCommandService")
-                putExtra("com.termux.RUN_COMMAND_PATH", "/data/data/com.termux/files/usr/bin/bash")
-                putExtra(
-                    "com.termux.RUN_COMMAND_ARGUMENTS",
-                    arrayOf("-lc", "exec ssh -J serveo.net adaredu@adardev-orca-20260928-2")
-                )
-                putExtra("com.termux.RUN_COMMAND_WORKDIR", "/data/data/com.termux/files/home")
-                putExtra("com.termux.RUN_COMMAND_BACKGROUND", false)
-                putExtra("com.termux.RUN_COMMAND_SESSION_ACTION", "0")
-            }
-            startService(intent)
-        } catch (error: Throwable) {
-            Log.e(TAG, "No se pudo ejecutar Orca en Termux", error)
-            Toast.makeText(this, "Activa el permiso de Termux para Nemotron", Toast.LENGTH_LONG).show()
-        }
+        Handler(Looper.getMainLooper()).postDelayed({ finish() }, 500L)
     }
 
     companion object {

@@ -11,10 +11,10 @@ import android.content.IntentFilter
 import android.net.Uri
 import android.os.Build
 import android.util.Log
+import java.util.concurrent.atomic.AtomicBoolean
 import androidx.core.app.NotificationCompat
 import com.nemotron.voiceime.data.SecureStore
 import com.nemotron.voiceime.dhizuku.AutoAndroidAuto
-import com.nemotron.voiceime.dhizuku.CarConnectionReceiver
 import com.nemotron.voiceime.dhizuku.CarDetector
 import com.nemotron.voiceime.dhizuku.NightAirplaneScreenReceiver
 import com.nemotron.voiceime.dhizuku.ShizukuManager
@@ -27,10 +27,9 @@ class NemotronApp : com.samsung.android.honeyboard.app.HoneyBoardApplication() {
 
     private val dndReceiver = DndLockReceiver()
     private var dndRegistered = false
-    private val carReceiver = CarConnectionReceiver()
-    private var carReceiverRegistered = false
     private val nightAirplaneScreenReceiver = NightAirplaneScreenReceiver()
     private var nightAirplaneScreenReceiverRegistered = false
+    private val shizukuFeaturesInitialized = AtomicBoolean(false)
 
     override fun onCreate() {
         super.onCreate()
@@ -42,7 +41,6 @@ class NemotronApp : com.samsung.android.honeyboard.app.HoneyBoardApplication() {
         Shizuku.addBinderReceivedListener(binderListener)
         Shizuku.addBinderDeadListener(binderDeadListener)
         registerDndReceiver()
-        registerCarReceiver()
         registerNightAirplaneScreenReceiver()
         CarDetector.refresh(this)
         com.nemotron.voiceime.guard.DndKeepAliveService.update(this)
@@ -51,17 +49,10 @@ class NemotronApp : com.samsung.android.honeyboard.app.HoneyBoardApplication() {
         // no se dispara. Comprobar pasado un momento para no perder la
         // inicialización (auto-freeze, guard, detección de coche).
         android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-            if (ShizukuManager.hasPermission()) {
-                com.nemotron.voiceime.dhizuku.AirplaneModeSchedule.scheduleNext(this)
-                NightAirplaneScreenReceiver().onShizukuAvailable(this)
-                if (SecureStore.isAutoFreezeEnabled(this)) {
-                    AutoFreezeScheduler.start(this)
-                    AutoFreezeScheduler.recover(this)
-                }
-                com.nemotron.voiceime.guard.AddictionGuard.applyEnabled(this)
-                CarDetector.refresh(this)
-                AutoAndroidAuto.reconcile(this)
-            }
+            // BinderReceived normally performs this setup. Keep the delayed
+            // fallback for Shizuku versions that are already bound at startup,
+            // but let an atomic gate ensure it cannot repeat the same work.
+            initializeShizukuFeatures()
         }, 2500L)
     }
 
@@ -81,31 +72,6 @@ class NemotronApp : com.samsung.android.honeyboard.app.HoneyBoardApplication() {
             Log.d("NemotronApp", "DndLockReceiver registrado dinámicamente")
         } catch (t: Throwable) {
             Log.w("NemotronApp", "No se pudo registrar DndLockReceiver", t)
-        }
-    }
-
-    /**
-     * Registra el broadcast de conexión del coche (accesorio USB Android Open
-     * Accessory) mientras el proceso vive. También está declarado en el manifest
-     * para que funcione aunque el proceso esté muerto. No se usa Bluetooth A2DP
-     * como señal de "coche": los auriculares lo dispararían en falso.
-     */
-    private fun registerCarReceiver() {
-        if (carReceiverRegistered) return
-        try {
-            val filter = IntentFilter().apply {
-                addAction(android.hardware.usb.UsbManager.ACTION_USB_ACCESSORY_ATTACHED)
-                addAction(android.hardware.usb.UsbManager.ACTION_USB_ACCESSORY_DETACHED)
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                registerReceiver(carReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-            } else {
-                registerReceiver(carReceiver, filter)
-            }
-            carReceiverRegistered = true
-            Log.d("NemotronApp", "CarConnectionReceiver registrado")
-        } catch (t: Throwable) {
-            Log.w("NemotronApp", "No se pudo registrar CarConnectionReceiver", t)
         }
     }
 
@@ -133,7 +99,14 @@ class NemotronApp : com.samsung.android.honeyboard.app.HoneyBoardApplication() {
         Log.d("NemotronApp", "Shizuku binder received")
         registerDndReceiver()
         shizukuDeadNotified = false
-        if (Shizuku.checkSelfPermission() == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+        initializeShizukuFeatures()
+    }
+
+    private fun initializeShizukuFeatures() {
+        if (!ShizukuManager.hasPermission()) return
+        if (!shizukuFeaturesInitialized.compareAndSet(false, true)) return
+        try {
+            com.nemotron.voiceime.dhizuku.AirplaneModeSchedule.scheduleNext(this)
             NightAirplaneScreenReceiver().onShizukuAvailable(this)
             if (SecureStore.isAutoFreezeEnabled(this)) {
                 AutoFreezeScheduler.start(this)
@@ -142,6 +115,9 @@ class NemotronApp : com.samsung.android.honeyboard.app.HoneyBoardApplication() {
             com.nemotron.voiceime.guard.AddictionGuard.applyEnabled(this)
             CarDetector.refresh(this)
             AutoAndroidAuto.reconcile(this)
+        } catch (t: Throwable) {
+            shizukuFeaturesInitialized.set(false)
+            Log.e("NemotronApp", "Shizuku feature initialization failed", t)
         }
     }
 
@@ -152,6 +128,9 @@ class NemotronApp : com.samsung.android.honeyboard.app.HoneyBoardApplication() {
         // execShellCapture reutilizaría un proceso muerto y bloquearía hasta el
         // timeout, congelando el main thread de la app.
         ShizukuManager.onBinderDead()
+        // A new binder connection is a new initialization cycle. The listener
+        // and delayed fallback are then allowed to race safely again.
+        shizukuFeaturesInitialized.set(false)
         // No se desregistra el receiver de auto-freeze: hace falta para seguir
         // recibiendo SCREEN_ON y que el loop de reintentos descongele las apps
         // en cuanto Shizuku vuelva (en One UI 8 Shizuku muere al bloquear pantalla).

@@ -22,6 +22,9 @@ abstract class AppFreezeTileService : TileService() {
 
     open val targetPackages: List<String> get() = listOf(targetPackage)
 
+    /** Algunos tiles son acciones (p. ej. conectar), no toggles de congelación. */
+    open val alwaysUnfreezeOnClick: Boolean get() = false
+
     private val handler = Handler(Looper.getMainLooper())
     private val clickInProgress = AtomicBoolean(false)
 
@@ -53,9 +56,13 @@ abstract class AppFreezeTileService : TileService() {
                 val disabled = ShizukuManager.stillDisabled(targetPackages)
                 Log.d(TAG, "Currently frozen: $disabled")
                 val anyFrozen = disabled.isNotEmpty()
-                if (anyFrozen) {
-                    for (pkg in targetPackages) ShizukuManager.unhideApp(pkg)
-                    onAfterUnfreeze()
+                if (anyFrozen || alwaysUnfreezeOnClick) {
+                    val allEnabled = targetPackages.all { pkg -> ShizukuManager.unhideApp(pkg) }
+                    if (allEnabled) {
+                        onAfterUnfreeze()
+                    } else {
+                        Log.w(TAG, "$tileLabel: no se ejecutan acciones posteriores porque no se confirmó la activación de todos los paquetes")
+                    }
                 } else {
                     // Sincronizar antes de congelar el proveedor que necesita el
                     // hook (p. ej. Samsung Health).

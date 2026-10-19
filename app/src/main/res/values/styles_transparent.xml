@@ -9,4 +9,5 @@
         <item name="android:colorAccent">@color/adarbot_accent</item>
         <item name="android:colorControlActivated">@color/adarbot_accent</item>
     </style>
+
 </resources>

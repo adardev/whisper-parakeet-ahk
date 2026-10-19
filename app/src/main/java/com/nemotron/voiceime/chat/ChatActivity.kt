@@ -100,21 +100,6 @@ class ChatActivity : Activity() {
     }
     // Estado estable: alternar frases parecía un error de conexión.
     private val thinkingLabels = listOf("adarbot is thinking…")
-    private val thinkingHandler = Handler(Looper.getMainLooper())
-    private var thinkingIndex = -1
-    private var thinkingStep = 0
-    private val thinkingRunnable = object : Runnable {
-        override fun run() {
-            if (thinkingIndex !in messages.indices) return
-            messages[thinkingIndex] = messages[thinkingIndex].copy(
-                content = thinkingLabels[thinkingStep % thinkingLabels.size]
-            )
-            adapter.notifyItemChanged(thinkingIndex)
-            recycler.scrollToPosition(thinkingIndex)
-            thinkingStep++
-            thinkingHandler.postDelayed(this, 700L)
-        }
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -329,7 +314,6 @@ class ChatActivity : Activity() {
     override fun onDestroy() {
         super.onDestroy()
         remoteRefreshHandler.removeCallbacks(remoteRefreshLoop)
-        thinkingHandler.removeCallbacks(thinkingRunnable)
         try {
             speech?.destroy()
             textToSpeech?.stop()
@@ -467,10 +451,6 @@ class ChatActivity : Activity() {
         val bubbleIndex = messages.size - 1
         messages[bubbleIndex] = messages[bubbleIndex].copy(model = models[modelIndex])
         adapter.notifyItemChanged(bubbleIndex)
-        thinkingIndex = bubbleIndex
-        thinkingStep = 1
-        thinkingHandler.removeCallbacks(thinkingRunnable)
-        thinkingHandler.postDelayed(thinkingRunnable, 700L)
         recycler.scrollToPosition(messages.size - 1)
         micBtn.isEnabled = false
         val imageData = pendingImageData
@@ -505,7 +485,6 @@ class ChatActivity : Activity() {
             },
             onToken = { token ->
                 runOnUiThread {
-                    stopThinking()
                     if (bubbleIndex < messages.size) {
                         val current = messages[bubbleIndex].content
                         val prefix = if (current in thinkingLabels) "" else current
@@ -517,7 +496,6 @@ class ChatActivity : Activity() {
             },
             onComplete = { full ->
                 runOnUiThread {
-                    stopThinking()
                     if (bubbleIndex < messages.size) {
                         messages[bubbleIndex] = messages[bubbleIndex].copy(content = full, model = models[modelIndex])
                         adapter.notifyItemChanged(bubbleIndex)
@@ -540,7 +518,6 @@ class ChatActivity : Activity() {
             },
             onError = { err ->
                 runOnUiThread {
-                    stopThinking()
                     if (bubbleIndex < messages.size) {
                         messages[bubbleIndex] = messages[bubbleIndex].copy(content = "Error: ${err.message ?: "no connection to server"}")
                         adapter.notifyItemChanged(bubbleIndex)
@@ -551,11 +528,6 @@ class ChatActivity : Activity() {
                 }
             }
         )
-    }
-
-    private fun stopThinking() {
-        thinkingHandler.removeCallbacks(thinkingRunnable)
-        thinkingIndex = -1
     }
 
     private fun setSendingUi(active: Boolean) {

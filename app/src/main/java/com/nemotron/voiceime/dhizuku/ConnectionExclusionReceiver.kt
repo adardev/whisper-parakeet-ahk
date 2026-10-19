@@ -47,7 +47,10 @@ object ConnectionExclusionManager {
         }.also { r ->
             val filter = IntentFilter().apply {
                 addAction(android.net.wifi.WifiManager.WIFI_STATE_CHANGED_ACTION)
-                addAction(android.net.ConnectivityManager.CONNECTIVITY_ACTION)
+                // Network connectivity broadcasts can fire repeatedly while a
+                // network is validating. Radio state and the mobile_data
+                // observer below are the signals this policy actually needs.
+                addAction(Intent.ACTION_AIRPLANE_MODE_CHANGED)
             }
             if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
                 appCtx.registerReceiver(r, filter, android.content.Context.RECEIVER_EXPORTED)

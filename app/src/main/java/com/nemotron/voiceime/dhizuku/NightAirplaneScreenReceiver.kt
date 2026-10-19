@@ -75,7 +75,13 @@ class NightAirplaneScreenReceiver : BroadcastReceiver() {
             preferences(context).edit().putBoolean(KEY_PENDING, false).apply()
             return
         }
-        if (intent.action != Intent.ACTION_SCREEN_OFF || !(isNightWindow() || SleepModeController.isEnabled(context))) return
+        if (intent.action != Intent.ACTION_SCREEN_OFF) return
+        if (SleepModeController.isManualDisableSuppressed(context)) {
+            preferences(context).edit().putBoolean(KEY_PENDING, false).apply()
+            Log.i(TAG, "pantalla apagada: se respeta la desactivación manual de Sleep Mode hasta las 23:00")
+            return
+        }
+        if (!(isNightWindow() || SleepModeController.isEnabled(context))) return
         if (hasWokenUpToday(context)) {
             preferences(context).edit().putBoolean(KEY_PENDING, false).apply()
             Log.d(TAG, "despertar matutino ya detectado; se respeta el modo avión apagado")
@@ -99,7 +105,7 @@ class NightAirplaneScreenReceiver : BroadcastReceiver() {
     private fun applyPending(context: Context, screenMustRemainOff: Boolean) {
         val prefs = preferences(context)
         if (!prefs.getBoolean(KEY_PENDING, false)) return
-        if (!(isNightWindow() || SleepModeController.isEnabled(context))) {
+        if (SleepModeController.isManualDisableSuppressed(context) || !(isNightWindow() || SleepModeController.isEnabled(context))) {
             prefs.edit().putBoolean(KEY_PENDING, false).apply()
             return
         }

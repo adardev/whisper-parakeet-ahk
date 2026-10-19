@@ -114,6 +114,12 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".dhizuku.OrcaCommandActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:theme="@style/Theme.NemotronVoiceIME" />
+
         <service
             android:name=".guard.DndKeepAliveService"
             android:exported="false"
