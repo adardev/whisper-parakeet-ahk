@@ -1,5 +1,5 @@
 param(
-    [string] $OutputDirectory = 'D:\NemotronSplit',
+    [string] $OutputDirectory = "$env:USERPROFILE\NemotronBuild\SplitOutput",
     [string] $HoneyBoardApk = "$env:USERPROFILE\NemotronBuild\HoneyBoard-5.9.30.88.apk",
     [string] $UiInputApk = "$env:USERPROFILE\NemotronBuild\Nemotron-Manual-Apps-v15.apk",
     [string] $ApktoolJar = "$env:USERPROFILE\NemotronBuild\apktool_2.12.1.jar",
@@ -14,7 +14,8 @@ Set-StrictMode -Version Latest
 $repo = Split-Path -Parent $PSScriptRoot
 $outputDirectory = [IO.Path]::GetFullPath($OutputDirectory)
 $driveName = [IO.Path]::GetPathRoot($outputDirectory).TrimEnd('\').TrimEnd(':')
-$coreInputApk = Join-Path $outputDirectory 'Nemotron-Split-Core-Current.apk'
+$coreInputApk = Join-Path $outputDirectory 'Nemotron-Core-Integrated.apk'
+$uiRollbackApk = Join-Path $outputDirectory 'Nemotron-UI-Rollback.apk'
 $uiOutputApk = Join-Path $outputDirectory 'Nemotron-UI.apk'
 $coreOutputApk = Join-Path $outputDirectory 'Nemotron-Core.apk'
 $keyboardOutputApk = Join-Path $outputDirectory 'Nemotron-Keyboard.apk'
@@ -52,6 +53,10 @@ try {
     $appApk = Join-Path $repo 'app\build\outputs\apk\debug\app-debug.apk'
     if (-not (Test-Path -LiteralPath $appApk -PathType Leaf)) { throw "Gradle APK not found: $appApk" }
 
+    # Rollback must restore the complete existing launcher package and its
+    # keyboard providers. The app module build is Nemotron Core, not Home UI.
+    Copy-Item -LiteralPath $UiInputApk -Destination $uiRollbackApk
+
     & (Join-Path $PSScriptRoot 'merge-honeyboard.ps1') `
         -HoneyBoardApk $HoneyBoardApk `
         -NemotronApk $appApk `
@@ -75,7 +80,8 @@ try {
     Write-Host "Core: $coreOutputApk"
     Write-Host "Keyboard: $keyboardOutputApk"
     Write-Host "UI:   $uiOutputApk"
-    Write-Host "Integrated rollback APK retained: $coreInputApk"
+    Write-Host "Core integration input retained: $coreInputApk"
+    Write-Host "Full UI rollback APK retained: $uiRollbackApk"
 } finally {
     Pop-Location
 }
