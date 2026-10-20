@@ -102,6 +102,10 @@ try {
     Invoke-Device @('install', '--no-incremental', '-r', $KeyboardApk) | Out-Host
     $keyboardInstalled = $true
 
+    # HoneyBoard reads/writes Samsung secure keyboard settings during startup.
+    # This permission was granted to the old integrated package; grant it to
+    # the new IME UID before the system starts the service.
+    Invoke-Device @('shell', 'pm', 'grant', $keyboardPackage, 'android.permission.WRITE_SECURE_SETTINGS') | Out-Host
     Invoke-Device @('shell', 'ime', 'enable', $keyboardIme) | Out-Host
     Invoke-Device @('shell', 'ime', 'set', $keyboardIme) | Out-Host
     Invoke-Device @('shell', 'cmd', 'package', 'set-home-activity', '--user', '0', $homeActivity) | Out-Host

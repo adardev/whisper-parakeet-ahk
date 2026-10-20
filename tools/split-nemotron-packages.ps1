@@ -186,6 +186,21 @@ function Assert-UniqueProviderAuthorities([string] $DecodedRoot, [string] $Expec
     return @($seen.Keys)
 }
 
+function Restore-LauncherRoutineProviderAuthority([string] $DecodedRoot) {
+    # One UI Home queries this stable Nemotron authority from its launcher
+    # process. Keep the provider owned by Core, but preserve the URI consumed
+    # by the UI package after the split.
+    $manifestPath = Join-Path $DecodedRoot 'AndroidManifest.xml'
+    [xml] $manifest = Get-Content -LiteralPath $manifestPath -Raw
+    foreach ($provider in $manifest.SelectNodes('//application/provider')) {
+        if ($provider.GetAttribute('name', $androidNs) -eq
+            'com.samsung.android.sdk.routines.v3.internal.RoutineSdkContentProvider') {
+            $provider.SetAttribute('authorities', $androidNs, "$oldPackage.provider.routines.v3")
+        }
+    }
+    $manifest.Save($manifestPath)
+}
+
 function Assert-NoCrossPackageAuthorityDuplicates([hashtable] $AuthoritySets) {
     $owners = [Collections.Generic.Dictionary[string,string]]::new([StringComparer]::OrdinalIgnoreCase)
     foreach ($package in $AuthoritySets.Keys) {
@@ -269,6 +284,7 @@ try {
     $application.SetAttribute('label', $androidNs, 'Nemotron')
     $coreManifest.Save((Join-Path $coreTree 'AndroidManifest.xml'))
     Rewrite-PackageReferences $coreTree $corePackage
+    Restore-LauncherRoutineProviderAuthority $coreTree
     Set-CoreApplicationBase $coreTree
     $coreAuthorities = Assert-UniqueProviderAuthorities $coreTree $corePackage
     Assert-CorePermissionReferences $coreTree
