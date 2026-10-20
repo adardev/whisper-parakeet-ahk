@@ -66,9 +66,17 @@ $OutputDirectory = [IO.Path]::GetFullPath($OutputDirectory)
 if (-not (Test-Path -LiteralPath $OutputDirectory -PathType Container)) {
     New-Item -ItemType Directory -Path $OutputDirectory | Out-Null
 }
-$coreOutput = Join-Path $OutputDirectory 'Nemotron-Core.apk'
-$keyboardOutput = Join-Path $OutputDirectory 'Nemotron-Keyboard.apk'
-$uiOutput = Join-Path $OutputDirectory 'Nemotron-UI.apk'
+$coreOutputDirectory = Join-Path $OutputDirectory 'Nemotron'
+$keyboardOutputDirectory = Join-Path $OutputDirectory 'Nemotron-Keyboard'
+$uiOutputDirectory = Join-Path $OutputDirectory 'Nemotron-UI'
+foreach ($directory in @($coreOutputDirectory, $keyboardOutputDirectory, $uiOutputDirectory)) {
+    if (-not (Test-Path -LiteralPath $directory -PathType Container)) {
+        New-Item -ItemType Directory -Path $directory | Out-Null
+    }
+}
+$coreOutput = Join-Path $coreOutputDirectory 'Nemotron-Core.apk'
+$keyboardOutput = Join-Path $keyboardOutputDirectory 'Nemotron-Keyboard.apk'
+$uiOutput = Join-Path $uiOutputDirectory 'Nemotron-UI.apk'
 foreach ($file in @($coreOutput, $keyboardOutput, $uiOutput)) {
     if (Test-Path -LiteralPath $file) { throw "Output already exists; move it first: $file" }
 }

@@ -66,11 +66,15 @@ $repo = 'C:\Users\adaredu\whisper-parakeet-ahk-recovered'
 
 The output directory contains:
 
-- `Nemotron-Core.apk`
-- `Nemotron-Keyboard.apk`
-- `Nemotron-UI.apk`
+- `Nemotron\Nemotron-Core.apk`
+- `Nemotron-Keyboard\Nemotron-Keyboard.apk`
+- `Nemotron-UI\Nemotron-UI.apk`
 - `Nemotron-UI-Rollback.apk` (original full launcher APK)
 - `Nemotron-Core-Integrated.apk` (intermediate used to produce Core/Keyboard)
+
+The published APK snapshots are kept in separate repository folders under
+`apps/nemotron/`, `apps/nemotron-keyboard/`, and `apps/nemotron-ui/`. Git LFS
+stores those large binaries; ordinary Git history contains only their pointers.
 
 ## Install
 
@@ -84,9 +88,9 @@ $repo = 'C:\Users\adaredu\whisper-parakeet-ahk-recovered'
 $out = 'C:\Users\adaredu\NemotronBuild\SplitOutput'
 $adb = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
 & "$repo\tools\install-nemotron-split.ps1" `
-  -CoreApk "$out\Nemotron-Core.apk" `
-  -KeyboardApk "$out\Nemotron-Keyboard.apk" `
-  -UiApk "$out\Nemotron-UI.apk" `
+  -CoreApk "$out\Nemotron\Nemotron-Core.apk" `
+  -KeyboardApk "$out\Nemotron-Keyboard\Nemotron-Keyboard.apk" `
+  -UiApk "$out\Nemotron-UI\Nemotron-UI.apk" `
   -RollbackApk "$out\Nemotron-UI-Rollback.apk" `
   -Adb $adb `
   -Serial 'RZCWB0BHEQX'

@@ -16,9 +16,9 @@ $outputDirectory = [IO.Path]::GetFullPath($OutputDirectory)
 $driveName = [IO.Path]::GetPathRoot($outputDirectory).TrimEnd('\').TrimEnd(':')
 $coreInputApk = Join-Path $outputDirectory 'Nemotron-Core-Integrated.apk'
 $uiRollbackApk = Join-Path $outputDirectory 'Nemotron-UI-Rollback.apk'
-$uiOutputApk = Join-Path $outputDirectory 'Nemotron-UI.apk'
-$coreOutputApk = Join-Path $outputDirectory 'Nemotron-Core.apk'
-$keyboardOutputApk = Join-Path $outputDirectory 'Nemotron-Keyboard.apk'
+$uiOutputApk = Join-Path $outputDirectory 'Nemotron-UI\Nemotron-UI.apk'
+$coreOutputApk = Join-Path $outputDirectory 'Nemotron\Nemotron-Core.apk'
+$keyboardOutputApk = Join-Path $outputDirectory 'Nemotron-Keyboard\Nemotron-Keyboard.apk'
 $debugKeystore = Join-Path $env:USERPROFILE '.android\debug.keystore'
 $required = @($HoneyBoardApk, $UiInputApk, $ApktoolJar, $JavaExe, $debugKeystore)
 foreach ($path in $required) {
