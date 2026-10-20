@@ -9,5 +9,5 @@ DROP TRIGGER IF EXISTS nemotron_no_social_icons;
 CREATE TABLE IF NOT EXISTS nemotron_native_allowlist (id INTEGER PRIMARY KEY, component TEXT);
 INSERT OR IGNORE INTO nemotron_native_allowlist SELECT id,component FROM item WHERE type='app' AND NOT (component LIKE 'com.instagram.android/%' OR component LIKE 'com.whatsapp/%' OR component LIKE 'com.sec.android.app.shealth/%') AND NOT EXISTS (SELECT 1 FROM nemotron_native_allowlist WHERE id=-2147483648);
 INSERT OR IGNORE INTO nemotron_native_allowlist VALUES (-2147483648,'initialized');
--- Do not delete pinned shortcuts here. WorkspaceViewModel blocks automatic
--- AppItem additions while preserving shortcuts the user explicitly pins.
+-- Keep automatically discovered AppItems hidden, while preserving shortcuts the user explicitly pins.
+DELETE FROM item WHERE type='app' AND (component LIKE 'com.sec.android.app.shealth/%' OR intent LIKE '%com.sec.android.app.shealth%' OR component LIKE 'com.whatsapp/%' OR intent LIKE '%com.whatsapp%');

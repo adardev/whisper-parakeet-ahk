@@ -54,13 +54,24 @@ if (-not $manual) {
 }
 Edit-Class 'ShortcutPickerActivity.smali' {
     param($text)
-    if (-not $text.Contains('Lcom/nemotron/oneui/compat/InstalledApps;->load')) {
-        $text = $text.Replace('invoke-super {p0, p1}, Landroidx/appcompat/app/AppCompatActivity;->onCreate(Landroid/os/Bundle;)V', @'
-invoke-super {p0, p1}, Landroidx/appcompat/app/AppCompatActivity;->onCreate(Landroid/os/Bundle;)V
+    $obsoleteLoad = @'
     invoke-static {p0}, Lcom/nemotron/oneui/compat/InstalledApps;->load(Landroid/content/Context;)Ljava/util/List;
     move-result-object v0
     iput-object v0, p0, Lcom/nemotron/voiceime/ui/ShortcutPickerActivity;->apps:Ljava/util/List;
-'@)
+'@
+    $text = $text.Replace($obsoleteLoad.Trim(), '')
+    # Kotlin's original onCreate rebuilds the list after super.onCreate. Replace
+    # that final assignment so the filtered native list cannot overwrite ours.
+    if (-not $text.Contains('# nemotron_manual_picker_list')) {
+        $assignment = '    iput-object v2, p0, Lcom/nemotron/voiceime/ui/ShortcutPickerActivity;->apps:Ljava/util/List;'
+        if (-not $text.Contains($assignment)) { throw 'ShortcutPickerActivity app-list assignment was not found.' }
+        $replacement = @'
+    # nemotron_manual_picker_list
+    invoke-static {p0}, Lcom/nemotron/oneui/compat/InstalledApps;->load(Landroid/content/Context;)Ljava/util/List;
+    move-result-object v2
+    iput-object v2, p0, Lcom/nemotron/voiceime/ui/ShortcutPickerActivity;->apps:Ljava/util/List;
+'@
+        $text = $text.Replace($assignment, $replacement.TrimEnd())
     }
     $text = [regex]::Replace($text, '(?ms)^\.method private final requestShortcut\(Lcom/nemotron/voiceime/ui/ShortcutPickerActivity\$AppInfo;\)V.*?^\.end method', @'
 .method private final requestShortcut(Lcom/nemotron/voiceime/ui/ShortcutPickerActivity$AppInfo;)V
@@ -166,6 +177,28 @@ if (-not $settingsCode.Contains(':nemotron_native_setting')) {
 '@)
     [IO.File]::WriteAllText($settingsFragment.FullName, $settingsCode, [Text.UTF8Encoding]::new($false))
 }
+# RxJava's default purge executor wakes every second to scan every scheduled
+# executor in the integrated One UI process. Keep the cleanup, but run it once
+# per minute; cancelled delayed tasks remain bounded for at most 60 seconds.
+$rxPurge = Get-ChildItem -LiteralPath $DecodedRoot -Recurse -File -Filter '*.smali' |
+    Where-Object {
+        $code = [IO.File]::ReadAllText($_.FullName)
+        $code.Contains('rx2.purge-period-seconds') -and $code.Contains('Lrv0/k$a;->b:I')
+    } | Select-Object -First 1
+if (-not $rxPurge) { throw 'RxJava scheduler purge configuration was not found in One UI Home.' }
+$rxCode = [IO.File]::ReadAllText($rxPurge.FullName)
+if (-not $rxCode.Contains('nemotron_rx_purge_60s')) {
+    $rxPattern = '(?m)(^\s*:cond_1\s*\r?\n)(\s*)(iput v2, p0, Lrv0/k\$a;->b:I)'
+    $matches = [regex]::Matches($rxCode, $rxPattern)
+    if ($matches.Count -ne 1) { throw 'RxJava purge default layout changed; refusing to patch it.' }
+    $rxCode = [regex]::Replace($rxCode, $rxPattern, {
+        param($match)
+        $newline = if ($match.Value.Contains("`r`n")) { "`r`n" } else { "`n" }
+        $match.Groups[1].Value + $match.Groups[2].Value + 'const/16 v2, 0x3c' + $newline +
+            $match.Groups[2].Value + $match.Groups[3].Value + ' # nemotron_rx_purge_60s'
+    }, 1)
+    [IO.File]::WriteAllText($rxPurge.FullName, $rxCode, [Text.UTF8Encoding]::new($false))
+}
 $delegate = Get-ChildItem -LiteralPath $DecodedRoot -Recurse -File -Filter '*.smali' | Where-Object { $_.Name -eq 'B.smali' } | Where-Object { [IO.File]::ReadAllText($_.FullName).Contains('.field public final synthetic a:Lcom/honeyspace/data/db/SpaceDB_Impl;') } | Select-Object -First 1
 if (-not $delegate) { throw 'SpaceDB Room delegate missing' }
 $delegateCode = [IO.File]::ReadAllText($delegate.FullName)
@@ -174,6 +207,8 @@ if (-not $delegateCode.Contains('Lcom/nemotron/oneui/compat/HomeOnlyPolicy;->app
     [IO.File]::WriteAllText($delegate.FullName, $delegateCode, [Text.UTF8Encoding]::new($false))
 }
 $compat = Get-ChildItem -LiteralPath $DecodedRoot -Recurse -File -Filter 'LauncherCompat.smali' | Select-Object -First 1
+if (-not $compat) { throw 'Launcher compatibility classes missing' }
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'oneui-compat/InstalledApps.smali') -Destination (Join-Path $compat.DirectoryName 'InstalledApps.smali') -Force
 $policy = @'
 .class public final Lcom/nemotron/oneui/compat/HomeOnlyPolicy;
 .super Ljava/lang/Object;
@@ -199,8 +234,21 @@ $policy = @'
     if-eqz v3, :done
     :apply_policy
 '@
-foreach ($sql in Get-Content -LiteralPath (Join-Path $PSScriptRoot 'oneui-compat/home-only-policy.sql')) {
-    if (-not $sql.Trim() -or $sql.TrimStart().StartsWith('--')) { continue }
+ $sqlBuffer = [System.Text.StringBuilder]::new()
+ $sqlStatements = [System.Collections.Generic.List[string]]::new()
+foreach ($line in Get-Content -LiteralPath (Join-Path $PSScriptRoot 'oneui-compat/home-only-policy.sql')) {
+    $line = $line.Trim()
+    if (-not $line -or $line.StartsWith('--')) { continue }
+    [void]$sqlBuffer.Append($line).Append(' ')
+    while (($sqlText = $sqlBuffer.ToString()).Contains(';')) {
+        $end = $sqlText.IndexOf(';')
+        $sqlStatements.Add($sqlText.Substring(0, $end + 1).Trim())
+        [void]$sqlBuffer.Clear()
+        [void]$sqlBuffer.Append($sqlText.Substring($end + 1))
+    }
+}
+if ($sqlBuffer.ToString().Trim()) { throw 'Home-only policy SQL contains an unterminated statement.' }
+foreach ($sql in $sqlStatements) {
     $escaped = $sql.Replace('\','\\').Replace('"','\"')
     $policy += "`n    const-string v0, `"$escaped`"`n    invoke-static {p0, v0}, Lcom/nemotron/oneui/shaded/androidx/sqlite/SQLite;->execSQL(Lcom/nemotron/oneui/shaded/androidx/sqlite/SQLiteConnection;Ljava/lang/String;)V`n"
 }
@@ -217,14 +265,14 @@ Edit-Class 'WorkspaceViewModel.smali' {
         $method = $m.Value
         # Keep automatically discovered apps off Home, but allow an AppItem
         # explicitly chosen in Nemotron's app selector to use One UI's model.
-        if (-not $method.Contains(':nemotron_explicit_item')) {
+        if (-not $method.Contains(':nemotron_manual_item_v2')) {
         $method = [regex]::Replace($method, '(?m)(^\s*\.locals \d+\r?\n)', '$1' + @'
 
     move-object/from16 v0, p1
     invoke-virtual {v0}, Lcom/nemotron/oneui/shaded/y8/d0;->getItem()Lcom/honeyspace/sdk/source/entity/BaseItem;
     move-result-object v0
     instance-of v0, v0, Lcom/honeyspace/sdk/source/entity/AppItem;
-    if-eqz v0, :nemotron_explicit_item
+    if-eqz v0, :nemotron_manual_item_v2
     move-object/from16 v0, p1
     invoke-virtual {v0}, Lcom/nemotron/oneui/shaded/y8/d0;->getItem()Lcom/honeyspace/sdk/source/entity/BaseItem;
     move-result-object v0
@@ -237,9 +285,9 @@ Edit-Class 'WorkspaceViewModel.smali' {
     iget-object v2, v3, Lcom/honeyspace/ui/honeypots/workspace/viewmodel/WorkspaceViewModel;->e:Landroid/content/Context;
     invoke-static {v2, v1}, Lcom/nemotron/oneui/compat/InstalledApps;->isManuallySelected(Landroid/content/Context;Ljava/lang/String;)Z
     move-result v0
-    if-nez v0, :nemotron_explicit_item
+    if-nez v0, :nemotron_manual_item_v2
     return-void
-    :nemotron_explicit_item
+    :nemotron_manual_item_v2
 '@)
         }
         $method

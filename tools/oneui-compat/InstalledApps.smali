@@ -83,6 +83,14 @@
     check-cast v4, Landroid/content/pm/ResolveInfo;
     iget-object v4, v4, Landroid/content/pm/ResolveInfo;->activityInfo:Landroid/content/pm/ActivityInfo;
     iget-object v5, v4, Landroid/content/pm/ActivityInfo;->packageName:Ljava/lang/String;
+    const-string v6, "com.whatsapp"
+    invoke-virtual {v6, v5}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v6
+    if-nez v6, :loop
+    const-string v6, "com.sec.android.app.shealth"
+    invoke-virtual {v6, v5}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v6
+    if-nez v6, :loop
     invoke-virtual {v3, v5}, Ljava/util/HashSet;->add(Ljava/lang/Object;)Z
     move-result v6
     if-eqz v6, :loop
@@ -105,5 +113,29 @@
     invoke-virtual {v2, v7}, Ljava/util/ArrayList;->add(Ljava/lang/Object;)Z
     goto :loop
     :done
+    # Keep these explicitly selectable even when Samsung marks Health disabled
+    # or its launcher component is omitted from the normal package query.
+    const-string v5, "com.whatsapp"
+    invoke-virtual {v3, v5}, Ljava/util/HashSet;->add(Ljava/lang/Object;)Z
+    move-result v6
+    if-eqz v6, :manual_health
+    const-string v6, "WhatsApp"
+    const-string v7, "com.whatsapp.Main"
+    new-instance v4, Lcom/nemotron/voiceime/ui/ShortcutPickerActivity$AppInfo;
+    invoke-direct {v4, v6, v5, v7}, Lcom/nemotron/voiceime/ui/ShortcutPickerActivity$AppInfo;-><init>(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+    const/4 v6, 0x0
+    invoke-virtual {v2, v6, v4}, Ljava/util/ArrayList;->add(ILjava/lang/Object;)V
+    :manual_health
+    const-string v5, "com.sec.android.app.shealth"
+    invoke-virtual {v3, v5}, Ljava/util/HashSet;->add(Ljava/lang/Object;)Z
+    move-result v6
+    if-eqz v6, :manual_apps_done
+    const-string v6, "Samsung Health"
+    const-string v7, "com.samsung.android.app.shealth.home.HomeMainActivity"
+    new-instance v4, Lcom/nemotron/voiceime/ui/ShortcutPickerActivity$AppInfo;
+    invoke-direct {v4, v6, v5, v7}, Lcom/nemotron/voiceime/ui/ShortcutPickerActivity$AppInfo;-><init>(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
+    const/4 v6, 0x0
+    invoke-virtual {v2, v6, v4}, Ljava/util/ArrayList;->add(ILjava/lang/Object;)V
+    :manual_apps_done
     return-object v2
 .end method

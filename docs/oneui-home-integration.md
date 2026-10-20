@@ -243,6 +243,10 @@ La implementación anterior solo guardaba el paquete en `nemotron_launcher/manua
 
 La selección manual sigue siendo la única que habilita el filtro del modelo; la política de base ya no bloquea inserciones de `AppItem` y no vuelve a borrar WhatsApp/Instagram/Samsung Health. `WorkspaceViewModel.s()` y el operador de eventos de instalación mantienen desactivadas las altas automáticas. **Límite comprobado:** pedir un pin crea un acceso administrado por el launcher, no demuestra que One UI lo persista como fila `APP`; ese acceso puede seguir siendo `deepshortcut`, por lo que no se garantiza la animación nativa de cierre al icono. No describirlo como `AppItem` hasta verificar la fila de base y el gesto real.
 
+**Corrección del selector (19 oct 2026):** Samsung Health (`com.sec.android.app.shealth`) y WhatsApp (`com.whatsapp`) aparecen como opciones explícitas en «Añadir aplicaciones», incluso cuando Samsung omite Health del inventario habitual. Se pueden fijar manualmente; no se añaden por sí solas cuando se instalan o activan. La regla de Inicio solo impide las altas automáticas y los registros nativos `APP` de esos paquetes; no debe eliminar accesos directos fijados manualmente. El tile Fit3 conserva su función independiente.
+
+El acomodo fotografiado del A54 y la regla permanente de no poblar ni reordenar Inicio por instalaciones están registrados en [homescreen-layout.md](homescreen-layout.md). La captura es [homescreen-2026-10-19.png](images/homescreen-2026-10-19.png).
+
 La corrección está en Kotlin y `patch-oneui-behavior.ps1` ahora falla la compilación si el selector integrado no incluye una llamada real a `requestPinShortcut`; así evita volver a empaquetar silenciosamente un picker que solo muestra un toast. La APK del cambio debe instalarse y probarse en el A54 antes de afirmar que el icono apareció.
 
 ### Resultado de la corrección del destino de cierre (17 oct 2026)
@@ -271,11 +275,11 @@ La transición hacia el icono es la animación simulada que se reconstruyó para
 
 La desaparición ocurrió al instalar una APK Gradle normal: esa variante no empaquetaba la integración One UI Home. Para evitar repetirlo, las compilaciones que se instalen como launcher deben partir del flujo de integración de este documento, no solo de `assembleDebug`.
 
-### Estado instalado: transición nativa y exclusión permanente de WhatsApp/Instagram (18 oct 2026)
+### Estado histórico: transición nativa y exclusión de iconos (18 oct 2026; selector corregido el 19 oct)
 
 Esta sección reemplaza el estado de la animación simulada descrito en el registro histórico anterior. Se quitó `GestureReturnController` del código fuente y se retiró su invocación de `ShortcutCloseTarget.attachCookie`; ya no se captura la app, se escala una ventana ni se crea un overlay al volver a Inicio. La ruta de cierre queda en manos de Android/One UI. Se mantiene únicamente el mapeo del destino del acceso para que la integración pueda entregar el paquete real a la transición nativa.
 
-Los iconos de WhatsApp e Instagram se ocultaban antes solo cuando eran filas `APP`. El A54 tenía también accesos persistidos en el espacio de trabajo/dock, por eso seguían visibles. `ItemData.getHidden()` ahora filtra esos paquetes sin restringir el tipo de fila; `HomeOnlyPolicy` elimina las filas guardadas cuyo componente o intent contiene esos paquetes y crea un trigger para impedir que vuelvan a insertarse. La regla se ejecuta en la base activa (`HomeOnly.db` o `OneUI.db`); no desinstala ni deshabilita las apps ni borra sus datos. Las altas manuales de otras apps siguen disponibles desde «Añadir aplicaciones» y las instalaciones nuevas no se agregan solas.
+En esa compilación se intentó ocultar WhatsApp e Instagram de forma permanente. Ese filtro resultó demasiado agresivo y quedó supersedido: el selector actual sí ofrece WhatsApp y Samsung Health para fijarlos manualmente. La regla vigente solo bloquea las incorporaciones automáticas; véase «Corrección del selector (19 oct 2026)» y el documento de distribución actual.
 
 La integración actual se reconstruyó y firmó con la clave debug existente. En el A54 `adb install -r` terminó correctamente y `com.nemotron.voiceime2` conserva el rol HOME. Al iniciar el launcher corregido, la consulta de `OneUI.db` confirmó que ya no quedan filas que mencionen WhatsApp o Instagram y que el trigger impide reinsertarlas. `logcat` no reportó `AndroidRuntime` después de la reconstrucción corregida. La primera instalación de verificación omitió la clase auxiliar generada por Kotlin en `CarDetector`; `logcat` detectó el fallo, se incluyó la clase en la APK corregida y la segunda instalación ya no reprodujo ese error. No se reinició el dispositivo.
 
@@ -304,3 +308,9 @@ La revisión encontró dos filtros que borraban accesos fijados por Nemotron: `h
 ### Diagnóstico preliminar de batería y cierres
 
 En `batterystats` el 18 oct, el periodo desde la última carga duraba unos 46 min, con 21 min 30 s de pantalla encendida y 24 min 42 s apagada; el teléfono estaba conectado a USB al tomar la lectura. Nemotron tenía aproximadamente 1 min 50 s de CPU acumulada, 55 s contabilizados como foreground y 4 ms como background. Es un proceso compartido por launcher y teclado, así que los contadores no demuestran por sí solos drenaje mientras está inactivo. El proceso marcó 1.1 % de CPU en una muestra. `dumpsys activity exit-info` contiene varios cierres por excepción; el más reciente fue a las 12:18 y Android no expuso su traza (`trace=null`). ADB se desconectó antes de recuperar el buffer de crash o medir un periodo idle sin USB. Hace falta esa traza para atribuir los cierres y una medición con pantalla apagada para cuantificar el drenaje de fondo.
+
+### Restauración del escritorio y corrección del SQL de inicio (19 oct 2026)
+
+El cambio de build dejó visible la distribución predeterminada (Galería, carpeta Google, Teléfono y Cámara), aunque las bases guardadas aún contenían la distribución anterior. Se restauraron en `OneUI.db` las posiciones del escritorio y dock de `HomeOnly.db`, conservando el cajón de apps y respaldando el estado previo en `NemotronBuild/launcher-layout-before-restore-20261019-173443`. La pantalla comprobada volvió a mostrar Lightroom, Obsidian, calendario, las carpetas, búsqueda, BBVA, los widgets y el dock previo; WhatsApp y Samsung Health no se añadieron.
+
+La comprobación de arranque encontró que `patch-oneui-behavior.ps1` enviaba cada línea del SQL como una sentencia distinta. El `DELETE` multilínea fallaba desde la primera continuación (`OR intent LIKE...`), y el launcher repetía excepciones SQLite al iniciar. Se unió esa sentencia y el generador ahora agrupa líneas hasta el punto y coma. La build `Nemotron-layout-fix-v10.apk` quedó instalada sobre la anterior conservando datos; la captura posterior confirma el acomodo restaurado y el logcat reciente no muestra las excepciones SQLite del filtro.
