@@ -355,6 +355,11 @@ try {
     $application = $uiManifest.SelectSingleNode('/manifest/application')
     $application.SetAttribute('name', $androidNs, 'com.sec.android.app.launcher.LauncherApplication')
     $application.SetAttribute('label', $androidNs, 'Nemotron UI')
+    foreach ($alias in $uiManifest.SelectNodes('/manifest/application/activity-alias')) {
+        if ((Get-ComponentName $alias $uiPackage) -eq 'com.sec.android.app.launcher.activities.LauncherActivity') {
+            $alias.SetAttribute('label', $androidNs, 'Nemotron UI')
+        }
+    }
     $uiManifest.Save($uiManifestPath)
     $uiAuthorities = Assert-UniqueProviderAuthorities $uiTree $uiPackage
     Assert-NoCrossPackageAuthorityDuplicates @{

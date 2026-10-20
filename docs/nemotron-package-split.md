@@ -11,6 +11,9 @@ statistics:
 | `com.nemotron.keyboard` | HoneyBoard IME and Nemotron voice recording integration |
 | `com.nemotron.voiceime2` | Nemotron UI based on One UI Home, retaining its app data and Home role |
 
+The UI application and its Home icon alias both use the visible label
+`Nemotron UI`, so Samsung Settings does not list the UI as a second `Nemotron`.
+
 The UI package is updated in place. Install the UI APK before the new keyboard:
 the full installed launcher package also owns keyboard providers, and updating
 it first releases those authorities. Core and Keyboard can then be installed
@@ -33,6 +36,12 @@ removes only newly installed Core and Keyboard packages.
 Separate UIDs make Android's per-app battery accounting useful for identifying
 which process is active. The split does not itself guarantee any specific
 battery usage.
+
+The current APK split separates package identities and manifest components,
+but does not yet shrink the shared payload. Core and Keyboard each still carry
+17 DEX files, about 139 MiB of resources/assets, and about 53 MiB of native
+libraries. Their similar APK sizes are duplicated package contents, not proof
+that all of that code is running in the background.
 
 ## Build
 
