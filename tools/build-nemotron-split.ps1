@@ -48,16 +48,16 @@ $env:PATH = (Join-Path $javaHome 'bin') + [IO.Path]::PathSeparator + $env:PATH
 
 Push-Location $repo
 try {
-    & (Join-Path $repo 'gradlew.bat') ':app:assembleDebug' '--offline' '--no-daemon'
+    & (Join-Path $repo 'gradlew.bat') ':apps:nemotron:assembleDebug' '--offline' '--no-daemon'
     if ($LASTEXITCODE -ne 0) { throw 'Nemotron app build failed.' }
-    $appApk = Join-Path $repo 'app\build\outputs\apk\debug\app-debug.apk'
+    $appApk = Join-Path $repo 'apps\nemotron\build\outputs\apk\debug\app-debug.apk'
     if (-not (Test-Path -LiteralPath $appApk -PathType Leaf)) { throw "Gradle APK not found: $appApk" }
 
     # Rollback must restore the complete existing launcher package and its
     # keyboard providers. The app module build is Nemotron Core, not Home UI.
     Copy-Item -LiteralPath $UiInputApk -Destination $uiRollbackApk
 
-    & (Join-Path $PSScriptRoot 'merge-honeyboard.ps1') `
+    & (Join-Path $repo 'apps\nemotron-keyboard\build\merge-honeyboard.ps1') `
         -HoneyBoardApk $HoneyBoardApk `
         -NemotronApk $appApk `
         -OutputApk $coreInputApk `

@@ -9,9 +9,9 @@ No cambia el componente Recientes, no registra un controlador global de transici
 Usar un JDK con `javac`, Android SDK 36 y D8. Ejemplo PowerShell desde la raíz, con `$jdk` y `$sdk` apuntando a las instalaciones locales:
 
 ```powershell
-$probe = 'app/build/animation-probe'
+$probe = 'apps/nemotron-ui/build/animation-probe'
 New-Item -ItemType Directory -Force "$probe/classes", "$probe/dex" | Out-Null
-& "$jdk/bin/javac.exe" --release 8 -cp "$sdk/platforms/android-36/android.jar" -d "$probe/classes" tools/oneui-animation-probe/AnimationProbe.java
+& "$jdk/bin/javac.exe" --release 8 -cp "$sdk/platforms/android-36/android.jar" -d "$probe/classes" apps/nemotron-ui/build/oneui-animation-probe/AnimationProbe.java
 $classes = (Get-ChildItem "$probe/classes" -Filter '*.class').FullName
 & "$jdk/bin/java.exe" -cp "$sdk/build-tools/36.0.0/lib/d8.jar" com.android.tools.r8.D8 --lib "$sdk/platforms/android-36/android.jar" --output "$probe/dex" $classes
 & "$jdk/bin/jar.exe" cf "$probe/probe.jar" -C "$probe/dex" classes.dex
@@ -24,9 +24,9 @@ La prueba puntual usa `AnimationProbe --next com.sec.android.app.launcher`, segu
 ## Grabar el comportamiento real
 
 ```powershell
-scrcpy --no-playback --no-audio --max-fps=60 --time-limit=20 --record=app/build/oneui-repro/gesture-before.mp4
+scrcpy --no-playback --no-audio --max-fps=60 --time-limit=20 --record=apps/nemotron-ui/build/oneui-repro/gesture-before.mp4
 ```
 
 Abrir la app desde su icono y volver mediante el gesto habitual durante la grabación. El video tiene frecuencia variable: el límite de 60 fps no significa que se hayan capturado 60 fotogramas cada segundo. Examinar los fotogramas alrededor del cierre, no solo la pantalla final.
 
-Los videos pueden contener chats, widgets y otros datos personales. Se guardan en `app/build`, que está ignorado por Git; no forman parte del código publicado.
+Los videos pueden contener chats, widgets y otros datos personales. Se guardan bajo `apps/nemotron-ui/build`, que está ignorado por Git; no forman parte del código publicado.

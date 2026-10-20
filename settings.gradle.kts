@@ -20,4 +20,4 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "Nemotron Voice IME"
-include(":app")
+include(":apps:nemotron")

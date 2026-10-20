@@ -8,9 +8,9 @@ Para compilar, configura `JAVA_HOME` y `ANDROID_HOME`, ejecuta `gradlew.bat asse
 y empaqueta el resultado con:
 
 ```powershell
-.\tools\merge-honeyboard.ps1 `
+.\apps\nemotron-keyboard\build\merge-honeyboard.ps1 `
   -HoneyBoardApk 'ruta\HoneyBoard-5.9.30.88.apk' `
-  -NemotronApk '.\app\build\outputs\apk\debug\app-debug.apk' `
+  -NemotronApk '.\apps\nemotron\build\outputs\apk\debug\app-debug.apk' `
   -OutputApk 'ruta\NemotronKeyboard.apk'
 ```
 

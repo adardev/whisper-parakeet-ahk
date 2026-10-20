@@ -17,7 +17,7 @@ path.
 
 ## Verification and limits
 
-- `:app:compileDebugKotlin` and `:app:assembleDebug` succeeded with JDK 17.
+- `:apps:nemotron:compileDebugKotlin` and `:apps:nemotron:assembleDebug` succeeded with JDK 17.
 - The A54 reported Nemotron as both the HOME role holder and active input
   method. HoneyBoard's statistics jobs were not running at the time of the
   snapshot.
@@ -81,7 +81,7 @@ launcher and keyboard under this one UID, so this total cannot isolate either
 feature. These are system estimates over the existing statistics period, not
 a controlled daily measurement.
 
-`:app:compileDebugKotlin` and `:app:assembleDebug` succeeded. The two updated
+`:apps:nemotron:compileDebugKotlin` and `:apps:nemotron:assembleDebug` succeeded. The two updated
 classes were transferred into the existing integrated One UI + HoneyBoard
 tree, rebuilt with Apktool, zip-aligned, and signed with Nemotron's existing
 debug key. `apksigner` verified it; `aapt` confirmed the Nemotron package,

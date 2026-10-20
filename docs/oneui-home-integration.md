@@ -21,7 +21,7 @@ Se necesita el APK de One UI Home extraído del mismo teléfono, el APK Nemotron
 $env:JAVA_HOME = 'C:\ruta\a\jdk-17'
 $env:ANDROID_HOME = 'C:\Users\adaredu\AppData\Local\Android\Sdk'
 
-.\tools\merge-oneui-home.ps1 `
+.\apps\nemotron-ui\build\merge-oneui-home.ps1 `
   -OneUIHomeApk 'C:\ruta\TouchWizHome_2017.apk' `
   -NemotronApk 'C:\ruta\NemotronKeyboard-no-custom-home.apk' `
   -OutputApk 'C:\ruta\Nemotron-OneUIHome-Integrated.apk' `
@@ -79,7 +79,7 @@ La detección de RAM usa ActivityManager.MemoryInfo.totalMem en KB. ReflectionUt
 
 El cálculo de límites usa WindowManager.getMaximumWindowMetrics en lugar de Configuration.windowConfiguration, que Android oculta a la app de usuario. Las conexiones bindService/bindServiceAsUser denegadas devuelven false; unbindService ignora solo la ausencia de registro. La última prueba confirmó que SplitScreenProxyService de SystemUI rechaza el clon. La integración privilegiada de transiciones de pantalla dividida no está disponible con la firma de Nemotron. Se validará si Home funciona con esa conexión ausente. El script también rechaza donantes con paquete incorrecto y bases que ya contengan One UI Home.
 
-La integración experimental incorpora HiddenApiBypass 6.2 de LSPosed, con licencia Apache 2.0 y artefacto fijado por SHA-256 en tools/vendor/hiddenapibypass-6.2. La inicialización ocurre en attachBaseContext, dentro del proceso de Nemotron; no modifica la política global del teléfono ni concede permisos de firma. Se conserva por ahora el adaptador de animación como alternativa mientras se comprueba esta ruta. Las llamadas a servicios de SystemUI siguen sujetas a los permisos normales. Limpieza terminada: aproximadamente 5,4 GB libres en C y 12,4 GB en E, conservando la base 8086.
+La integración experimental incorpora HiddenApiBypass 6.2 de LSPosed, con licencia Apache 2.0 y artefacto fijado por SHA-256 en apps/nemotron-ui/build/vendor/hiddenapibypass-6.2. La inicialización ocurre en attachBaseContext, dentro del proceso de Nemotron; no modifica la política global del teléfono ni concede permisos de firma. Se conserva por ahora el adaptador de animación como alternativa mientras se comprueba esta ruta. Las llamadas a servicios de SystemUI siguen sujetas a los permisos normales. Limpieza terminada: aproximadamente 5,4 GB libres en C y 12,4 GB en E, conservando la base 8086.
 
 ADB confirmó Hidden API exemptions enabled durante attachBaseContext. Se restaura la referencia al BackProgressAnimator original del framework; los adaptadores de animación anteriores dejan de estar conectados. El radio de las esquinas se calcula con un contexto asociado a pantalla y se añaden getDisplay/createWindowContext a LauncherApplication para mantener esa asociación en llamadas internas. Esta nueva configuración todavía requiere prueba de arranque.
 
@@ -96,7 +96,7 @@ La corrección semGetCurrentUser se aplica tanto a las clases del launcher como 
 
 
 ### Pulsación larga sobre iconos
-El A54 confirmó un cierre SecurityException READ_FRAME_BUFFER al crear QuickOptionBlurBackground. Ese fondo ahora captura solo la jerarquía de vistas de la Activity mediante Canvas y View.draw, sin SemWindowManager.screenshot. QuickOptionCapture devuelve null si no hay Activity, tamaño válido o memoria suficiente; la ruta existente de BitmapDrawable admite un bitmap nulo. No cambia las acciones del menú. La corrección se conserva en merge-oneui-home.ps1 y tools/oneui-compat/QuickOptionCapture.smali; pendiente de comprobar instalada.
+El A54 confirmó un cierre SecurityException READ_FRAME_BUFFER al crear QuickOptionBlurBackground. Ese fondo ahora captura solo la jerarquía de vistas de la Activity mediante Canvas y View.draw, sin SemWindowManager.screenshot. QuickOptionCapture devuelve null si no hay Activity, tamaño válido o memoria suficiente; la ruta existente de BitmapDrawable admite un bitmap nulo. No cambia las acciones del menú. La corrección se conserva en merge-oneui-home.ps1 y apps/nemotron-ui/build/oneui-compat/QuickOptionCapture.smali; pendiente de comprobar instalada.
 
 
 ### Apertura, reactivación y widgets
@@ -136,7 +136,7 @@ El controlador SettingsFragment.f ocultaba claves de preferencias desconocidas. 
 
 El menú **Añadir aplicaciones** se comprobó visualmente en los ajustes nativos del A54. El usuario confirmó que el filtrado y las adiciones manuales funcionan. El problema posterior es la animación de retorno: los accesos publicados por Nemotron se identificaban como accesos del paquete del launcher, y `ShortcutActivity` abría la app con `ShizukuManager.launchApp` (`am start`), creando una apertura independiente del icono.
 
-Cambios reproducibles en `tools/patch-oneui-behavior.ps1` y `tools/oneui-compat/ShortcutCloseTarget.smali`:
+Cambios reproducibles en `apps/nemotron-ui/build/patch-oneui-behavior.ps1` y `apps/nemotron-ui/build/oneui-compat/ShortcutCloseTarget.smali`:
 
 - `ShellTransitionManager.startShellTransitionForShortcut`: intercepta únicamente accesos propios de Nemotron. Para apps habilitadas del perfil actual resuelve el intent de lanzamiento real y abre desde el contexto del icono. Conserva el flujo anterior como alternativa si no puede abrirse directamente.
 - La apertura conserva `Intent.sourceBounds`, calculado con la posición y tamaño reales de la vista, y usa `ActivityOptions.makeScaleUpAnimation`. No fija coordenadas del A54 en el parche.
@@ -155,7 +155,7 @@ Las escalas de animación usadas temporalmente para observar el cierre se restau
 
 A petición del usuario se grabó `app/build/oneui-repro/gesture-before.mp4` con scrcpy, sin audio ni ventana adicional. FFprobe informó **1080 × 2340, 339 fotogramas, 19.455467 segundos**. El video es de frecuencia variable; el promedio es aproximadamente 17.4 fps y no debe interpretarse el límite de captura como frecuencia constante. Se extrajeron 24 fotogramas entre 3.7 y 4.7 segundos: la ventana de WhatsApp se reduce hacia el centro, mientras su icono permanece en el extremo derecho del dock. El resultado sigue siendo incorrecto.
 
-La prueba reproducible `tools/oneui-animation-probe/AnimationProbe.java` usa `app_process` con UID **2000**, equivalente al privilegio shell usado por Shizuku en este dispositivo. El firmware expone `registerRemoteAnimationForNextActivityStart` y `registerRemoteAnimationsForDisplay`; no expone `startRecentsActivity` en `IActivityTaskManager`. El registro puntual para el siguiente inicio se aceptó sin excepción, pero el gesto de Inicio **no invocó el runner**. No se registró un controlador global de pantalla ni se sustituyó el reproductor de transiciones de SystemUI.
+La prueba reproducible `apps/nemotron-ui/build/oneui-animation-probe/AnimationProbe.java` usa `app_process` con UID **2000**, equivalente al privilegio shell usado por Shizuku en este dispositivo. El firmware expone `registerRemoteAnimationForNextActivityStart` y `registerRemoteAnimationsForDisplay`; no expone `startRecentsActivity` en `IActivityTaskManager`. El registro puntual para el siguiente inicio se aceptó sin excepción, pero el gesto de Inicio **no invocó el runner**. No se registró un controlador global de pantalla ni se sustituyó el reproductor de transiciones de SystemUI.
 
 También se intentó iniciar explícitamente el `TouchInteractionService` ya incluido en el APK integrado. El proceso de Nemotron falló al registrar `TaskSnapshotManager` con `SecurityException: requires MANAGE_ACTIVITY_TASKS, READ_FRAME_BUFFER`. Se detuvo ese servicio experimental, se restauraron la actividad HOME y el rol HOME de Nemotron y se seleccionó nuevamente su teclado. La comprobación posterior abrió WhatsApp y regresó a Nemotron sin un nuevo error de AndroidRuntime. **No se dejó el servicio experimental activo.**
 
@@ -167,7 +167,7 @@ Referencias de implementación: [ActivityOptions de AOSP](https://android.google
 ### Prototipo de retorno visual mediante Shizuku (en comprobación)
 Se añade GestureReturnController, un controlador propio que obtiene una captura de la tarea con IWindowManager mediante Shizuku y dibuja su retorno a las coordenadas del icono. No se ha sustituido Recientes del sistema. MONITOR_INPUT fue denegado también a shell, por lo que se prueba la observación local del touchscreen con getevent y una alternativa basada en la reanudación de Inicio para entradas inyectadas por scrcpy/ADB. Las capturas permanecen en memoria. El gesto original conserva su funcionamiento. Este apartado describe un prototipo: falta validar la animación instalada mediante video.
 
-build-oneui-java-compat.ps1 compila el controlador con JDK/SDK 36, excluye los stubs del framework del DEX y lo incorpora a classes23. rebuild-oneui-compat.ps1 permite actualizar únicamente ese DEX sobre una copia de la APK integrada y vuelve a alinear y firmar el resultado. Es una actualización de compatibilidad, no un sustituto del proceso completo de integración. Se guarda este estado antes de limpiar clases generadas obsoletas.
+apps/nemotron-ui/build/build-oneui-java-compat.ps1 compila el controlador con JDK/SDK 36, excluye los stubs del framework del DEX y lo incorpora a classes23. apps/nemotron-ui/build/rebuild-oneui-compat.ps1 permite actualizar únicamente ese DEX sobre una copia de la APK integrada y vuelve a alinear y firmar el resultado. Es una actualización de compatibilidad, no un sustituto del proceso completo de integración. Se guarda este estado antes de limpiar clases generadas obsoletas.
 
 ### Referencia nativa y corrección de continuidad pendiente de instalación
 
@@ -235,7 +235,7 @@ Se reconstruyó y firmó `Nemotron-OneUIHome-DirectAppShortcuts.apk` con la clav
 
 ### Eliminación de la animación simulada (17 oct 2026)
 
-Se retiró por completo la animación de retorno propia: `ShortcutCloseTarget` ya no la arma al tocar iconos ni al preparar opciones de lanzamiento; `GestureReturnController` quedó como stub vacío por compatibilidad; `build-oneui-java-compat.ps1` elimina las clases antiguas y sintéticas de ese controlador antes de ensamblar el DEX, evitando que una compilación reutilice código obsoleto. La apertura conserva las opciones de origen del icono; no se dibuja una ventana, captura u overlay para el cierre. La compilación `Nemotron-OneUIHome-NoCopiedAnimation.apk` se instaló en el A54 sin reiniciar. Confirmación posterior: `LauncherActivity` quedó en primer plano y `logcat AndroidRuntime:E` no mostró errores nuevos.
+Se retiró por completo la animación de retorno propia: `ShortcutCloseTarget` ya no la arma al tocar iconos ni al preparar opciones de lanzamiento; `GestureReturnController` quedó como stub vacío por compatibilidad; `apps/nemotron-ui/build/build-oneui-java-compat.ps1` elimina las clases antiguas y sintéticas de ese controlador antes de ensamblar el DEX, evitando que una compilación reutilice código obsoleto. La apertura conserva las opciones de origen del icono; no se dibuja una ventana, captura u overlay para el cierre. La compilación `Nemotron-OneUIHome-NoCopiedAnimation.apk` se instaló en el A54 sin reiniciar. Confirmación posterior: `LauncherActivity` quedó en primer plano y `logcat AndroidRuntime:E` no mostró errores nuevos.
 
 ### Selector de apps: el toast sin añadir el icono
 

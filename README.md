@@ -14,8 +14,9 @@ Las nuevas instalaciones y reactivaciones no crean iconos automáticamente. Inst
 
 - [Documentación, compilación y estado de pruebas](docs/oneui-home-integration.md)
 - [Limpieza de intermediarios y archivos conservados](docs/oneui-home-cleanup.md)
-- [Script de integración](tools/merge-oneui-home.ps1)
-- [Adaptadores smali](tools/oneui-compat)
-- [Dependencia HiddenApiBypass 6.2 y procedencia](tools/vendor/hiddenapibypass-6.2/README.md)
+- [Código fuente de Nemotron Core](apps/nemotron)
+- [Integración y compatibilidad de Nemotron UI](apps/nemotron-ui/build)
+- [Integración de Nemotron Keyboard](apps/nemotron-keyboard/build)
+- [Dependencia HiddenApiBypass 6.2 y procedencia](apps/nemotron-ui/build/vendor/hiddenapibypass-6.2/README.md)
 
 Las APK fallidas de prueba no se publican como versiones funcionales. Los cambios se guardan con commit y push antes de limpiar los archivos generados.

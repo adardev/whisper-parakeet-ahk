@@ -6,7 +6,7 @@ Se eliminaron los árboles generados `app/build/oneui-home-validation`, `-2` y `
 
 Se eliminaron los árboles temporales de `E:/NemotronBuild/intermediates/.nemotron-keyboard-build-*` excepto `8086b65478e7483e80fce5ed34b8329d`, que es la base limpia utilizada para reconstruir. Las salidas Apktool eliminadas ocupaban unos 10 GB de contenido; E: quedó con aproximadamente 12,4 GB libres. Las APK originales de entrada, el JDK, el framework A54 y la clave debug permanecen disponibles.
 
-El código reproducible se conserva en `tools/merge-oneui-home.ps1` y `tools/oneui-compat`. El estado experimental y las limitaciones están en `oneui-home-integration.md`. No se borran proyectos ni datos de aplicaciones del teléfono durante esta limpieza.
+El código reproducible se conserva en `apps/nemotron-ui/build/merge-oneui-home.ps1` y `apps/nemotron-ui/build/oneui-compat`. El estado experimental y las limitaciones están en `oneui-home-integration.md`. No se borran proyectos ni datos de aplicaciones del teléfono durante esta limpieza.
 
 Después del push 4bc500f se eliminaron también oneui-home-validation-4 y la reconstrucción fallida oneui-repro. C: quedó con 7,2 GB libres antes de iniciar la siguiente reconstrucción. La nueva salida utiliza de nuevo oneui-repro; la APK base limpia y los originales se conservaron.
 

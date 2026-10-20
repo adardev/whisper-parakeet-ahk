@@ -5,6 +5,7 @@
 .DS_Store
 /build
 /app/build
+/apps/nemotron/build
 /captures
 .externalNativeBuild
 .cxx
