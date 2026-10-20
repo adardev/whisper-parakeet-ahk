@@ -97,6 +97,10 @@ try {
     # The package, user data, and HOME role stay in place throughout the update.
     $changed = $true
     Invoke-Device @('install', '--no-incremental', '-r', $UiApk) | Out-Host
+    # This signed launcher is not privileged like Samsung's stock Home.
+    # Android's app-prediction startup needs its special permission and AppOp.
+    Invoke-Device @('shell', 'pm', 'grant', $uiPackage, 'android.permission.PACKAGE_USAGE_STATS') | Out-Host
+    Invoke-Device @('shell', 'cmd', 'appops', 'set', $uiPackage, 'GET_USAGE_STATS', 'allow') | Out-Host
     Invoke-Device @('install', '--no-incremental', '-r', $CoreApk) | Out-Host
     $coreInstalled = $true
     Invoke-Device @('install', '--no-incremental', '-r', $KeyboardApk) | Out-Host

@@ -16,6 +16,7 @@ $corePackage = 'com.nemotron.core'
 $keyboardPackage = 'com.nemotron.keyboard'
 $uiPackage = 'com.nemotron.voiceime2'
 $oldPackage = 'com.nemotron.voiceime2'
+$launcherRoutineProvider = 'com.samsung.android.sdk.routines.v3.internal.RoutineSdkContentProvider'
 $androidNs = 'http://schemas.android.com/apk/res/android'
 $androidToolsNs = 'http://schemas.android.com/tools'
 $shortcutComponents = @(
@@ -186,21 +187,6 @@ function Assert-UniqueProviderAuthorities([string] $DecodedRoot, [string] $Expec
     return @($seen.Keys)
 }
 
-function Restore-LauncherRoutineProviderAuthority([string] $DecodedRoot) {
-    # One UI Home queries this stable Nemotron authority from its launcher
-    # process. Keep the provider owned by Core, but preserve the URI consumed
-    # by the UI package after the split.
-    $manifestPath = Join-Path $DecodedRoot 'AndroidManifest.xml'
-    [xml] $manifest = Get-Content -LiteralPath $manifestPath -Raw
-    foreach ($provider in $manifest.SelectNodes('//application/provider')) {
-        if ($provider.GetAttribute('name', $androidNs) -eq
-            'com.samsung.android.sdk.routines.v3.internal.RoutineSdkContentProvider') {
-            $provider.SetAttribute('authorities', $androidNs, "$oldPackage.provider.routines.v3")
-        }
-    }
-    $manifest.Save($manifestPath)
-}
-
 function Assert-NoCrossPackageAuthorityDuplicates([hashtable] $AuthoritySets) {
     $owners = [Collections.Generic.Dictionary[string,string]]::new([StringComparer]::OrdinalIgnoreCase)
     foreach ($package in $AuthoritySets.Keys) {
@@ -275,16 +261,26 @@ try {
         $name = Get-ComponentName $component $oldPackage
         if ($name) { [void]$coreComponents.Add("$($component.LocalName)|$name") }
     }
+    $routineProviderNode = $null
+    foreach ($provider in $coreManifest.SelectNodes('/manifest/application/provider')) {
+        if ($provider.GetAttribute('name', $androidNs) -eq $launcherRoutineProvider) {
+            $routineProviderNode = $provider
+            break
+        }
+    }
+    if (-not $routineProviderNode) { throw 'Samsung Routines provider was not found in Core input.' }
+    $routineProviderNode = $routineProviderNode.CloneNode($true)
+    $routineProviderNode.SetAttribute('authorities', $androidNs, "$oldPackage.provider.routines.v3")
 
-    # Core keeps Nemotron services/settings but no IME declarations.
+    # Core keeps Nemotron services/settings but no IME or launcher Routines provider.
     $coreManifest = Remove-ManifestComponents $coreTree {
-        param($type, $name) -not (Test-KeyboardComponent $type $name)
+        param($type, $name) (-not (Test-KeyboardComponent $type $name)) -and
+            -not ($type -eq 'provider' -and $name -eq $launcherRoutineProvider)
     }
     $application = $coreManifest.SelectSingleNode('/manifest/application')
     $application.SetAttribute('label', $androidNs, 'Nemotron')
     $coreManifest.Save((Join-Path $coreTree 'AndroidManifest.xml'))
     Rewrite-PackageReferences $coreTree $corePackage
-    Restore-LauncherRoutineProviderAuthority $coreTree
     Set-CoreApplicationBase $coreTree
     $coreAuthorities = Assert-UniqueProviderAuthorities $coreTree $corePackage
     Assert-CorePermissionReferences $coreTree
@@ -331,7 +327,8 @@ try {
         if (@('activity', 'activity-alias', 'receiver', 'service', 'provider') -notcontains $component.LocalName) { continue }
         $name = Get-ComponentName $component $uiPackage
         if (-not $name) { continue }
-        if ($shortcutComponents -contains $name) { continue }
+        if ($shortcutComponents -contains $name -or
+            ($component.LocalName -eq 'provider' -and $name -eq $launcherRoutineProvider)) { continue }
         if ($coreComponents.Contains("$($component.LocalName)|$name")) {
             [void]$component.ParentNode.RemoveChild($component)
         }
@@ -342,7 +339,8 @@ try {
         if (@('activity', 'activity-alias', 'receiver', 'service', 'provider') -notcontains $component.LocalName) { continue }
         $name = Get-ComponentName $component $uiPackage
         if ($shortcutComponents -contains $name) { [void]$remainingShortcuts.Add($name) }
-        if ($coreComponents.Contains("$($component.LocalName)|$name") -and $shortcutComponents -notcontains $name) {
+        if ($coreComponents.Contains("$($component.LocalName)|$name") -and
+            $shortcutComponents -notcontains $name -and $name -ne $launcherRoutineProvider) {
             $remainingCoreComponents.Add("$($component.LocalName)|$name")
         }
     }
@@ -351,6 +349,22 @@ try {
     }
     foreach ($shortcut in $shortcutComponents) {
         if (-not $remainingShortcuts.Contains($shortcut)) { throw "UI APK lost required app picker component: $shortcut" }
+    }
+    $uiRoutineProviders = @($uiManifest.SelectNodes('/manifest/application/provider') | Where-Object {
+        (Get-ComponentName $_ $uiPackage) -eq $launcherRoutineProvider
+    })
+    foreach ($provider in $uiRoutineProviders) { [void]$provider.ParentNode.RemoveChild($provider) }
+    [void]$uiManifest.SelectSingleNode('/manifest/application').AppendChild(
+        $uiManifest.ImportNode($routineProviderNode, $true))
+    foreach ($provider in $uiManifest.SelectNodes('/manifest/application/provider')) {
+        $name = Get-ComponentName $provider $uiPackage
+        if ($name -eq $launcherRoutineProvider -or
+            $name -eq 'com.nemotron.oneui.shaded.com.samsung.android.sdk.routines.v3.internal.RoutineSdkContentProvider') {
+            # This is an app-signed launcher, not Samsung's privileged Home.
+            # The vendor signature permission is unavailable to it, so its own
+            # Routines SDK cannot even notify its provider without crashing.
+            $provider.RemoveAttribute('permission', $androidNs)
+        }
     }
     $application = $uiManifest.SelectSingleNode('/manifest/application')
     $application.SetAttribute('name', $androidNs, 'com.sec.android.app.launcher.LauncherApplication')

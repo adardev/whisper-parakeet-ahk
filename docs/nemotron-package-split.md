@@ -21,12 +21,14 @@ without provider collisions. The installer selects the new keyboard, restores
 Nemotron Home as the Home activity, and checks all three packages. It does not
 uninstall UI, clear app data, or reboot.
 
-Core keeps the provider authority
-`com.nemotron.voiceime2.provider.routines.v3`, which the One UI Home code still
-uses for Samsung Routines. The installer also grants
-`android.permission.WRITE_SECURE_SETTINGS` to the new keyboard UID before
-starting HoneyBoard; without it, the IME crashes while initializing Samsung
-keyboard settings.
+UI owns the provider authority
+`com.nemotron.voiceime2.provider.routines.v3`, which the One UI Home code uses
+for Samsung Routines. The embedded launcher is app-signed and cannot hold
+Samsung's `ACCESS_ROUTINES` signature permission, so that protection is removed
+from the two embedded Routines providers. The installer also grants
+`PACKAGE_USAGE_STATS` and its `GET_USAGE_STATS` AppOp to UI because Android's
+app-prediction startup otherwise crashes. HoneyBoard needs
+`WRITE_SECURE_SETTINGS` on its own UID before it starts.
 
 If a step fails after installation starts, rollback uses the original complete
 UI APK captured before splitting. That APK retains the Home activity and the
