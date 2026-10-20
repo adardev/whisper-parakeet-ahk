@@ -292,6 +292,26 @@ object ShizukuManager {
         return out.contains("new state")
     }
 
+    /** Clears ActivityManager's force-stop bit so system broadcasts can wake a package again. */
+    fun unstopApp(packageName: String): Boolean {
+        if (!hasPermission()) return false
+        // Use a fresh process: the persistent Shizuku shell can retain stale
+        // output after long-running tile actions, making a successful unstop
+        // look like a failure (or vice versa).
+        val out = execShellFresh(
+            arrayOf("pm", "unstop", "--user", "0", packageName), timeoutMs = 5_000L
+        ) ?: return false
+        val status = execShellFresh(
+            arrayOf("dumpsys", "package", packageName), timeoutMs = 5_000L
+        ).orEmpty()
+        val userState = Regex("(?m)^\\s*User 0:.*$")
+            .find(status)?.value.orEmpty()
+        val confirmed = out.contains("new stopped state: false", ignoreCase = true) ||
+            (userState.isNotEmpty() && userState.contains("stopped=false", ignoreCase = true))
+        Log.d(TAG, "pm unstop $packageName → $out; $userState; confirmed=$confirmed")
+        return confirmed
+    }
+
     fun isAppHidden(packageName: String): Boolean {
         return getDisabledPackages()?.contains(packageName) ?: false
     }

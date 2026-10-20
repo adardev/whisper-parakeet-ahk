@@ -569,4 +569,5 @@ if ($LASTEXITCODE -ne 0) { throw "APK signing failed. Working files are at $work
 & $apksigner verify --print-certs $OutputApk
 if ($LASTEXITCODE -ne 0) { throw "Final APK signature verification failed. Working files are at $work" }
 Write-Host "Unified Nemotron + Samsung Keyboard APK: $OutputApk"
-Write-Host "Intermediate files: $work"
+Remove-Item -LiteralPath $work -Recurse -Force
+Write-Host 'Temporary decoded trees and unsigned APKs removed.'

@@ -26,9 +26,10 @@ class FirebaseHealthUploader(private val context: Context) {
     }
 
     private val client = OkHttpClient.Builder()
-        .connectTimeout(Duration.ofSeconds(15))
-        .readTimeout(Duration.ofSeconds(30))
-        .writeTimeout(Duration.ofSeconds(30))
+        .connectTimeout(Duration.ofSeconds(5))
+        .readTimeout(Duration.ofSeconds(10))
+        .writeTimeout(Duration.ofSeconds(10))
+        .callTimeout(Duration.ofSeconds(12))
         .build()
 
     suspend fun upload(date: String, snapshot: JSONObject) = withContext(Dispatchers.IO) {
@@ -40,7 +41,9 @@ class FirebaseHealthUploader(private val context: Context) {
         Log.d(TAG, "Firestore upload project=$project uid=${auth.localId}")
         val payload = toFirestoreDocument(snapshot).toString()
         var backoffMs = 1_000L
-        val maxAttempts = 6
+        // Firebase is a best-effort daily snapshot. A long retry storm should
+        // not pin a foreground service or block the Fit3 toggle.
+        val maxAttempts = 2
         for (attempt in 1..maxAttempts) {
             val response = request(
                 Request.Builder()

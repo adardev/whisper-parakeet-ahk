@@ -21,14 +21,12 @@ class HealthSetupActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         lifecycleScope.launch {
             try {
-                val manager = SamsungHealthManager(this@HealthSetupActivity)
+                val manager = SamsungHealthManager(this@HealthSetupActivity, lifecycleScope)
                 val granted = manager.grantedPermissions()
                 val allPermissions = manager.permissionSetForSetup()
                 val requested = if (granted.size < allPermissions.size) {
                     // requestPermissions devuelve los permisos aceptados por el usuario.
-                    val store = com.samsung.android.sdk.health.data.HealthDataService
-                        .getStore(applicationContext)
-                    store.requestPermissions(
+                    manager.requestPermissions(
                         allPermissions, this@HealthSetupActivity
                     )
                 } else granted

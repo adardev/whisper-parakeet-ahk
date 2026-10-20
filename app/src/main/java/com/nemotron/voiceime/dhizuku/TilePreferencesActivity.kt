@@ -50,7 +50,7 @@ class TilePreferencesActivity : Activity() {
                             "com.samsung.android.app.watchmanager.setupwizard.SetupWizardWelcomeActivity"
                     )
                 "com.nemotron.voiceime.dhizuku.Fit3TileService" ->
-                    listOf("com.samsung.wearable.fit3plugin" to null)
+                    listOf("com.sec.android.app.shealth" to null)
                 "com.nemotron.voiceime.dhizuku.WorkTileService" ->
                     listOf(
                         "com.ceti.escolomos" to "com.ceti.escolomos.MainActivity",

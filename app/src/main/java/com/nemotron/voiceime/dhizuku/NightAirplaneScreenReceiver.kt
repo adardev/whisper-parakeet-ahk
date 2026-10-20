@@ -21,7 +21,8 @@ class NightAirplaneScreenReceiver : BroadcastReceiver() {
         if (intent.action == Intent.ACTION_AIRPLANE_MODE_CHANGED) {
             val airplaneModeOn = intent.getBooleanExtra("state", true)
             if (SleepModeController.consumeExpectedAirplaneChange(context, airplaneModeOn)) return
-            if (!airplaneModeOn && isMorningWakeWindow() && isScreenInteractive(context)) {
+            if (SleepModeController.isManualDisableSuppressed(context)) return
+            if (!airplaneModeOn && isWakeWindow() && isScreenInteractive(context)) {
                 val prefs = preferences(context)
                 val firstWakeDetection = prefs.getInt(KEY_AWAKE_DAY, -1) != todayKey()
                 prefs.edit()
@@ -29,16 +30,17 @@ class NightAirplaneScreenReceiver : BroadcastReceiver() {
                     .putBoolean(KEY_PENDING, false)
                     .putBoolean(KEY_TEMPORARY_FIT3, false)
                     .apply()
+                // Once the user wakes, screen-off events must not re-arm the
+                // night routine if its 08:00 alarm or Fit3 handoff was missed.
+                SleepModeController.disableUntilNight(context)
                 if (firstWakeDetection) {
-                    Log.i(TAG, "despertar matutino detectado; restaurando ajustes diurnos de Fit3")
+                    Log.i(TAG, "despertar diurno detectado; restaurando ajustes diurnos de Fit3")
                     val pendingResult = goAsync()
                     fit3Actions.execute {
                         try {
                             val result = NightRoutineActions.run(context.applicationContext, night = false)
                             if (!result.success) {
                                 Log.w(TAG, "no se pudieron restaurar los ajustes diurnos de Fit3: ${result.message}")
-                            } else {
-                                SleepModeController.markScheduledState(context, false)
                             }
                         } finally {
                             pendingResult.finish()
@@ -47,7 +49,7 @@ class NightAirplaneScreenReceiver : BroadcastReceiver() {
                 } else {
                     Log.d(TAG, "despertar ya registrado hoy; no se vuelve a contactar la Fit3")
                 }
-            } else if (!airplaneModeOn && (isNightWindow() || SleepModeController.isEnabled(context)) && isScreenInteractive(context)) {
+            } else if (!airplaneModeOn && isNightWindow() && isScreenInteractive(context)) {
                 // Outside the morning wake window this is only a pause until the next lock.
                 if (isNightWindow()) SleepModeController.markScheduledState(context, true)
                 preferences(context).edit()
@@ -81,9 +83,13 @@ class NightAirplaneScreenReceiver : BroadcastReceiver() {
             Log.i(TAG, "pantalla apagada: se respeta la desactivación manual de Sleep Mode hasta las 23:00")
             return
         }
-        if (!(isNightWindow() || SleepModeController.isEnabled(context))) return
+        // Screen-off is only an activation trigger during the actual night
+        // window. A stale enabled flag after a missed/failed 08:00 routine must
+        // never turn airplane mode back on during the day.
+        if (!isNightWindow()) return
         if (hasWokenUpToday(context)) {
             preferences(context).edit().putBoolean(KEY_PENDING, false).apply()
+            syncRegistration(context)
             Log.d(TAG, "despertar matutino ya detectado; se respeta el modo avión apagado")
             return
         }
@@ -158,15 +164,14 @@ class NightAirplaneScreenReceiver : BroadcastReceiver() {
         return hour >= 23 || hour < 8
     }
 
-    /** Desde las 05:00, apagar manualmente el modo avión con la pantalla activa cuenta como despertar. */
-    private fun isMorningWakeWindow(): Boolean {
+    /** Desde las 05:00 hasta la siguiente noche, apagar el modo avión cuenta como despertar. */
+    private fun isWakeWindow(): Boolean {
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-        return hour in MORNING_WAKE_HOUR until 8
+        return hour in MORNING_WAKE_HOUR until 23
     }
 
     private fun hasWokenUpToday(context: Context): Boolean =
-        isMorningWakeWindow() &&
-            preferences(context).getInt(KEY_AWAKE_DAY, -1) == todayKey()
+        isWakeWindow() && preferences(context).getInt(KEY_AWAKE_DAY, -1) == todayKey()
 
     private fun todayKey(): Int {
         val calendar = Calendar.getInstance()
@@ -179,13 +184,55 @@ class NightAirplaneScreenReceiver : BroadcastReceiver() {
     private fun preferences(context: Context) =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
-    private companion object {
+    companion object {
         const val TAG = "AirplaneScreenOff"
         const val PREFS = "airplane_screen_off"
         const val KEY_PENDING = "pending_night_activation"
         const val KEY_AWAKE_DAY = "awake_day"
         const val KEY_TEMPORARY_FIT3 = "temporary_fit3_day_settings"
         const val MORNING_WAKE_HOUR = 5
+        private val registrationLock = Any()
+        private var registeredReceiver: NightAirplaneScreenReceiver? = null
+
+        /** Avoid waking the launcher/IME for screen broadcasts outside Sleep Mode. */
+        fun syncRegistration(context: Context) {
+            val app = context.applicationContext
+            val shouldRegister = SleepModeController.shouldMonitorScreenEvents(app)
+            synchronized(registrationLock) {
+                val current = registeredReceiver
+                if (shouldRegister && current == null) {
+                    val receiver = NightAirplaneScreenReceiver()
+                    val filter = android.content.IntentFilter().apply {
+                        addAction(Intent.ACTION_SCREEN_OFF)
+                        addAction(Intent.ACTION_SCREEN_ON)
+                        addAction(Intent.ACTION_AIRPLANE_MODE_CHANGED)
+                    }
+                    try {
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                            app.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+                        } else {
+                            @Suppress("DEPRECATION")
+                            app.registerReceiver(receiver, filter)
+                        }
+                        registeredReceiver = receiver
+                        Log.i(TAG, "screen receiver registrado mientras Sleep Mode lo requiere")
+                    } catch (error: Throwable) {
+                        Log.w(TAG, "no se pudo registrar el receptor de pantalla", error)
+                    }
+                } else if (!shouldRegister && current != null) {
+                    try {
+                        app.unregisterReceiver(current)
+                    } catch (error: IllegalArgumentException) {
+                        Log.w(TAG, "el receptor de pantalla ya estaba desconectado", error)
+                    } finally {
+                        registeredReceiver = null
+                        Log.i(TAG, "screen receiver retirado; Sleep Mode no necesita observar la pantalla")
+                    }
+                }
+                Unit
+            }
+        }
+
         // Keep temporary restore and the following lock action in broadcast order.
         val fit3Actions = Executors.newSingleThreadExecutor { task -> Thread(task, "NightFit3Actions") }
     }

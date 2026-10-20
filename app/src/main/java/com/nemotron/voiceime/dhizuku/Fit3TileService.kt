@@ -3,131 +3,33 @@ package com.nemotron.voiceime.dhizuku
 import android.util.Log
 import com.nemotron.voiceime.R
 
-/**
- * Tile para congelar/descongelar Galaxy Fit3 Plugin + Samsung Health.
- * Al congelar también fuerza el cierre de Samsung Accessory Service
- * (dueño de la conexión GATT del Fit3) para desconectar SOLO el reloj,
- * y apaga Bluetooth únicamente si no queda ningún otro dispositivo conectado.
- * Al descongelar enciende el Bluetooth si esta apagado (para reconectar el Fit3).
- */
+/** Samsung Health sync control. Fit3 Plugin stays active; Galaxy Wearable has its own tile. */
 class Fit3TileService : AppFreezeTileService() {
-    override val targetPackage: String = "com.samsung.wearable.fit3plugin"
-    override val targetPackages: List<String> = listOf(
-        "com.samsung.wearable.fit3plugin",
-        "com.sec.android.app.shealth" // Samsung Health
-    )
-    override val tileLabel: String = "Fit3"
+    override val targetPackage: String = SAMSUNG_HEALTH_PACKAGE
+    override val tileLabel: String = "Samsung Health"
     override val tileIconRes: Int = R.drawable.ic_fit3_tile
 
-    override fun onAfterFreeze() {
-        ShizukuManager.stopApp("com.samsung.accessory")
-        disableBluetoothIfNoConnectedDevices()
-        // DND keep-alive solo corre con Fit3 activo: actualizar al congelar
-        try {
-            com.nemotron.voiceime.guard.DndKeepAliveService.update(applicationContext)
-        } catch (_: Throwable) {}
-    }
-
-    /**
-     * Apaga Bluetooth únicamente cuando el cierre de Fit3 dejó cero conexiones.
-     * Si hay audífonos, coche, teclado u otro periférico conectado, se conserva.
-     */
-    internal fun disableBluetoothIfNoConnectedDevices() {
-        if (!ShizukuManager.hasPermission()) return
-
-        // Samsung Health y Accessory pueden tardar unos segundos en soltar las
-        // conexiones GATT después de detener sus paquetes.
-        repeat(8) { attempt ->
-            Thread.sleep(if (attempt == 0) 1200L else 800L)
-            val dump = ShizukuManager.execShellFresh(
-                arrayOf("dumpsys", "bluetooth_manager"), timeoutMs = 8000L
-            )
-            if (dump.isNullOrBlank()) {
-                Log.w(TAG, "No se pudo comprobar conexiones Bluetooth; no se apaga")
-                return
-            }
-
-            val gattDevices = Regex("Connection<[^>]*device:\\s*([^,>]+)")
-                .findAll(dump)
-                .map { it.groupValues[1].trim().uppercase() }
-                .toSet()
-            // Los perfiles clásicos (audio, coche, teclado, etc.) aparecen
-            // como "Devices (N / max)" en dumpsys; el Fit3 normalmente aparece
-            // como conexión GATT.
-            val profileDevices = Regex("Devices \\((\\d+) /")
-                .findAll(dump)
-                .sumOf { it.groupValues[1].toIntOrNull() ?: 0 }
-
-            if (gattDevices.isEmpty() && profileDevices == 0) {
-                val state = ShizukuManager.execShellFresh(
-                    arrayOf("settings", "get", "global", "bluetooth_on")
-                )?.trim()
-                if (state == "1") {
-                    Log.i(TAG, "Fit3 era la única conexión; apagando Bluetooth")
-                    ShizukuManager.execShellFresh(arrayOf("cmd", "bluetooth_manager", "disable"))
-                }
-                return
-            }
-            Log.i(TAG, "Bluetooth sigue activo: gatt=${gattDevices.size}, perfiles=$profileDevices")
-        }
-        Log.i(TAG, "Se conserva Bluetooth: todavía hay conexiones activas")
-    }
-
-    /** Sincroniza y espera la subida antes de congelar Samsung Health. */
-    override fun onBeforeFreeze(): Long {
-        val succeeded = try {
-            val ok = com.nemotron.voiceime.health.HealthTransferService
-                .startAndWait(applicationContext)
-            Log.d(TAG, "Sync antes de congelar: éxito=$ok")
-            ok
-        } catch (t: Throwable) {
-            Log.e(TAG, "Falló la sincronización antes de congelar Samsung Health", t)
-            false
-        }
-        // AppFreezeTileService interpreta un tiempo negativo como cancelación:
-        // deja Samsung Health habilitado para que el usuario pueda reintentar.
-        return if (succeeded) 0L else -1L
-    }
-
-    /** Al descongelar: enciende Bluetooth si esta apagado y arranca sync de salud. */
-    override fun onAfterUnfreeze() {
-        ensureBluetoothOn()
-        // Samsung Health puede perder sus permisos de Health Connect cuando
-        // One UI vuelve a habilitar el paquete. Intentamos restaurar todos
-        // los permisos de salud que el propio paquete declara usando el
-        // shell de Shizuku. Esto no toca permisos normales ni concede nada a
-        // nuestra app: el destinatario es exclusivamente Samsung Health.
-        restoreSamsungHealthConnectPermissions()
-        // Arranca el servicio de salud: transfiere una vez y se auto-detiene.
-        try {
-            com.nemotron.voiceime.health.HealthTransferService.start(applicationContext)
-        } catch (t: Throwable) {
-            Log.e(TAG, "No se pudo iniciar la transferencia al activar Fit3", t)
-        }
-        // Re-evaluar DND keep-alive ahora que Fit3 esta activo
-        try {
-            com.nemotron.voiceime.guard.DndKeepAliveService.update(applicationContext)
-        } catch (_: Throwable) {}
-    }
-
-    private fun ensureBluetoothOn() {
-        if (!ShizukuManager.hasPermission()) {
-            Log.w(TAG, "Shizuku permission not granted, no puedo encender Bluetooth")
-            return
-        }
-        // Consulta el estado de Bluetooth via settings global (0=off, 1=on)
-        val state = runCatching {
-            ShizukuManager.execShellFresh(arrayOf("settings", "get", "global", "bluetooth_on"))
-        }.getOrNull()?.trim()
-        Log.d(TAG, "Bluetooth bluetooth_on=$state")
-        // Devuelve "0" (off) o "1" (on)
-        val isOn = state == "1"
-        if (!isOn) {
-            Log.d(TAG, "Bluetooth apagado, encendiendo...")
-            ShizukuManager.execShellFresh(arrayOf("cmd", "bluetooth_manager", "enable"))
-            Log.d(TAG, "Bluetooth encendido")
+    /** Require Firebase to confirm the exercise upload before freezing Health. */
+    override fun onBeforeFreeze(): Long = try {
+        Log.i(TAG, "Sincronizando ejercicio con Firebase antes de congelar Samsung Health")
+        if (com.nemotron.voiceime.health.HealthTransferService.startAndWait(applicationContext)) {
+            0L
         } else {
-            Log.d(TAG, "Bluetooth ya esta encendido")
+            Log.e(TAG, "No se confirmó la subida; Samsung Health permanece activa")
+            -1L
+        }
+    } catch (t: Throwable) {
+        Log.e(TAG, "Falló la sincronización previa; Samsung Health permanece activa", t)
+        -1L
+    }
+
+    /** Restore Health Connect permissions and queue its normal daily sync. */
+    override fun onAfterUnfreeze() {
+        restoreSamsungHealthConnectPermissions()
+        try {
+            com.nemotron.voiceime.health.HealthTransferService.startIfNeeded(applicationContext)
+        } catch (t: Throwable) {
+            Log.e(TAG, "No se pudo iniciar la transferencia al activar Samsung Health", t)
         }
     }
 
@@ -136,48 +38,37 @@ class Fit3TileService : AppFreezeTileService() {
             Log.w(TAG, "No se pueden restaurar permisos de Health Connect: Shizuku no autorizado")
             return
         }
-
-        val pkg = targetPackages.firstOrNull { it == SAMSUNG_HEALTH_PACKAGE }
-            ?: SAMSUNG_HEALTH_PACKAGE
+        val pkg = SAMSUNG_HEALTH_PACKAGE
         val dump = ShizukuManager.execShellFresh(arrayOf("dumpsys", "package", pkg))
         if (dump.isNullOrBlank()) {
             Log.w(TAG, "No se pudo inspeccionar $pkg para restaurar Health Connect")
             return
         }
-
-        // Samsung Health declara los permisos como android.permission.health.*.
-        // Se obtiene la lista del dispositivo para que funcione con distintas
-        // versiones de Android/Health Connect sin mantener una lista obsoleta.
         val permissions = Regex("android\\.permission\\.health\\.[A-Z0-9_]+")
             .findAll(dump)
             .map { it.value }
             .distinct()
             .filter { it.contains("READ_") || it.contains("WRITE_") }
             .toList()
-
         if (permissions.isEmpty()) {
             Log.w(TAG, "$pkg no declara permisos android.permission.health.*")
             return
         }
-
-        var granted = 0
-        for (permission in permissions) {
-            val result = ShizukuManager.execShellFresh(
-                arrayOf("sh", "-c", "pm grant $pkg $permission 2>&1")
-            ).orEmpty()
-            // pm normalmente no imprime nada si tuvo éxito. Los errores se
-            // dejan en log para poder detectar restricciones de One UI.
-            if (result.isBlank()) {
-                granted++
-            } else {
-                Log.w(TAG, "Health Connect no permitió $permission: $result")
-            }
+        val commands = permissions.joinToString("; ") { permission ->
+            "pm grant $pkg $permission 2>&1 || echo __NEMO_GRANT_FAILED__:$permission"
         }
-        Log.i(TAG, "Health Connect: solicitados=${permissions.size}, enviados=$granted para $pkg")
+        val result = ShizukuManager.execShellFresh(
+            arrayOf("sh", "-c", commands), timeoutMs = 10_000L
+        ).orEmpty()
+        val failures = result.lineSequence()
+            .filter { it.contains("__NEMO_GRANT_FAILED__:") }
+            .toList()
+        failures.forEach { Log.w(TAG, "Health Connect no permitió $it") }
+        Log.i(TAG, "Health Connect: solicitados=${permissions.size}, enviados=${permissions.size - failures.size} para $pkg")
     }
 
     companion object {
         private const val SAMSUNG_HEALTH_PACKAGE = "com.sec.android.app.shealth"
-        private const val TAG = "Fit3TileService"
+        private const val TAG = "SamsungHealthTileService"
     }
 }

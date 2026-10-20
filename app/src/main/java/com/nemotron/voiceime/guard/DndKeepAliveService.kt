@@ -97,10 +97,8 @@ class DndKeepAliveService : Service() {
                 ctx.contentResolver,
                 Settings.Secure.DEFAULT_INPUT_METHOD
             )
-            val isSelectedIme = selectedIme == ComponentName(
-                ctx,
-                "com.samsung.android.honeyboard.service.HoneyBoardService"
-            ).flattenToString()
+            val selectedImeClass = ComponentName.unflattenFromString(selectedIme)?.className
+            val isSelectedIme = selectedImeClass == "com.samsung.android.honeyboard.service.HoneyBoardService"
             if (isHome && isSelectedIme) {
                 stop(ctx)
                 return

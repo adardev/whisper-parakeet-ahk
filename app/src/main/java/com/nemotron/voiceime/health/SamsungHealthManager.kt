@@ -1,6 +1,7 @@
 package com.nemotron.voiceime.health
 
 import android.content.Context
+import android.app.Activity
 import com.samsung.android.sdk.health.data.HealthDataService
 import com.samsung.android.sdk.health.data.data.Field
 import com.samsung.android.sdk.health.data.data.HealthDataPoint
@@ -11,6 +12,7 @@ import com.samsung.android.sdk.health.data.request.DataTypes
 import com.samsung.android.sdk.health.data.request.LocalTimeFilter
 import com.samsung.android.sdk.health.data.request.Ordering
 import com.samsung.android.sdk.health.data.request.ReadDataRequest
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withTimeoutOrNull
@@ -22,8 +24,11 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 
 /** Lee Samsung Health Data SDK directamente y devuelve un snapshot JSON. */
-class SamsungHealthManager(context: Context) {
-    private val store = HealthDataService.getStore(context.applicationContext)
+class SamsungHealthManager(context: Context, scope: CoroutineScope) {
+    // The SDK binds to Samsung Health when creating a store. Tie that binding
+    // to the caller so setup screens and one-shot transfers release it when
+    // they finish instead of leaving a default SDK scope bound in background.
+    private val store = HealthDataService.getStore(context.applicationContext, scope)
     // Samsung Health may keep the last weight measurement for years, while
     // the other streams are intentionally limited to recent data.
     private val bodyCompositionHistorySeconds = 10L * 365L * 24L * 60L * 60L
@@ -67,11 +72,23 @@ class SamsungHealthManager(context: Context) {
         store.getGrantedPermissions(permissions())
     }
 
-    suspend fun readAllData(start: Instant, end: Instant): JSONObject = withContext(Dispatchers.IO) {
+    suspend fun requestPermissions(
+        permissions: Set<Permission>,
+        activity: Activity
+    ): Set<Permission> = store.requestPermissions(permissions, activity)
+
+    suspend fun readAllData(
+        start: Instant,
+        end: Instant,
+        grantedPermissions: Set<Permission>? = null
+    ): JSONObject = withContext(Dispatchers.IO) {
         val endLocal = LocalDateTime.ofInstant(end, ZoneId.systemDefault())
         val result = JSONObject()
 
-        for (type in readableTypes) {
+        val typesToRead = grantedPermissions?.let { granted ->
+            readableTypes.filter { Permission.of(it, AccessType.READ) in granted }
+        } ?: readableTypes
+        for (type in typesToRead) {
             try {
                 val typeStart = if (type == DataTypes.BODY_COMPOSITION) {
                     start.minusSeconds(bodyCompositionHistorySeconds)
@@ -84,9 +101,9 @@ class SamsungHealthManager(context: Context) {
                 @Suppress("UNCHECKED_CAST")
                 val builder = readable.readDataRequestBuilder as ReadDataRequest.DualTimeBuilder<HealthDataPoint>
                 val timeoutMs = when (type) {
-                    DataTypes.EXERCISE -> 30_000L
-                    DataTypes.BODY_COMPOSITION -> 15_000L
-                    else -> 5_000L
+                    DataTypes.EXERCISE -> 15_000L
+                    DataTypes.BODY_COMPOSITION -> 5_000L
+                    else -> 2_000L
                 }
                 val response = withTimeoutOrNull(timeoutMs) {
                     store.readData(

@@ -27,8 +27,6 @@ class NemotronApp : com.samsung.android.honeyboard.app.HoneyBoardApplication() {
 
     private val dndReceiver = DndLockReceiver()
     private var dndRegistered = false
-    private val nightAirplaneScreenReceiver = NightAirplaneScreenReceiver()
-    private var nightAirplaneScreenReceiverRegistered = false
     private val shizukuFeaturesInitialized = AtomicBoolean(false)
 
     override fun onCreate() {
@@ -41,7 +39,7 @@ class NemotronApp : com.samsung.android.honeyboard.app.HoneyBoardApplication() {
         Shizuku.addBinderReceivedListener(binderListener)
         Shizuku.addBinderDeadListener(binderDeadListener)
         registerDndReceiver()
-        registerNightAirplaneScreenReceiver()
+        NightAirplaneScreenReceiver.syncRegistration(this)
         CarDetector.refresh(this)
         com.nemotron.voiceime.guard.DndKeepAliveService.update(this)
         com.nemotron.voiceime.dhizuku.ConnectionExclusionManager.start(this)
@@ -72,26 +70,6 @@ class NemotronApp : com.samsung.android.honeyboard.app.HoneyBoardApplication() {
             Log.d("NemotronApp", "DndLockReceiver registrado dinámicamente")
         } catch (t: Throwable) {
             Log.w("NemotronApp", "No se pudo registrar DndLockReceiver", t)
-        }
-    }
-
-    private fun registerNightAirplaneScreenReceiver() {
-        if (nightAirplaneScreenReceiverRegistered) return
-        try {
-            val filter = IntentFilter().apply {
-                addAction(Intent.ACTION_SCREEN_OFF)
-                addAction(Intent.ACTION_SCREEN_ON)
-                addAction(Intent.ACTION_AIRPLANE_MODE_CHANGED)
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                registerReceiver(nightAirplaneScreenReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
-            } else {
-                registerReceiver(nightAirplaneScreenReceiver, filter)
-            }
-            nightAirplaneScreenReceiverRegistered = true
-            Log.d("NemotronApp", "screen-off receiver for night airplane mode registered")
-        } catch (t: Throwable) {
-            Log.w("NemotronApp", "could not register night airplane screen-off receiver", t)
         }
     }
 

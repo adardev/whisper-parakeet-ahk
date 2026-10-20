@@ -13,6 +13,22 @@ class WatchManagerTileService : AppFreezeTileService() {
     override val tileLabel: String = "Galaxy Wearable"
     override val tileIconRes: Int = 0
 
+    /** Clear Package Manager's force-stop bit and turn Bluetooth on for reconnect. */
+    override fun onAfterUnfreeze() {
+        val pkg = targetPackage
+        if (!ShizukuManager.unstopApp(pkg)) {
+            android.util.Log.e("WatchManagerTile", "No se pudo quitar force-stop de $pkg")
+        }
+        val bluetooth = ShizukuManager.execShellFresh(
+            arrayOf("settings", "get", "global", "bluetooth_on"), timeoutMs = 2_000L
+        )?.trim()
+        if (bluetooth == "0") {
+            ShizukuManager.execShellFresh(
+                arrayOf("cmd", "bluetooth_manager", "enable"), timeoutMs = 3_000L
+            )
+        }
+    }
+
     override fun createTileIcon(): Icon {
         val size = 96
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)

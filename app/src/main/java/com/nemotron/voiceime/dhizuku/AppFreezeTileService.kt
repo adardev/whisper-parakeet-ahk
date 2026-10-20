@@ -27,6 +27,7 @@ abstract class AppFreezeTileService : TileService() {
 
     private val handler = Handler(Looper.getMainLooper())
     private val clickInProgress = AtomicBoolean(false)
+    private val tileRefreshInProgress = AtomicBoolean(false)
 
     override fun onStartListening() {
         super.onStartListening()
@@ -50,6 +51,12 @@ abstract class AppFreezeTileService : TileService() {
             Log.w(TAG, "Ignorado toque duplicado mientras $tileLabel sigue procesando")
             return
         }
+        handler.post {
+            qsTile?.let { tile ->
+                tile.state = Tile.STATE_UNAVAILABLE
+                tile.updateTile()
+            }
+        }
 
         Thread {
             try {
@@ -59,6 +66,7 @@ abstract class AppFreezeTileService : TileService() {
                 if (anyFrozen || alwaysUnfreezeOnClick) {
                     val allEnabled = targetPackages.all { pkg -> ShizukuManager.unhideApp(pkg) }
                     if (allEnabled) {
+                        publishTileState(granted = true, hidden = false)
                         onAfterUnfreeze()
                     } else {
                         Log.w(TAG, "$tileLabel: no se ejecutan acciones posteriores porque no se confirmó la activación de todos los paquetes")
@@ -77,11 +85,19 @@ abstract class AppFreezeTileService : TileService() {
                         return@Thread
                     }
                     if (beforeFreezeDelayMs > 0) Thread.sleep(beforeFreezeDelayMs)
+                    var allHidden = true
                     for (pkg in targetPackages) {
-                        ShizukuManager.hideApp(pkg)
-                        ShizukuManager.stopApp(pkg)
+                        val hidden = ShizukuManager.hideApp(pkg)
+                        allHidden = allHidden && hidden
+                        val stopped = ShizukuManager.stopApp(pkg)
+                        Log.i(TAG, "$tileLabel: $pkg disabled=$hidden forceStopped=$stopped")
                     }
-                    onAfterFreeze()
+                    if (allHidden) {
+                        publishTileState(granted = true, hidden = true)
+                        onAfterFreeze()
+                    } else {
+                        Log.w(TAG, "$tileLabel: no se ejecutan acciones posteriores porque no se confirmó el apagado")
+                    }
                 }
             } catch (t: Throwable) {
                 Log.e(TAG, "Falló el cambio de estado de $tileLabel", t)
@@ -110,28 +126,60 @@ abstract class AppFreezeTileService : TileService() {
     /** Hook con el estado calculado del tile (antes de actualizarlo). */
     open fun onTileState(granted: Boolean, hidden: Boolean) {}
 
+    /** Override when a tile controls a group of packages rather than one app. */
+    open fun isTileFrozen(): Boolean = ShizukuManager.isAppHidden(targetPackage)
+
     @SuppressLint("MissingPermission")
     private fun updateTileState() {
-        val tile = qsTile ?: return
+        if (qsTile == null) return
         // isAppHidden puede tardar hasta el timeout si el shell persistente está
         // roto (Shizuku muerto al conectar al coche/bloquear pantalla). Hacerlo
         // en background evita que el main thread se congele y ANR.
-        Thread {
-            val hidden = try { ShizukuManager.isAppHidden(targetPackage) } catch (_: Throwable) { false }
-            val granted = ShizukuManager.hasPermission()
-            try { onTileState(granted, hidden) } catch (_: Throwable) {}
-            handler.post {
-                val t = qsTile ?: return@post
-                t.label = tileLabel
-                t.icon = createTileIcon()
-                t.state = when {
-                    !granted -> Tile.STATE_UNAVAILABLE
-                    hidden -> Tile.STATE_INACTIVE
-                    else -> Tile.STATE_ACTIVE
+        if (!tileRefreshInProgress.compareAndSet(false, true)) return
+        Thread({
+            try {
+                val hidden = try { isTileFrozen() } catch (_: Throwable) { false }
+                val granted = ShizukuManager.hasPermission()
+                try { onTileState(granted, hidden) } catch (_: Throwable) {}
+                handler.post {
+                    try {
+                        val t = qsTile ?: return@post
+                        t.label = tileLabel
+                        t.icon = createTileIcon()
+                        t.state = when {
+                            !granted -> Tile.STATE_UNAVAILABLE
+                            hidden -> Tile.STATE_INACTIVE
+                            else -> Tile.STATE_ACTIVE
+                        }
+                        t.updateTile()
+                    } finally {
+                        tileRefreshInProgress.set(false)
+                    }
                 }
-                t.updateTile()
+            } catch (t: Throwable) {
+                tileRefreshInProgress.set(false)
+                Log.w(TAG, "$tileLabel: no se pudo actualizar el tile", t)
             }
-        }.start()
+        }, "Nemotron-tile-$tileLabel").start()
+    }
+
+    private fun refreshTileStateSoon() {
+        handler.post { updateTileState() }
+    }
+
+    private fun publishTileState(granted: Boolean, hidden: Boolean) {
+        handler.post {
+            try { onTileState(granted, hidden) } catch (_: Throwable) {}
+            val tile = qsTile ?: return@post
+            tile.label = tileLabel
+            tile.icon = createTileIcon()
+            tile.state = when {
+                !granted -> Tile.STATE_UNAVAILABLE
+                hidden -> Tile.STATE_INACTIVE
+                else -> Tile.STATE_ACTIVE
+            }
+            tile.updateTile()
+        }
     }
 
     companion object {

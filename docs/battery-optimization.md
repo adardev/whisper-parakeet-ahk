@@ -343,3 +343,70 @@ was not active. No active Nemotron WorkManager jobs were listed, and the only
 pending Nemotron alarm was the one-shot 23:00 airplane-mode schedule. This
 short interval shows low idle CPU at measurement time. It cannot erase the
 day's cumulative percentage or replace a full screen-off/day-long comparison.
+
+### Fit3 tile and automatic health-transfer reduction
+
+Code review found that turning the Fit3 tile off called `startAndWait()`, which
+waited up to 240 seconds for both Samsung Health reads and Firebase retries and
+refused to freeze the apps on any failure. Enabling the tile also started a
+30-day/25-stream read and a six-attempt Firestore upload each time. The tile now
+freezes immediately without depending on network success; automatic uploads
+are limited to one attempt per local day, read only currently granted streams,
+and have bounded Firebase timeouts/two upload attempts. Bluetooth connection
+checks after a toggle are also bounded and the tile state refreshes before
+those checks finish. Manual **Enviar ahora** remains available after a failed
+automatic attempt. Device installation is pending because ADB was offline at
+the time of this code change.
+
+### Accessibility binding and live battery snapshot — 19 October 2026
+
+The A54's live settings had `addiction_guard_enabled=false`, but Android still
+listed and bound `AntiScrollAccessibilityService`. Its event set included
+clicks, selections, window changes, and scrolls. I removed the sole enabled
+accessibility component and turned the accessibility master switch off.
+Verification showed an empty enabled and bound service list. HoneyBoard
+remained bound as the selected input method. The optional guard stays available
+in Nemotron and is currently off, matching its saved preference.
+
+The same live audit showed no Nemotron foreground service and no running
+Nemotron job. The only app alarm was the next daily Sleep Mode boundary. Two
+recent HoneyBoard WorkManager jobs had been cancelled while waiting to bind
+`SystemJobService`; the scheduler did not report a running job. No recurring
+polling workload was visible in these snapshots.
+
+BatteryStats had just reset its on-battery window while the phone was charging:
+it showed about one second on battery and zero measured discharge. Its UID
+estimate was 0.0546 mAh, of which 0.0489 mAh was screen attribution and 0.0057
+mAh CPU attribution, almost entirely while plugged in. This is not a valid
+discharge or daily-use measurement. Android still combines Nemotron, One UI
+Home, and HoneyBoard under UID `u0a421`, so Device Care's cumulative percentage
+cannot separate their contributions. A screen-off, unplugged sample is needed
+to quantify drain after clearing the stale accessibility binding.
+
+### One UI RxJava purge interval and post-install idle check — 19 October 2026
+
+Thread inspection found One UI's bundled RxJava purge worker (`RxSchedulerPurg`).
+Its scheduler defaulted to waking once per second and scanning scheduled
+executors. The reproducible One UI patch now retains queue cleanup but changes
+the default interval to 60 seconds, bounding cleanup delay to one minute. The
+integrated APK was rebuilt, verified with the same debug certificate as the
+installed APK, and installed at 17:22. No source or data was deleted.
+
+Post-install checks resolved HOME to the integrated One UI `LauncherActivity`,
+kept HoneyBoard selected, showed no enabled or bound accessibility service, and
+showed no Nemotron foreground service. Natural idle was restored after each
+screen-off sample (`mForceIdle=false`, `mScreenOn=true` after waking).
+
+The first 60-second screen-off sample immediately after the package update
+counted 376 CPU ticks (3.76 seconds), consistent with a noisy process-start
+window and not a steady-state result. After startup settled, a verified
+60-second screen-off sample counted 40 ticks (0.40 CPU seconds, about 0.67% of
+one core). The largest thread delta was `pool-8-thread-1` at 0.19 seconds; the
+RxJava purge thread remained below the 10 ms display resolution. A previous
+60-second screen-off sample before this patch counted 39 ticks (0.39 seconds),
+so the total idle CPU sample does not show a measurable reduction yet. The
+purge interval change reduces that worker's wake frequency, but its measured
+CPU contribution was already small. The phone remained USB-powered, so neither
+sample measures battery discharge. A further CPU reduction needs tracing the
+`pool-8-thread-1` workload; a controlled daily battery comparison still needs
+an unplugged interval.
