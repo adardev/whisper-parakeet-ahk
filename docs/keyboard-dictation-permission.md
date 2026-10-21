@@ -21,11 +21,17 @@ permission. Grant it only if you want voice dictation. The feature otherwise
 does not request or use the microphone.
 
 On 2026-10-21, the A54 reported `RECORD_AUDIO: granted=false` and app-op
-`ignore` for `com.nemotron.keyboard`. The updated keyboard APK built and
-installed with `adb install -r`, preserving package data. The permission remains
-denied until the user accepts Android's prompt. Trigger double-space on the
-keyboard and tap **Permitir micrófono**; after approval, return to the keyboard
-and repeat the gesture. The permission prompt was not granted automatically.
+`ignore` for `com.nemotron.keyboard`. The first updated APK was installed with
+`adb install -r`, preserving package data. Its permission activity then crashed
+because the optimized Keyboard APK does not include an AppCompat decor class
+used indirectly by its theme (`ClassNotFoundException` for
+`androidx.appcompat.widget.FitWindowsLinearLayout`).
+
+The follow-up replaces that screen with a platform `Activity`, uses Android's
+platform Material no-action-bar theme, and requests the runtime permission
+immediately. This version compiled and passed split/signature/manifest checks.
+The phone disconnected from ADB before this follow-up APK could be installed;
+device installation and permission-dialog interaction remain to be verified.
 
 Build and ownership checks:
 
@@ -35,4 +41,15 @@ Build and ownership checks:
 - Manifest inspection confirmed the permission activity and recording service
   are in the Keyboard APK.
 - The Whisper model remains packaged only in Keyboard.
-- Only `com.nemotron.keyboard` was installed on the phone for this change.
+- The release artifact is only `com.nemotron.keyboard`; Core and UI are not
+  intended to be updated for this fix.
+
+## Crash fix follow-up
+
+The first permission screen used `AppCompatActivity`, but the Keyboard dex
+pruner removes an AppCompat decor class referenced indirectly by the themed
+window. On the A54, `KeyboardMicrophonePermissionActivity` crashed while
+inflating its content (`ClassNotFoundException` for
+`androidx.appcompat.widget.FitWindowsLinearLayout`). The follow-up permission
+screen is a platform `Activity`; its retry/settings actions use platform APIs
+and it does not depend on pruned AppCompat classes.

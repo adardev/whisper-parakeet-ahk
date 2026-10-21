@@ -98,7 +98,7 @@
             android:exported="false"
             android:excludeFromRecents="true"
             android:label="Nemotron Keyboard"
-            android:theme="@style/Theme.NemotronVoiceIME" />
+            android:theme="@android:style/Theme.Material.NoActionBar" />
 
         <!-- ============================================================== -->
         <!--  AppPickerActivity: seleccionar apps a congelar (freeze).       -->
