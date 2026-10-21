@@ -10,6 +10,7 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
@@ -280,10 +281,11 @@
             </intent-filter>
         </service>
 
-        <!-- Samsung Health: sync/freeze; Fit3 Plugin is never managed by this tile -->
+        <!-- Fit3: sync Health, toggle the watch link and pause Health/plugin together. -->
         <service
             android:name=".dhizuku.Fit3TileService"
             android:exported="true"
+            android:foregroundServiceType="connectedDevice"
             android:icon="@drawable/ic_fit3_tile"
             android:label="Samsung Health"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">

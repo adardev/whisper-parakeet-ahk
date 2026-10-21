@@ -1,14 +1,18 @@
 package com.nemotron.voiceime.dhizuku
 
 import android.Manifest
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.bluetooth.BluetoothManager
 import android.bluetooth.BluetoothProfile
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Handler
 import android.os.Looper
 import android.service.quicksettings.Tile
 import android.util.Log
 import androidx.core.content.ContextCompat
+import androidx.core.app.NotificationCompat
 import com.nemotron.voiceime.R
 import com.nemotron.voiceime.guard.DndKeepAliveService
 import java.util.concurrent.atomic.AtomicBoolean
@@ -20,6 +24,13 @@ class Fit3TileService : AppFreezeTileService() {
     override val tileIconRes: Int = R.drawable.ic_fit3_tile
 
     private val mainHandler = Handler(Looper.getMainLooper())
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Started only to protect the current explicit tile operation from
+        // Samsung's process freezer; never restart an old connection action.
+        if (intent == null || !operationInProgress.get()) stopSelf(startId)
+        return START_NOT_STICKY
+    }
 
     // A temporarily disconnected watch must not turn an enabled Health tile
     // into another "connect" action when the user is trying to switch it off.
@@ -46,6 +57,27 @@ class Fit3TileService : AppFreezeTileService() {
             return
         }
         if (!operationInProgress.compareAndSet(false, true)) return
+        try {
+            // A bound QS service can still be frozen while its worker waits
+            // for Bluetooth. Keep it foreground only for this one action.
+            startForegroundService(Intent(this, Fit3TileService::class.java))
+            getSystemService(NotificationManager::class.java).createNotificationChannel(
+                NotificationChannel(OPERATION_CHANNEL, "Cambios de conexión Fit3", NotificationManager.IMPORTANCE_LOW)
+            )
+            startForeground(OPERATION_NOTIFICATION, NotificationCompat.Builder(this, OPERATION_CHANNEL)
+                .setSmallIcon(R.drawable.ic_fit3_tile)
+                .setContentTitle("Fit3")
+                .setContentText("Actualizando conexión de la pulsera…")
+                .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_DEFERRED)
+                .setOngoing(true).build())
+        } catch (t: Throwable) {
+            operationInProgress.set(false)
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            stopSelf()
+            Log.e(TAG, "No se pudo mantener la operación Fit3 activa", t)
+            showMessage("No se pudo iniciar el cambio de conexión Fit3")
+            return
+        }
         setTileState(Tile.STATE_UNAVAILABLE)
 
         Thread({
@@ -148,8 +180,8 @@ class Fit3TileService : AppFreezeTileService() {
                     }
                     Log.i(TAG, "Apagado completado: subidaConfirmada=$uploaded, Fit3 desconectada, Samsung Health y Fit3 Plugin pausados")
                 } else {
-                    // Restore the Fit3 service before Health and before
-                    // sending Samsung's Host Manager connection request.
+                    // Restore packages before waking Samsung's background
+                    // health receiver, which initializes its own HostManager.
                     for (pkg in listOf(SAMSUNG_WEARABLE_PLUGIN, targetPackage)) {
                         if (pkg in disabled && !ShizukuManager.unhideApp(pkg)) {
                             Log.e(TAG, "No se pudo habilitar $pkg para conectar Fit3")
@@ -170,21 +202,28 @@ class Fit3TileService : AppFreezeTileService() {
                             return@Thread
                         }
                     }
-                    val sent = sendWatchRequest(CONNECT_ACTION, device.address)
-                    if (!sent) {
-                        Log.e(TAG, "Samsung Wearable no aceptó la solicitud de conexión")
+                    if (!startFit3Connection()) {
+                        showMessage("No se pudo iniciar Fit3 Plugin para conectar la pulsera")
                         return@Thread
                     }
-                    val connected = waitForConnection(device.address, connected = true, timeoutMs = 15_000L)
+                    val connected = waitForConnection(device.address, connected = true, timeoutMs = 25_000L)
                     Log.i(TAG, "Resultado de reconexión de Fit3: conectado=$connected")
+                    if (!connected) showMessage("Fit3 sigue sin conexión. Comprueba que la pulsera esté cerca y encendida")
                 }
             } catch (t: Throwable) {
                 Log.e(TAG, "Falló el control de conexión Bluetooth de Fit3", t)
                 showMessage("No se pudo cambiar Fit3: ${t.message ?: "consulta los registros"}")
             } finally {
                 operationInProgress.set(false)
-                DndKeepAliveService.update(applicationContext)
-                refreshState()
+                try {
+                    DndKeepAliveService.update(applicationContext)
+                    refreshState()
+                } finally {
+                    mainHandler.post {
+                        stopForeground(STOP_FOREGROUND_REMOVE)
+                        stopSelf()
+                    }
+                }
             }
         }, "Nemotron-Fit3-Bluetooth").start()
     }
@@ -248,10 +287,9 @@ class Fit3TileService : AppFreezeTileService() {
         .getOrDefault(false)
 
     private fun sendWatchRequest(action: String, address: String): Boolean {
-        // Use the Host Manager receiver for both directions. Its CONNECT
-        // action calls SAPHolder.connectDevice(address) directly; the
-        // dashboard receiver only queues manageConnectionInfo and can return
-        // success without actually reconnecting the watch.
+        // This receiver is protected by Samsung's signature permission.
+        // Broadcast completion alone is not a disconnect confirmation: callers
+        // must verify the link and apply the sole-device Bluetooth fallback.
         val component = HOST_MANAGER_RECEIVER
         val command = arrayListOf(
             "am", "broadcast", "--user", "0", "-a", action,
@@ -264,6 +302,25 @@ class Fit3TileService : AppFreezeTileService() {
         Log.i(TAG, "Solicitud Samsung Wearable action=$action address=$address: $output")
         return output?.contains("Broadcast completed") == true &&
             !output.contains("Permission Denial", ignoreCase = true)
+    }
+
+    private fun startFit3Connection(): Boolean {
+        // This SDK capability request is handled by an exported, permissionless
+        // receiver in the plugin's main process. HostManagerApplication.onCreate
+        // initializes NSHostManager/HMApplication under Samsung's UID, restoring
+        // its saved-device SAP connection. No Activity or foreground switch is
+        // needed. Broadcast completion is only startup acknowledgement; the
+        // caller still verifies the real watch link before reporting success.
+        val output = ShizukuManager.execShellFresh(arrayOf(
+            "am", "broadcast", "--user", "0", "--receiver-include-background",
+            "-a", HEALTH_CAPABILITY_ACTION,
+            "-n", "$SAMSUNG_WEARABLE_PLUGIN/$HEALTH_CONNECTION_RECEIVER"
+        ), timeoutMs = 10_000L)
+        Log.i(TAG, "Arranque en segundo plano Fit3: $output")
+        return output?.contains("Broadcast completed") == true &&
+            !output.contains("Error", ignoreCase = true) &&
+            !output.contains("Permission Denial", ignoreCase = true) &&
+            !output.contains("SecurityException")
     }
 
     private fun waitForConnection(address: String, connected: Boolean, timeoutMs: Long): Boolean {
@@ -318,13 +375,18 @@ class Fit3TileService : AppFreezeTileService() {
     companion object {
         private val operationInProgress = AtomicBoolean(false)
         private const val TAG = "Fit3BluetoothTile"
+        private const val OPERATION_CHANNEL = "fit3_connection_action"
+        private const val OPERATION_NOTIFICATION = 9025
         private const val FIT3_PREFERENCES = "fit3_tile_preferences"
         private const val FIT3_ADDRESS_KEY = "paired_fit3_address"
         private const val KNOWN_FIT3_ADDRESS = "74:19:0A:49:64:DD"
         private const val SAMSUNG_HEALTH_PACKAGE = "com.sec.android.app.shealth"
         private const val SAMSUNG_WEARABLE_PLUGIN = "com.samsung.wearable.fit3plugin"
         private const val DISCONNECT_ACTION = "com.samsung.android.watchmanager.ACTION_HM_REQUEST_DISCONNECT"
-        private const val CONNECT_ACTION = "com.samsung.android.watchmanager.ACTION_HM_REQUEST_CONNECT"
+        private const val HEALTH_CAPABILITY_ACTION =
+            "com.samsung.android.sdk.healthconnectivity.REQUEST_MANAGER_CAPABILITY"
+        private const val HEALTH_CONNECTION_RECEIVER =
+            "com.samsung.wearable.providers.sahealthdataprovider.connection.MobileConnectionReceiver"
         private const val HOST_MANAGER_RECEIVER =
             "com.samsung.wearable.hostmanager.connection.SAPHolder\$ExternalDisconnectListener"
     }

@@ -108,8 +108,15 @@ if the Fit3 handoff or Shizuku operation fails.
 The Fit3 tile owns both Samsung Health (`com.sec.android.app.shealth`) and its
 plugin (`com.samsung.wearable.fit3plugin`). When turned off, it syncs Health,
 disconnects the watch, then disables and force-stops both packages. When turned
-on, it enables and unstops the plugin first, then Health, before requesting a
-connection. A failed plugin pause restores Health so the tile does not claim an
+on, it enables and unstops the plugin first, then Health. Background startup
+sends the public Health Connectivity SDK capability request to the
+plugin's `MobileConnectionReceiver`, initializing its Application and HostManager
+without opening a window. A real tile cycle at 12:41 on 21 October confirmed
+reconnection, a refreshed tile, and no plugin Activity launch. A temporary
+`connectedDevice` foreground operation prevents Samsung from freezing Core
+before the tile finishes; it is non-sticky and stops after the action.
+Shell cannot invoke the protected CONNECT receiver directly. The tile checks
+the actual GATT link after startup. A failed plugin pause restores Health so the tile does not claim an
 off state while leaving the stack half-enabled. The separate Galaxy Wearable
 tile still controls only `com.samsung.android.app.watchmanager`.
 

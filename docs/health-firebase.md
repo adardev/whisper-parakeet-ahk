@@ -66,16 +66,20 @@ temporarily loses its Bluetooth connection. A disconnected watch must not change
 an intended off tap into another reconnect attempt.
 
 - On: enable and unstop `com.samsung.wearable.fit3plugin` first, then
-  `com.sec.android.app.shealth`; enable Bluetooth when needed and request the
-  Fit3 connection through Samsung's Host Manager.
+  `com.sec.android.app.shealth`; enable Bluetooth when needed and send the
+  SDK's `REQUEST_MANAGER_CAPABILITY` to the plugin's exported
+  `MobileConnectionReceiver`. Its main-process Application initializes
+  Samsung's HostManager. No Activity is launched and Quick Settings stays as-is.
+  Confirm the Fit3 GATT connection within 25 seconds; otherwise report that
+  the watch is still disconnected.
 - Off: wait for the Health SDK read and confirmed Firebase upload, request Fit3
   disconnection, then disable and stop Samsung Health and Fit3 Plugin. If Fit3
   was the only connected device, turn Bluetooth off and verify the link went
   down. Preserve Bluetooth when another device is connected.
 - Galaxy Wearable remains controlled by its separate tile. Sleep Mode uses a
   bounded direct BLE exchange and leaves plugin state as the Fit3 tile set it.
-- An unsuccessful sync leaves Health enabled so the user can retry without
-  interrupting the transfer. The existing transfer wait is bounded at 240 seconds.
+- The pre-disconnect sync wait is bounded at 60 seconds. An unsuccessful upload
+  is reported and local Health data is preserved; it does not trap the tile on.
 - The busy guard is shared between tile service instances to prevent overlapping
   taps from starting multiple transfers or opposing connection requests.
 
@@ -96,3 +100,78 @@ A54 verification with the installed Core APK on 20 Oct 2026:
 The branch retaining Bluetooth for a second connected device was not exercised
 in this session. The other tiles were inspected in code; their individual
 device behaviors have not all been verified.
+
+## Cold Fit3 plugin reconnection — 21 October 2026
+
+The first plugin-freezing build enabled both packages and sent
+`ACTION_HM_REQUEST_CONNECT` to `SAPHolder$ExternalDisconnectListener`. The
+receiver requires Samsung's `ACCESS_UNIFIED_HOST_MANAGER` permission, which
+shell/Shizuku does not hold. `Broadcast completed: result=0` was therefore
+not evidence of delivery or connection. At 11:44:57 it completed without
+starting the plugin; the tile subsequently logged `conectado=false`.
+
+`MainInfoActivity` is exported without that permission. Opening it at 11:48:00
+started HostManager under the Samsung plugin UID, and Samsung confirmed
+`onAccessoryConnected` at 11:48:06. Its dashboard displayed the paired Fit3 and
+its 100% battery level. The first working reconnect build used this public entry
+point, rather than the protected CONNECT broadcast. The
+separate Galaxy Wearable package can remain disabled. Only Core was rebuilt
+and updated; UI and Keyboard were not updated in this change.
+
+Verification with the updated Core APK using the real Fit3 TileService through
+`cmd statusbar click-tile`:
+
+- 11:50:22: Firebase confirmed the Health snapshot upload before disconnection.
+- 11:50:31: Fit3 was the only Bluetooth device; Bluetooth and its link were
+  confirmed off, both Health and Fit3 Plugin were disabled, and the plugin had
+  no running processes.
+- 11:51:00: an on tap restored the packages and enabled Bluetooth.
+- 11:51:03: the public plugin activity started successfully and Quick Settings
+  collapsed.
+- 11:51:06: the tile confirmed the live GATT link (`conectado=true`).
+- 11:51:07: Samsung confirmed `onAccessoryConnected` and connection state `2`.
+  The dashboard again displayed the Fit3 at 100% battery. Galaxy Wearable
+  remained disabled throughout this cycle. The watch was left connected.
+
+### Verified background startup
+
+To remove the visible plugin dashboard, the current source sends the Health
+Connectivity SDK capability request explicitly to `MobileConnectionReceiver`.
+The installed Samsung APK declares that receiver exported without a sender
+permission, in its default process. Its Application's `onCreate` invokes
+`HostManagerApplication.init` (including `NSHostManager.init`) and
+`HMApplication.init`. The receiver's capability request path does not launch an
+Activity. This initializes Samsung's backend without invoking its protected
+CONNECT receiver or opening a window.
+
+After reconnecting ADB, the background request started HostManager at 12:34:22
+and Samsung confirmed its SAP session at 12:34:30 without launching an Activity.
+The plain tile worker was subsequently found in `do_freezer_trap`: Samsung had
+frozen Core before it could publish the successful connection and clear the
+tile's busy state.
+
+The tile now starts itself as a temporary `connectedDevice` foreground service
+only for the explicit connection/disconnection operation. It uses a deferred,
+low-priority notification, returns `START_NOT_STICKY`, removes the notification,
+and stops its started service in `finally` after refreshing the tile. No Activity,
+overlay, permanent worker, periodic poll or additional wakelock was added.
+
+The final Core build compiled and was installed in place. A real tile cycle
+confirmed:
+
+- 12:41:03: Health's snapshot was uploaded to Firebase.
+- 12:41:12: Bluetooth/link off, Health and Fit3 Plugin disabled, plugin processes
+  absent.
+- 12:41:34: the on tap started the bounded operation.
+- 12:41:37: the background SDK receiver was invoked.
+- 12:41:40: Core confirmed `conectado=true`; Samsung confirmed SAP connection
+  state `2` in the same second.
+- The Quick Settings hierarchy showed `Bluetooth, adarlpz's Fit3` and the Fit3
+  tile without its busy subtitle. The underlying resumed Activity remained
+  Nemotron UI; no plugin/Watchmanager Activity was launched.
+- The Fit3 TileService finished with `startRequested=false` and no foreground
+  notification `9025`. A normal QS binding may remain while the panel is visible.
+  The separate DND keep-alive feature retains its existing connected-watch rule.
+
+The watch was left connected. Galaxy Wearable remained disabled and neither
+the UI nor Keyboard APK was changed.
