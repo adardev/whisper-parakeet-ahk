@@ -92,6 +92,14 @@
             android:label="@string/settings_title"
             android:parentActivityName=".ui.SetupActivity" />
 
+        <!-- Runtime permission prompt owned by the standalone keyboard package. -->
+        <activity
+            android:name=".ui.KeyboardMicrophonePermissionActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:label="Nemotron Keyboard"
+            android:theme="@style/Theme.NemotronVoiceIME" />
+
         <!-- ============================================================== -->
         <!--  AppPickerActivity: seleccionar apps a congelar (freeze).       -->
         <!--  Tambien es target del long-press en el QS tile.              -->

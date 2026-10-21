@@ -212,7 +212,10 @@ function Test-KeyboardComponent([string] $ComponentType, [string] $Name) {
     if ($ComponentType -notin @('activity', 'activity-alias', 'receiver', 'service', 'provider')) { return $false }
     return $Name -match '^com\.samsung\.android\.(honeyboard|writingtoolkit|fontchooser)\.' -or
         $Name -match '^com\.nemotron\.honeyboard\.shaded\.' -or
-        $Name -eq 'com.nemotron.voiceime.record.VoiceRecordService'
+        $Name -in @(
+            'com.nemotron.voiceime.record.VoiceRecordService',
+            'com.nemotron.voiceime.ui.KeyboardMicrophonePermissionActivity'
+        )
 }
 
 function Set-CoreApplicationBase([string] $DecodedRoot) {

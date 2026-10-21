@@ -7,6 +7,7 @@ import android.app.Service
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.pm.PackageManager
 import android.inputmethodservice.InputMethodService
 import android.content.Intent
 import android.media.AudioManager
@@ -55,6 +56,13 @@ class VoiceRecordService : Service() {
 
     private fun startRecording() {
         Log.d(TAG, "startRecording")
+        if (checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            requestedRecordingState = false
+            keyboardInputConnection = null
+            requestMicrophonePermission(this)
+            stopSelf()
+            return
+        }
         requestedRecordingState = true
         try {
             startForeground(NOTIF_ID, buildNotification("Grabando… toca para parar"))
@@ -164,9 +172,16 @@ class VoiceRecordService : Service() {
                 SpeechRecognizer.ERROR_NO_MATCH,
                 SpeechRecognizer.ERROR_SPEECH_TIMEOUT ->
                     continueListening()
+                SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> {
+                    stopSR()
+                    isRunning = false
+                    requestedRecordingState = false
+                    keyboardInputConnection = null
+                    requestMicrophonePermission(this@VoiceRecordService)
+                    cleanup()
+                }
                 SpeechRecognizer.ERROR_RECOGNIZER_BUSY,
-                SpeechRecognizer.ERROR_CLIENT,
-                SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS ->
+                SpeechRecognizer.ERROR_CLIENT ->
                     continueListening()
                 else -> {
                     stopSR()
@@ -400,9 +415,16 @@ class VoiceRecordService : Service() {
         @JvmStatic
         fun toggleFromIme(context: Context, inputConnection: InputConnection?, keyboard: View?) {
             keyboard?.let { KeyboardDictationFeedback.bind(it, it.width / 2f) }
-            keyboardInputConnection = inputConnection
             lastSpaceCommitUptime = 0L
             val start = !(requestedRecordingState ?: isRunning)
+            if (start && context.checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                requestedRecordingState = false
+                keyboardInputConnection = null
+                Log.w(TAG, "Microphone permission missing; opening keyboard permission prompt")
+                requestMicrophonePermission(context)
+                return
+            }
+            keyboardInputConnection = inputConnection
             requestedRecordingState = start
             val action = if (start) ACTION_START else ACTION_STOP
             Log.i(TAG, "Dictation toggle requested: ${if (start) "start" else "stop"}; running=$isRunning")
@@ -413,6 +435,22 @@ class VoiceRecordService : Service() {
                 KeyboardDictationFeedback.pulse(context)
             } catch (error: Throwable) {
                 Log.e(TAG, "Could not toggle dictation from HoneyBoard", error)
+            }
+        }
+
+        private fun requestMicrophonePermission(context: Context) {
+            try {
+                context.startActivity(
+                    Intent(context, com.nemotron.voiceime.ui.KeyboardMicrophonePermissionActivity::class.java)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                )
+            } catch (error: Throwable) {
+                Log.e(TAG, "Could not open keyboard microphone permission screen", error)
+                android.widget.Toast.makeText(
+                    context,
+                    "Nemotron Keyboard necesita el permiso Micrófono. Abre Ajustes > Aplicaciones > Nemotron Keyboard > Permisos.",
+                    android.widget.Toast.LENGTH_LONG
+                ).show()
             }
         }
 

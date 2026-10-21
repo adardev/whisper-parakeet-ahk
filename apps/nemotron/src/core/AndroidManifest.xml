@@ -5,5 +5,7 @@
         <!-- Voice recording belongs to Nemotron Keyboard. -->
         <service android:name="com.nemotron.voiceime.record.VoiceRecordService"
             tools:node="remove" />
+        <activity android:name="com.nemotron.voiceime.ui.KeyboardMicrophonePermissionActivity"
+            tools:node="remove" />
     </application>
 </manifest>
