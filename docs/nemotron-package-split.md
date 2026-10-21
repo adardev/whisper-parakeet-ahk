@@ -39,11 +39,10 @@ Separate UIDs make Android's per-app battery accounting useful for identifying
 which process is active. The split does not itself guarantee any specific
 battery usage.
 
-The current APK split separates package identities and manifest components,
-but does not yet shrink the shared payload. Core and Keyboard each still carry
-17 DEX files, about 139 MiB of resources/assets, and about 53 MiB of native
-libraries. Their similar APK sizes are duplicated package contents, not proof
-that all of that code is running in the background.
+Core is rebuilt directly from its sources. The final optimization pass removes
+unrelated bytecode and assets from Keyboard and UI, retaining the Whisper model
+only in Keyboard. Their APK sizes and runtime memory are measured separately;
+see [component size optimization](component-size-optimization.md).
 
 ## Build
 
@@ -54,13 +53,14 @@ intermediate input, not a Home rollback. All three APKs use the same debug
 certificate as the installed UI so UI can be updated without losing Home data.
 Provider authorities are checked within and across the split packages.
 
-Use C: by default because it has the most free space on this PC. The build
-requires at least 2 GB free on its output drive and a clean output directory.
+Choose the output drive with sufficient free space. The optimization pass
+requires at least 3 GB free on its output drive and a clean output directory.
 APKtool 2.12.1 is checked against the official SHA-256 before use.
 
 ```powershell
-$repo = 'C:\Users\adaredu\whisper-parakeet-ahk-recovered'
+$repo = 'C:\Users\adaredu\whisper-parakeet-ahk'
 & "$repo\tools\build-nemotron-split.ps1" `
+  -HomeReferenceApk 'E:\NemotronSlim\original\system-home.apk' `
   -OutputDirectory 'C:\Users\adaredu\NemotronBuild\SplitOutput'
 ```
 
@@ -114,23 +114,18 @@ requiring Firebase confirmation before freezing it. The scheduled Fit3
 settings handoff also leaves the plugin, Galaxy Wearable, Samsung Accessory,
 and Bluetooth alone.
 
-## A54 verification — 20 October 2026
+## Current validation status
 
-- Installed `com.nemotron.core`, `com.nemotron.keyboard`, and updated
-  `com.nemotron.voiceime2` in place.
-- `com.nemotron.voiceime2` owns the Android Home role and its launcher activity
-  starts successfully.
-- Default IME is
-  `com.nemotron.keyboard/com.samsung.android.honeyboard.service.HoneyBoardService`.
-- The Fit3 plugin is enabled (`enabled=1`) and not stopped (`stopped=false`). It
-  was re-enabled without changing its APK or Bluetooth state.
-- Core owns the Routines provider authority still queried by the UI, preventing
-  the launcher crash seen when that authority was incorrectly renamed during
-  the first split build.
-- The keyboard has `WRITE_SECURE_SETTINGS` granted for HoneyBoard startup.
-- `/data` had 5.0 GB free after install. The PC build and APK outputs are on C:,
-  which had about 25 GiB free; D: was left untouched.
+The three separate packages are installed on the A54. The size optimization on
+20 October rebuilt Core directly from its sources, removed unrelated classes
+and vendor assets from the other components, and confined the Whisper model to
+Keyboard. Core, Keyboard, and UI APKs now occupy approximately 16, 171, and
+105 MiB respectively. HOME and IME roles, widget layout, and package data were
+preserved through signed updates. See [component size optimization](component-size-optimization.md)
+for measurements, reproducible tools, and the limits of the checks performed.
 
-The device install confirms package separation and Home/IME selection. A
-separate unplugged screen-off sample is still required to compare background
-battery use between these UIDs.
+The selected IME is
+`com.nemotron.keyboard/com.samsung.android.honeyboard.service.HoneyBoardService`.
+The Fit3 plugin remains enabled and the existing Home/provider permission
+compatibility fixes are retained. A separate unplugged screen-off sample is
+still required to compare background battery use between these UIDs.

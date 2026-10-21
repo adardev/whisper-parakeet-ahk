@@ -60,9 +60,10 @@ abstract class AppFreezeTileService : TileService() {
 
         Thread {
             try {
-                val disabled = ShizukuManager.stillDisabled(targetPackages)
+                val disabled = ShizukuManager.getDisabledPackages()
+                    ?: throw IllegalStateException("No se pudo consultar el estado de $tileLabel")
                 Log.d(TAG, "Currently frozen: $disabled")
-                val anyFrozen = disabled.isNotEmpty()
+                val anyFrozen = targetPackages.any { it in disabled }
                 if (anyFrozen || alwaysUnfreezeOnClick) {
                     val allEnabled = targetPackages.all { pkg -> ShizukuManager.unhideApp(pkg) }
                     if (allEnabled) {
@@ -127,7 +128,11 @@ abstract class AppFreezeTileService : TileService() {
     open fun onTileState(granted: Boolean, hidden: Boolean) {}
 
     /** Override when a tile controls a group of packages rather than one app. */
-    open fun isTileFrozen(): Boolean = ShizukuManager.isAppHidden(targetPackage)
+    open fun isTileFrozen(): Boolean {
+        val disabled = ShizukuManager.getDisabledPackages()
+            ?: throw IllegalStateException("No se pudo consultar el estado de $tileLabel")
+        return targetPackages.any { it in disabled }
+    }
 
     @SuppressLint("MissingPermission")
     private fun updateTileState() {

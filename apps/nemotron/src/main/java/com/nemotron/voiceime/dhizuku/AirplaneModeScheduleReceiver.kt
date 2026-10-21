@@ -10,15 +10,17 @@ class AirplaneModeScheduleReceiver : BroadcastReceiver() {
         when (intent.action) {
             AirplaneModeSchedule.ACTION_TOGGLE -> {
                 val enable = intent.getBooleanExtra(AirplaneModeSchedule.EXTRA_ENABLE, false)
+                // Ignore a legacy 08:00 alarm already queued before this update.
+                if (!enable) {
+                    AirplaneModeSchedule.scheduleNext(context)
+                    return
+                }
                 val pendingResult = goAsync()
                 Thread {
                     try {
                         val alreadyEnabled = SleepModeController.isEnabled(context)
                         if (alreadyEnabled == enable) {
-                            // Refresh persisted state and the QS tile even if Android
-                            // delivered a stale/duplicate scheduled alarm.
-                            SleepModeController.markScheduledState(context, enable)
-                            Log.i(TAG, "Sleep Mode a las ${if (enable) "23:00" else "08:00"}: ya estaba ${if (enable) "activo" else "apagado"}; sin cambios")
+                            Log.i(TAG, "Sleep Mode a las 23:00: ya estaba activo; sin cambios")
                         } else {
                             val result = SleepModeController.setScheduledEnabled(context, enable)
                             if (!result.success) Log.w(TAG, "rutina programada pendiente: ${result.message}")

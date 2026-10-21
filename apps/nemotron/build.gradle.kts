@@ -4,14 +4,18 @@ plugins {
     id("kotlin-parcelize")
 }
 
+// Core is built directly from its sources rather than from the HoneyBoard
+// merged APK. Keep the integrated input for the dedicated keyboard build.
+val coreOnly = providers.gradleProperty("nemotronComponent").orNull == "core"
+
 android {
     namespace = "com.nemotron.voiceime"
     compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.nemotron.voiceime2"
+        applicationId = if (coreOnly) "com.nemotron.core" else "com.nemotron.voiceime2"
         minSdk = 29
-        targetSdk = 35
+        targetSdk = if (coreOnly) 33 else 35
         versionCode = 5
         versionName = "1.0"
     }
@@ -31,6 +35,13 @@ android {
     }
     buildFeatures {
         viewBinding = true
+    }
+    sourceSets.getByName("main").assets.setSrcDirs(
+        if (coreOnly) emptyList<Any>()
+        else listOf(rootProject.file("apps/nemotron-keyboard/assets"))
+    )
+    if (coreOnly) {
+        sourceSets.getByName("debug").manifest.srcFile("src/core/AndroidManifest.xml")
     }
 }
 

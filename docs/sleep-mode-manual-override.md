@@ -1,10 +1,16 @@
 # Sleep Mode: apagado manual y tile Orca
 
-## Apagado manual durante la noche
+## Funcionamiento vigente (20 de octubre de 2026)
 
-Al apagar Sleep Mode desde su tile, el atajo lateral o la actividad de Nemotron, se guarda una pausa manual para el resto del día. Los eventos de pantalla apagada y los reintentos que ya estuvieran en cola respetan esa pausa y no vuelven a activar el modo avión ni la rutina nocturna. La pausa se limpia al iniciar la rutina programada de las 23:00; la alarma de las 08:00 puede terminar la rutina matutina sin borrar la elección manual.
+Sleep Mode se puede encender manualmente a cualquier hora. Cada día a las 23:00 se activa automáticamente; si ya está activo, no repite la rutina. Permanece activo hasta que el usuario lo apaga desde el tile, el atajo lateral o la actividad de Nemotron.
 
-Si se vuelve a activar Sleep Mode manualmente, se elimina la pausa. Si la operación manual falla, se restaura el valor anterior para no mostrar una elección que no se aplicó.
+Se eliminó `NightAirplaneScreenReceiver`, su registro en `NemotronApp` y los reintentos al recuperar Shizuku. Encender o apagar la pantalla y cambiar manualmente el modo avión no ejecutan rutinas de sueño ni detectan que el usuario despertó. El modo avión sigue formando parte de la activación explícita del modo sueño.
+
+La única alarma es la activación de las 23:00 en la zona horaria local. Al programarla se cancela el PendingIntent anterior con el mismo identificador, reemplazando cualquier alarma de las 08:00. El receptor también ignora las solicitudes antiguas de apagado que ya estuvieran en tránsito. Reiniciar el dispositivo, actualizar la app o cambiar la hora reprograma la siguiente activación nocturna; nunca ejecuta un apagado matutino.
+
+El apagado manual restaura la conectividad y los ajustes diurnos de Fit3. Si una operación falla, el tile refleja que no terminó y permite reintentar. No hay observación de pantalla, detección de despertar, apagado automático ni reactivación al bloquear.
+
+Comprobación en el A54 el 20 de octubre: APK Core actualizado conservando sus datos; `dumpsys alarm` muestra la alarma exacta para las 23:00; el receptor eliminado no aparece registrado; al apagar y encender la pantalla, `airplane_mode_on` permaneció en `0`. La entrega real de la alarma nocturna queda pendiente de las 23:00.
 
 ## Orca y Termux
 

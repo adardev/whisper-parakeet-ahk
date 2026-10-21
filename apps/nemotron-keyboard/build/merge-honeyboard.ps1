@@ -560,6 +560,7 @@ $appCode = $appCode.Replace('Landroid/app/Application;->onCreate()V', 'Lcom/sams
 
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'HoneyBoardDialogs.smali') -Destination (Join-Path $base 'smali_classes5\com\nemotron\voiceime\record\HoneyBoardDialogs.smali')
 Write-Host "Injected $insertedClassCount HoneyBoard classes; reused $duplicateClassCount shared library classes."
+& (Join-Path $PSScriptRoot '..\..\..\tools\patch-keyboard-memory.ps1') -DecodedRoot $base
 & $JavaExe -jar $ApktoolJar b $base -o $unsigned
 if ($LASTEXITCODE -ne 0) { throw "APKTool rebuild failed. Working files are at $work" }
 & $zipalign -f -p 4 $unsigned $aligned

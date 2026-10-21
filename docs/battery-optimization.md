@@ -301,7 +301,29 @@ as Device Care's reported usage; these counters do not support calling it zero
 or proving a full-day reduction. The short CPU sample only says the process was
 idle in that interval.
 
-### Active background service and Orca tile correction — 19 October 2026
+### DND service tied to a live Fit3 connection — 20 October 2026
+
+The A54 reported `DndKeepAliveService` as an active foreground app even with
+Do Not Disturb off and the Fit3 disconnected. It restarted after the user
+stopped it because the service returned `START_STICKY`. Its start condition
+checked whether the Fit3 plugin package was enabled, not whether the watch's
+GATT connection was live. Split HOME/keyboard packages also made an old role
+check fail and left the service running.
+
+The service now checks the saved Fit3 Bluetooth address against live GATT
+connections. It starts only while Fit3 is connected (and the accessibility
+guard is off), returns `START_NOT_STICKY`, and stops on Fit3 ACL disconnect or
+Bluetooth shutdown. The Fit3 tile reevaluates it after each connection toggle.
+This keeps the DND receiver available only while the connected watch makes that
+Nemotron feature relevant. The existing DND lock remains enabled in app settings.
+
+After installing the Core update twice on the A54, Bluetooth reported no GATT
+connections and `dumpsys activity services com.nemotron.core` no longer listed
+`DndKeepAliveService`. Application startup logged that the disconnected Fit3
+keeps the service stopped. This verifies the disconnected case; a reconnect
+cycle and its subsequent ACL disconnect were not exercised in this check.
+
+### Earlier active background service and Orca tile correction — 19 October 2026
 
 A later live service dump found `DndKeepAliveService` running as a foreground
 service even while Nemotron held both HOME and selected-IME roles. Those system

@@ -16,14 +16,13 @@ import androidx.core.app.NotificationCompat
 import com.nemotron.voiceime.data.SecureStore
 import com.nemotron.voiceime.dhizuku.AutoAndroidAuto
 import com.nemotron.voiceime.dhizuku.CarDetector
-import com.nemotron.voiceime.dhizuku.NightAirplaneScreenReceiver
 import com.nemotron.voiceime.dhizuku.ShizukuManager
 import com.nemotron.voiceime.guard.DndLockReceiver
 import com.nemotron.voiceime.ui.AutoFreezeScheduler
 import rikka.shizuku.Shizuku
 import rikka.shizuku.ShizukuProvider
 
-class NemotronApp : com.samsung.android.honeyboard.app.HoneyBoardApplication() {
+class NemotronApp : android.app.Application() {
 
     private val dndReceiver = DndLockReceiver()
     private var dndRegistered = false
@@ -39,7 +38,6 @@ class NemotronApp : com.samsung.android.honeyboard.app.HoneyBoardApplication() {
         Shizuku.addBinderReceivedListener(binderListener)
         Shizuku.addBinderDeadListener(binderDeadListener)
         registerDndReceiver()
-        NightAirplaneScreenReceiver.syncRegistration(this)
         CarDetector.refresh(this)
         com.nemotron.voiceime.guard.DndKeepAliveService.update(this)
         com.nemotron.voiceime.dhizuku.ConnectionExclusionManager.start(this)
@@ -85,7 +83,6 @@ class NemotronApp : com.samsung.android.honeyboard.app.HoneyBoardApplication() {
         if (!shizukuFeaturesInitialized.compareAndSet(false, true)) return
         try {
             com.nemotron.voiceime.dhizuku.AirplaneModeSchedule.scheduleNext(this)
-            NightAirplaneScreenReceiver().onShizukuAvailable(this)
             if (SecureStore.isAutoFreezeEnabled(this)) {
                 AutoFreezeScheduler.start(this)
                 AutoFreezeScheduler.recover(this)

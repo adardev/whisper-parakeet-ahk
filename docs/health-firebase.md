@@ -55,6 +55,41 @@ Recovery check on the A54 (19 Oct 2026): Samsung Health and Fit3 Plugin had been
 disabled, but Bluetooth was still on. Re-enabling them did not erase Health
 records. The SDK returned 9 exercise records for the prior 30 days, and
 Firestore confirmed the snapshot upload for 2026-10-19 (`last_successful_upload_date`).
-The tile-off path was changed to await that same success before freezing either
-package or checking Bluetooth. After recovery, the packages were left enabled
+The tile-off path was changed to await that same success before freezing Health
+or checking Bluetooth. After recovery, the packages were left enabled
 and Bluetooth on so the user can continue using the watch.
+
+## Fit3 tile contract (20 Oct 2026)
+
+The tile controls Samsung Health's enabled state, even when the watch temporarily
+loses its Bluetooth connection. A disconnected watch must not change an intended
+off tap into another reconnect attempt.
+
+- On: enable and unstop `com.sec.android.app.shealth`, enable Bluetooth when
+  needed, and request the Fit3 connection through Samsung's Host Manager.
+- Off: wait for the Health SDK read and confirmed Firebase upload, request Fit3
+  disconnection, then disable and stop Samsung Health. If Fit3 was the only
+  connected device, turn Bluetooth off and verify the link went down. Preserve
+  Bluetooth when another device is connected.
+- The Fit3 plugin stays enabled. Galaxy Wearable belongs to its separate tile.
+- An unsuccessful sync leaves Health enabled so the user can retry without
+  interrupting the transfer. The existing transfer wait is bounded at 240 seconds.
+- The busy guard is shared between tile service instances to prevent overlapping
+  taps from starting multiple transfers or opposing connection requests.
+
+Package toggles now use fresh Shizuku commands with an explicit user (`0`) and
+check the disabled-package list after enable/disable. Group tiles based on
+`AppFreezeTileService` inspect every target package when refreshing their state.
+
+A54 verification with the installed Core APK on 20 Oct 2026:
+
+- 19:45:43: Firebase upload succeeded; an off tap with Bluetooth already off
+  disabled Samsung Health successfully.
+- 19:46:23: an on tap re-enabled Health and confirmed Fit3 connected.
+- 19:47:45: Firebase confirmed the next upload before disconnection.
+- 19:47:54: the connected-watch off tap confirmed Bluetooth off, Fit3 link down,
+  and Samsung Health disabled. Fit3 Plugin remained enabled.
+
+The branch retaining Bluetooth for a second connected device was not exercised
+in this session. The other tiles were inspected in code; their individual
+device behaviors have not all been verified.

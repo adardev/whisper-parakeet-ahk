@@ -7,7 +7,7 @@ import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import com.nemotron.voiceime.R
 
-/** Quick Settings toggle for running the night and morning routines on demand. */
+/** Sleep Mode remains active until the user switches it off. */
 class SleepModeTileService : TileService() {
     private val handler = Handler(Looper.getMainLooper())
 
@@ -39,7 +39,7 @@ class SleepModeTileService : TileService() {
         val tile = qsTile ?: return
         val enabled = SleepModeController.isEnabled(this)
         tile.label = "Sleep Mode"
-        tile.subtitle = if (enabled) "Night routine" else "Morning routine next"
+        tile.subtitle = if (enabled) "Activo hasta apagarlo" else "Activación diaria: 23:00"
         tile.icon = Icon.createWithResource(this, R.drawable.ic_sleep_mode_tile)
         tile.state = if (enabled) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
         tile.updateTile()

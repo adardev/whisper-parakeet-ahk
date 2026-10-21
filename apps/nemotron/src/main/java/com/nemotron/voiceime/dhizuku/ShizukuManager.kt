@@ -280,16 +280,16 @@ object ShizukuManager {
 
     fun hideApp(packageName: String): Boolean {
         if (!hasPermission()) return false
-        val out = execShellCapture("pm disable-user $packageName") ?: return false
+        val out = execShellFresh(arrayOf("pm", "disable-user", "--user", "0", packageName)) ?: return false
         Log.d(TAG, "pm disable-user $packageName → $out")
-        return out.contains("new state")
+        return getDisabledPackages()?.contains(packageName) == true
     }
 
     fun unhideApp(packageName: String): Boolean {
         if (!hasPermission()) return false
-        val out = execShellCapture("pm enable $packageName") ?: return false
+        val out = execShellFresh(arrayOf("pm", "enable", "--user", "0", packageName)) ?: return false
         Log.d(TAG, "pm enable $packageName → $out")
-        return out.contains("new state")
+        return out.contains("new state: enabled") && getDisabledPackages()?.contains(packageName) == false
     }
 
     /** Clears ActivityManager's force-stop bit so system broadcasts can wake a package again. */
@@ -319,7 +319,7 @@ object ShizukuManager {
     /** Returns disabled package names, or null when Shizuku/query is unavailable. */
     fun getDisabledPackages(): Set<String>? {
         if (!hasPermission()) return null
-        val out = execShellCapture("pm list packages -d") ?: return null
+        val out = execShellFresh(arrayOf("pm", "list", "packages", "-d", "--user", "0")) ?: return null
         return out.lineSequence()
             .map { it.trim() }
             .filter { it.startsWith("package:") }
@@ -330,7 +330,7 @@ object ShizukuManager {
     fun stillDisabled(packages: Collection<String>): Set<String> {
         if (packages.isEmpty()) return emptySet()
         if (!hasPermission()) return emptySet()
-        val out = execShellCapture("pm list packages -d") ?: return emptySet()
+        val out = execShellFresh(arrayOf("pm", "list", "packages", "-d", "--user", "0")) ?: return emptySet()
         val disabled = out.lineSequence()
             .map { it.trim() }
             .filter { it.startsWith("package:") }

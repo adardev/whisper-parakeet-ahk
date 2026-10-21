@@ -8,7 +8,7 @@ import android.os.Build
 import android.util.Log
 import java.util.Calendar
 
-/** Programa Sleep Mode: activar la rutina nocturna a las 23:00 y la matutina a las 08:00. */
+/** One daily activation at 23:00. Sleep Mode is switched off manually. */
 object AirplaneModeSchedule {
     private const val TAG = "AirplaneSchedule"
     const val ACTION_TOGGLE = "com.nemotron.voiceime.FIT3_AOD_SCHEDULE_TOGGLE"
@@ -17,10 +17,10 @@ object AirplaneModeSchedule {
 
     fun scheduleNext(context: Context) {
         val alarmManager = context.getSystemService(AlarmManager::class.java) ?: return
-        val next = nextBoundaryMillis()
+        val next = nextActivationMillis()
         val pendingIntent = pendingIntent(context, null)
         alarmManager.cancel(pendingIntent)
-        val actionIntent = pendingIntent(context, next.second)
+        val actionIntent = pendingIntent(context, true)
 
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms() && ShizukuManager.hasPermission()) {
@@ -31,41 +31,26 @@ object AirplaneModeSchedule {
             }
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !alarmManager.canScheduleExactAlarms()) {
                 Log.w(TAG, "permiso de alarmas exactas no concedido; se programa una alarma flexible")
-                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next.first, actionIntent)
+                alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next, actionIntent)
             } else {
-                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next.first, actionIntent)
+                alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, next, actionIntent)
             }
-            Log.i(TAG, "próximo cambio Sleep Mode: ${if (next.second) "activar" else "desactivar"} a ${Calendar.getInstance().apply { timeInMillis = next.first }.time}")
+            Log.i(TAG, "próxima activación Sleep Mode: ${Calendar.getInstance().apply { timeInMillis = next }.time}")
         } catch (e: SecurityException) {
             Log.e(TAG, "no se pudo programar la alarma", e)
         }
     }
 
-    private fun nextBoundaryMillis(): Pair<Long, Boolean> {
+    private fun nextActivationMillis(): Long {
         val now = Calendar.getInstance()
-        val todayEight = (now.clone() as Calendar).apply {
-            set(Calendar.HOUR_OF_DAY, 8)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }
         val todayEleven = (now.clone() as Calendar).apply {
             set(Calendar.HOUR_OF_DAY, 23)
             set(Calendar.MINUTE, 0)
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
         }
-        val tomorrowEight = (todayEight.clone() as Calendar).apply {
-            add(Calendar.DAY_OF_YEAR, 1)
-        }
-
-        // Solo escoger un límite futuro: después de las 23:00, la siguiente
-        // alarma es mañana a las 08:00, nunca la hora 23:00 ya pasada.
-        return when {
-            todayEight.timeInMillis > now.timeInMillis -> todayEight.timeInMillis to false
-            todayEleven.timeInMillis > now.timeInMillis -> todayEleven.timeInMillis to true
-            else -> tomorrowEight.timeInMillis to false
-        }
+        if (todayEleven.timeInMillis <= now.timeInMillis) todayEleven.add(Calendar.DAY_OF_YEAR, 1)
+        return todayEleven.timeInMillis
     }
 
     private fun pendingIntent(context: Context, enable: Boolean?): PendingIntent {

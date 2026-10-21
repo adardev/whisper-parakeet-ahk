@@ -1,4 +1,5 @@
 param(
+    [Parameter(Mandatory=$true)][string] $HomeReferenceApk,
     [string] $OutputDirectory = "$env:USERPROFILE\NemotronBuild\SplitOutput",
     [string] $HoneyBoardApk = "$env:USERPROFILE\NemotronBuild\HoneyBoard-5.9.30.88.apk",
     [string] $UiInputApk = "$env:USERPROFILE\NemotronBuild\Nemotron-Manual-Apps-v15.apk",
@@ -20,7 +21,7 @@ $uiOutputApk = Join-Path $outputDirectory 'Nemotron-UI\Nemotron-UI.apk'
 $coreOutputApk = Join-Path $outputDirectory 'Nemotron\Nemotron-Core.apk'
 $keyboardOutputApk = Join-Path $outputDirectory 'Nemotron-Keyboard\Nemotron-Keyboard.apk'
 $debugKeystore = Join-Path $env:USERPROFILE '.android\debug.keystore'
-$required = @($HoneyBoardApk, $UiInputApk, $ApktoolJar, $JavaExe, $debugKeystore)
+$required = @($HoneyBoardApk, $UiInputApk, $HomeReferenceApk, $ApktoolJar, $JavaExe, $debugKeystore)
 foreach ($path in $required) {
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { throw "Required file not found: $path" }
 }
@@ -50,7 +51,7 @@ Push-Location $repo
 try {
     & (Join-Path $repo 'gradlew.bat') ':apps:nemotron:assembleDebug' '--offline' '--no-daemon'
     if ($LASTEXITCODE -ne 0) { throw 'Nemotron app build failed.' }
-    $appApk = Join-Path $repo 'apps\nemotron\build\outputs\apk\debug\app-debug.apk'
+    $appApk = Join-Path $repo 'apps\nemotron\build\outputs\apk\debug\nemotron-debug.apk'
     if (-not (Test-Path -LiteralPath $appApk -PathType Leaf)) { throw "Gradle APK not found: $appApk" }
 
     # Rollback must restore the complete existing launcher package and its
@@ -76,6 +77,31 @@ try {
         -FrameworkDir $FrameworkDir `
         -DebugKeystore $debugKeystore
     if ($LASTEXITCODE -ne 0) { throw 'Nemotron three-package split failed.' }
+
+    # Core has no reason to inherit the donor APK's code/resources. Rebuild it
+    # directly, then separate the remaining vendor components and model assets.
+    & (Join-Path $repo 'gradlew.bat') ':apps:nemotron:assembleDebug' '-PnemotronComponent=core' '--offline' '--no-daemon'
+    if ($LASTEXITCODE -ne 0) { throw 'Standalone Core build failed.' }
+    $optimizedDirectory = Join-Path $outputDirectory 'optimized'
+    & (Join-Path $PSScriptRoot 'optimize-nemotron-components.ps1') `
+        -StandaloneCoreApk $appApk `
+        -KeyboardApk $keyboardOutputApk `
+        -UiApk $uiOutputApk `
+        -KeyboardReferenceApk $HoneyBoardApk `
+        -HomeReferenceApk $HomeReferenceApk `
+        -OutputDirectory $optimizedDirectory `
+        -ApktoolJar $ApktoolJar -AndroidSdk $AndroidSdk -JavaExe $JavaExe
+    foreach ($component in @('Core','Keyboard','UI')) {
+        $destination = switch ($component) {
+            'Core' { $coreOutputApk }
+            'Keyboard' { $keyboardOutputApk }
+            'UI' { $uiOutputApk }
+        }
+        Copy-Item -LiteralPath (Join-Path $optimizedDirectory "Nemotron-$component.apk") `
+            -Destination $destination -Force
+        Copy-Item -LiteralPath (Join-Path $optimizedDirectory "Nemotron-$component.apk.idsig") `
+            -Destination "$destination.idsig" -Force
+    }
 
     Write-Host "Core: $coreOutputApk"
     Write-Host "Keyboard: $keyboardOutputApk"
