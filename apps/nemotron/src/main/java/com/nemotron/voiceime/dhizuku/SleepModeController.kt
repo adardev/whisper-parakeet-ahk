@@ -35,11 +35,12 @@ object SleepModeController {
         if (!enabled && !setAirplaneMode(false)) {
             return Result(false, isEnabled(context), "No se pudo desactivar el modo avión")
         }
+        // Watch settings are optional: an unavailable watch must not prevent
+        // the phone's sleep mode (or its manual off action) from working.
         val routine = NightRoutineActions.run(context.applicationContext, night = enabled)
-        if (!routine.success) return Result(false, isEnabled(context), routine.message)
-        if (enabled && !setAirplaneMode(true)) {
-            return Result(false, isEnabled(context), "Fit3 quedó en modo noche, pero no se pudo activar el modo avión")
-        }
+        if (!routine.success) Log.w(TAG, "Ajustes Fit3 pendientes: ${routine.message}")
+        if (enabled && !setAirplaneMode(true))
+            return Result(false, isEnabled(context), "No se pudo activar el modo avión")
 
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putBoolean(KEY_ENABLED, enabled).commit()
@@ -47,7 +48,8 @@ object SleepModeController {
             TileService.requestListeningState(context, ComponentName(context, SleepModeTileService::class.java))
         }.onFailure { Log.w(TAG, "No se pudo actualizar el tile", it) }
         Log.i(TAG, "Sleep Mode ${if (enabled) "activado" else "desactivado"}")
-        return Result(true, enabled, if (enabled) "Modo sueño activado" else "Modo sueño desactivado")
+        val message = if (enabled) "Modo sueño activado" else "Modo sueño desactivado"
+        return Result(true, enabled, if (routine.success) message else "$message. ${routine.message}")
     }
 
     private fun setAirplaneMode(enabled: Boolean): Boolean {

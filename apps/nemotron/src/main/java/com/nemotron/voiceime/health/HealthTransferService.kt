@@ -95,12 +95,12 @@ class HealthTransferService : Service() {
         }
 
         /** Starts a transfer and waits until the Firebase upload has finished. */
-        fun startAndWait(context: Context): Boolean {
+        fun startAndWait(context: Context, timeoutSeconds: Long = WAIT_TIMEOUT_SECONDS): Boolean {
             val waiter = TransferWaiter()
             synchronized(transferStateLock) { completionWaiters += waiter }
             return try {
                 start(context)
-                waiter.latch.await(WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS) && waiter.succeeded
+                waiter.latch.await(timeoutSeconds, TimeUnit.SECONDS) && waiter.succeeded
             } finally {
                 synchronized(transferStateLock) { completionWaiters -= waiter }
             }

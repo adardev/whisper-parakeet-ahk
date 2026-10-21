@@ -23,7 +23,8 @@ class Fit3TileService : AppFreezeTileService() {
 
     // A temporarily disconnected watch must not turn an enabled Health tile
     // into another "connect" action when the user is trying to switch it off.
-    override fun isTileFrozen(): Boolean = ShizukuManager.isAppHidden(targetPackage)
+    override fun isTileFrozen(): Boolean =
+        ShizukuManager.isAppHidden(targetPackage) && !isFit3Connected()
 
     override fun onStartListening() {
         if (operationInProgress.get()) setTileState(Tile.STATE_UNAVAILABLE)
@@ -33,11 +34,13 @@ class Fit3TileService : AppFreezeTileService() {
     override fun onClick() {
         if (!ShizukuManager.hasPermission()) {
             Log.w(TAG, "Shizuku no está autorizado; no se cambia la conexión Fit3")
+            showMessage("Autoriza Nemotron en Shizuku para controlar Fit3")
             return
         }
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) !=
             PackageManager.PERMISSION_GRANTED) {
             Log.e(TAG, "Falta BLUETOOTH_CONNECT; no se cambia la conexión Fit3")
+            showMessage("Concede a Nemotron el permiso de dispositivos cercanos")
             return
         }
         if (!operationInProgress.compareAndSet(false, true)) return
@@ -53,26 +56,42 @@ class Fit3TileService : AppFreezeTileService() {
 
                 val disabled = ShizukuManager.getDisabledPackages()
                     ?: throw IllegalStateException("No se pudo consultar el estado de Samsung Health")
-                if (targetPackage !in disabled) {
+                val wasConnected = isFit3Connected(device.address)
+                val onlyFit3Connected = wasConnected && isFit3TheOnlyConnectedDevice(device.address)
+                if (targetPackage !in disabled || wasConnected) {
                     // Preserve exercise data before asking Samsung's own plugin
                     // to disconnect the watch. Never kill the plugin process.
                     Log.i(TAG, "Fit3 conectada; subiendo Samsung Health antes de desconectar")
-                    if (!com.nemotron.voiceime.health.HealthTransferService.startAndWait(applicationContext)) {
-                        Log.e(TAG, "Falló la sincronización; se conserva la conexión Fit3")
-                        return@Thread
+                    if (targetPackage in disabled) {
+                        check(ShizukuManager.unhideApp(targetPackage)) { "No se pudo habilitar Health para sincronizar" }
+                    }
+                    ShizukuManager.unstopApp(targetPackage)
+                    val uploaded = runCatching {
+                        com.nemotron.voiceime.health.HealthTransferService.startAndWait(
+                            applicationContext, timeoutSeconds = 60L
+                        )
+                    }.onFailure { Log.e(TAG, "Falló la sincronización previa al apagado", it) }.getOrDefault(false)
+                    if (!uploaded) {
+                        // Disabling a package preserves its local database.
+                        // Network/SDK failures must not trap the user's watch
+                        // in an on state or claim that an upload succeeded.
+                        runCatching { com.nemotron.voiceime.health.HealthTransferService.stop(applicationContext) }
+                        Log.w(TAG, "Subida pendiente; se conservan los datos locales y se continúa la desconexión")
+                        showMessage("No se confirmó la subida a Firebase; los datos siguen en Samsung Health")
                     }
 
-                    val wasConnected = isFit3Connected(device.address)
-                    val onlyFit3Connected = wasConnected && isFit3TheOnlyConnectedDevice(device.address)
                     val sent = !wasConnected || sendWatchRequest(DISCONNECT_ACTION, device.address)
-                    if (!sent) {
+                    if (!sent && !onlyFit3Connected) {
                         Log.e(TAG, "Samsung Wearable no aceptó la solicitud de desconexión")
+                        showMessage("Samsung Wearable rechazó la desconexión de Fit3")
                         return@Thread
                     }
+                    if (!sent) Log.w(TAG, "Solicitud Samsung rechazada; Fit3 era el único dispositivo, se usará el apagado Bluetooth")
                     val disconnected = waitForConnection(device.address, connected = false, timeoutMs = 8_000L)
                     if (!disconnected) {
                         if (!onlyFit3Connected) {
                             Log.e(TAG, "Fit3 sigue conectada y hay otros dispositivos; Bluetooth se deja encendido")
+                            showMessage("Fit3 no confirmó la desconexión; hay otros dispositivos Bluetooth conectados")
                             return@Thread
                         }
                         Log.w(TAG, "Samsung no soltó la Fit3; al ser el único dispositivo, se apagará Bluetooth")
@@ -89,6 +108,7 @@ class Fit3TileService : AppFreezeTileService() {
                         Log.i(TAG, "Fit3 única: Bluetooth apagado=$bluetoothOff, enlace desconectado=$linkDown: $result")
                         if (!bluetoothOff || !linkDown) {
                             Log.e(TAG, "No se confirmó el apagado y la desconexión de la Fit3")
+                            showMessage("No se pudo confirmar la desconexión de Fit3")
                             return@Thread
                         }
                     } else {
@@ -99,7 +119,7 @@ class Fit3TileService : AppFreezeTileService() {
                         return@Thread
                     }
                     ShizukuManager.stopApp(targetPackage)
-                    Log.i(TAG, "Apagado completado: sincronización terminada, Fit3 desconectada, Samsung Health deshabilitado")
+                    Log.i(TAG, "Apagado completado: subidaConfirmada=$uploaded, Fit3 desconectada, Samsung Health deshabilitado")
                 } else {
                     if (!ShizukuManager.unhideApp(targetPackage) ||
                         !ShizukuManager.unstopApp(targetPackage)) {
@@ -126,6 +146,7 @@ class Fit3TileService : AppFreezeTileService() {
                 }
             } catch (t: Throwable) {
                 Log.e(TAG, "Falló el control de conexión Bluetooth de Fit3", t)
+                showMessage("No se pudo cambiar Fit3: ${t.message ?: "consulta los registros"}")
             } finally {
                 operationInProgress.set(false)
                 DndKeepAliveService.update(applicationContext)
@@ -230,23 +251,34 @@ class Fit3TileService : AppFreezeTileService() {
     }
 
     private fun setTileState(state: Int) = mainHandler.post {
-        qsTile?.let { tile -> tile.label = tileLabel; tile.state = state; tile.updateTile() }
+        qsTile?.let { tile ->
+            tile.label = tileLabel
+            tile.subtitle = if (state == Tile.STATE_UNAVAILABLE) "Sincronizando y cambiando conexión…" else null
+            tile.state = state
+            tile.updateTile()
+        }
     }
 
     private fun refreshState() {
         val disabled = ShizukuManager.getDisabledPackages()
+        val connected = isFit3Connected()
         mainHandler.post {
             qsTile?.let { tile ->
                 tile.label = tileLabel
+                tile.subtitle = null
                 tile.icon = createTileIcon()
                 tile.state = when {
                     disabled == null -> Tile.STATE_UNAVAILABLE
-                    targetPackage in disabled -> Tile.STATE_INACTIVE
+                    targetPackage in disabled && !connected -> Tile.STATE_INACTIVE
                     else -> Tile.STATE_ACTIVE
                 }
                 tile.updateTile()
             }
         }
+    }
+
+    private fun showMessage(message: String) = mainHandler.post {
+        android.widget.Toast.makeText(applicationContext, message, android.widget.Toast.LENGTH_LONG).show()
     }
 
     companion object {

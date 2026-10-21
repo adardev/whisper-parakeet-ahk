@@ -17,6 +17,12 @@ object AirplaneModeSchedule {
 
     fun scheduleNext(context: Context) {
         val alarmManager = context.getSystemService(AlarmManager::class.java) ?: return
+        // Only Core owns automation after the three-package split. Cancel
+        // legacy copies when an older UI/Keyboard process starts.
+        if (context.packageName != "com.nemotron.core") {
+            alarmManager.cancel(pendingIntent(context, null))
+            return
+        }
         val next = nextActivationMillis()
         val pendingIntent = pendingIntent(context, null)
         alarmManager.cancel(pendingIntent)

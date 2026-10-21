@@ -15,21 +15,12 @@ class AirplaneModeScheduleReceiver : BroadcastReceiver() {
                     AirplaneModeSchedule.scheduleNext(context)
                     return
                 }
-                val pendingResult = goAsync()
-                Thread {
-                    try {
-                        val alreadyEnabled = SleepModeController.isEnabled(context)
-                        if (alreadyEnabled == enable) {
-                            Log.i(TAG, "Sleep Mode a las 23:00: ya estaba activo; sin cambios")
-                        } else {
-                            val result = SleepModeController.setScheduledEnabled(context, enable)
-                            if (!result.success) Log.w(TAG, "rutina programada pendiente: ${result.message}")
-                        }
-                    } finally {
-                        AirplaneModeSchedule.scheduleNext(context)
-                        pendingResult.finish()
-                    }
-                }.start()
+                // A BLE handshake can exceed the lifetime of a broadcast.
+                // Schedule tomorrow first and hand this single action to a
+                // bounded service, rather than leaving a receiver thread alive.
+                AirplaneModeSchedule.scheduleNext(context)
+                runCatching { SleepModeActionService.start(context, scheduled = true) }
+                    .onFailure { Log.e(TAG, "No se pudo iniciar Sleep Mode programado", it) }
             }
             Intent.ACTION_BOOT_COMPLETED,
             Intent.ACTION_MY_PACKAGE_REPLACED,

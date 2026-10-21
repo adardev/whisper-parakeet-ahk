@@ -81,6 +81,10 @@ class NemotronApp : android.app.Application() {
     private fun initializeShizukuFeatures() {
         if (!ShizukuManager.hasPermission()) return
         if (!shizukuFeaturesInitialized.compareAndSet(false, true)) return
+        Thread({
+            runCatching { com.nemotron.voiceime.dhizuku.SamsungFit3Handoff.recoverIfNeeded(this) }
+                .onFailure { Log.e("NemotronApp", "No se pudo recuperar la conexión Samsung", it) }
+        }, "Nemotron-Fit3-Recovery").start()
         try {
             com.nemotron.voiceime.dhizuku.AirplaneModeSchedule.scheduleNext(this)
             if (SecureStore.isAutoFreezeEnabled(this)) {
