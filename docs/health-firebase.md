@@ -61,17 +61,19 @@ and Bluetooth on so the user can continue using the watch.
 
 ## Fit3 tile contract (20 Oct 2026)
 
-The tile controls Samsung Health's enabled state, even when the watch temporarily
-loses its Bluetooth connection. A disconnected watch must not change an intended
-off tap into another reconnect attempt.
+The tile controls Samsung Health and Fit3 Plugin together, even when the watch
+temporarily loses its Bluetooth connection. A disconnected watch must not change
+an intended off tap into another reconnect attempt.
 
-- On: enable and unstop `com.sec.android.app.shealth`, enable Bluetooth when
-  needed, and request the Fit3 connection through Samsung's Host Manager.
+- On: enable and unstop `com.samsung.wearable.fit3plugin` first, then
+  `com.sec.android.app.shealth`; enable Bluetooth when needed and request the
+  Fit3 connection through Samsung's Host Manager.
 - Off: wait for the Health SDK read and confirmed Firebase upload, request Fit3
-  disconnection, then disable and stop Samsung Health. If Fit3 was the only
-  connected device, turn Bluetooth off and verify the link went down. Preserve
-  Bluetooth when another device is connected.
-- The Fit3 plugin stays enabled. Galaxy Wearable belongs to its separate tile.
+  disconnection, then disable and stop Samsung Health and Fit3 Plugin. If Fit3
+  was the only connected device, turn Bluetooth off and verify the link went
+  down. Preserve Bluetooth when another device is connected.
+- Galaxy Wearable remains controlled by its separate tile. Sleep Mode uses a
+  bounded direct BLE exchange and leaves plugin state as the Fit3 tile set it.
 - An unsuccessful sync leaves Health enabled so the user can retry without
   interrupting the transfer. The existing transfer wait is bounded at 240 seconds.
 - The busy guard is shared between tile service instances to prevent overlapping
@@ -88,7 +90,8 @@ A54 verification with the installed Core APK on 20 Oct 2026:
 - 19:46:23: an on tap re-enabled Health and confirmed Fit3 connected.
 - 19:47:45: Firebase confirmed the next upload before disconnection.
 - 19:47:54: the connected-watch off tap confirmed Bluetooth off, Fit3 link down,
-  and Samsung Health disabled. Fit3 Plugin remained enabled.
+  and Samsung Health disabled. Fit3 Plugin was still enabled in this historical
+  build; the current Fit3 tile now pauses it after disconnection.
 
 The branch retaining Bluetooth for a second connected device was not exercised
 in this session. The other tiles were inspected in code; their individual

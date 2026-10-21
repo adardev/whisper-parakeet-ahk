@@ -49,7 +49,7 @@ $env:PATH = (Join-Path $javaHome 'bin') + [IO.Path]::PathSeparator + $env:PATH
 
 Push-Location $repo
 try {
-    & (Join-Path $repo 'gradlew.bat') ':apps:nemotron:assembleDebug' '--offline' '--no-daemon'
+    & (Join-Path $repo 'gradlew.bat') ':apps:nemotron:assembleDebug' '-PnemotronComponent=integrated' '--offline' '--no-daemon'
     if ($LASTEXITCODE -ne 0) { throw 'Nemotron app build failed.' }
     $appApk = Join-Path $repo 'apps\nemotron\build\outputs\apk\debug\nemotron-debug.apk'
     if (-not (Test-Path -LiteralPath $appApk -PathType Leaf)) { throw "Gradle APK not found: $appApk" }

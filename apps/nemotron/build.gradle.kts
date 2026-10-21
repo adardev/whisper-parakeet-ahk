@@ -4,9 +4,13 @@ plugins {
     id("kotlin-parcelize")
 }
 
-// Core is built directly from its sources rather than from the HoneyBoard
-// merged APK. Keep the integrated input for the dedicated keyboard build.
-val coreOnly = providers.gradleProperty("nemotronComponent").orNull == "core"
+// Ordinary builds must target Core. The legacy integration input shares the
+// UI package ID and must only be generated explicitly by the split pipeline.
+val component = providers.gradleProperty("nemotronComponent").getOrElse("core")
+require(component in setOf("core", "integrated")) {
+    "nemotronComponent must be core or integrated"
+}
+val coreOnly = component == "core"
 
 android {
     namespace = "com.nemotron.voiceime"

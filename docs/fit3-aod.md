@@ -6,13 +6,13 @@ El único horario automático vigente es la activación a las 23:00. El apagado 
 
 El historial identifica la regresión: `8a467cd` implementó `SamsungFit3Handoff`, que liberaba la sesión SAP de Samsung antes del intercambio BLE. `6a6616e`, al separar los paquetes, eliminó esa cesión y el encendido temporal de Bluetooth, conservando el codec. El reloj no contestaba otra negociación SAP mientras Samsung Accessory mantenía la suya.
 
-La cesión se recupera pausando solamente `com.samsung.accessory` durante el envío. Fit3 Plugin y Wearable permanecen habilitados y no se detienen. Samsung Health no se modifica. Un `finally` habilita, desbloquea y vuelve a iniciar Accessory. Una marca persistida antes de la pausa permite recuperar su estado en el siguiente arranque con Shizuku si el proceso murió durante el intercambio. No se añade sondeo periódico.
+La cesión se recupera pausando solamente `com.samsung.accessory` durante el envío. Un `finally` habilita, desbloquea y vuelve a iniciar Accessory. Una marca persistida antes de la pausa permite recuperar su estado en el siguiente arranque con Shizuku si el proceso murió durante el intercambio. No se añade sondeo periódico. Desde el cambio del tile Fit3, el plugin se mantiene pausado cuando el tile está apagado; esta sesión BLE directa no depende de dejarlo activo.
 
 Si Bluetooth estaba apagado, se enciende para enviar y se restaura al terminar, conservándolo si se conectó otro periférico. Se mantienen las dos lecturas de confirmación; una escritura BLE no cuenta como éxito.
 
-Prueba aislada en el A54 del 21 de octubre, manteniendo Fit3 Plugin habilitado: negociación SAP a las 10:28:10, MTU 500; dos lecturas `AOD=true RAISE_TO_WAKE=false TOUCH_TO_WAKE=true` a las 10:28:10/12; dos lecturas `AOD=false RAISE_TO_WAKE=false TOUCH_TO_WAKE=false` a las 10:28:33. Samsung Accessory se restauró después.
+Prueba aislada en el A54 del 21 de octubre, con Fit3 Plugin habilitado en esa versión: negociación SAP a las 10:28:10, MTU 500; dos lecturas `AOD=true RAISE_TO_WAKE=false TOUCH_TO_WAKE=true` a las 10:28:10/12; dos lecturas `AOD=false RAISE_TO_WAKE=false TOUCH_TO_WAKE=false` a las 10:28:33. Samsung Accessory se restauró después.
 
-La corrección integrada compiló y se instaló conservando datos. Prueba por el tile real: a las 10:32:07/08 la Fit3 confirmó AOD encendido al apagar Sleep Mode; a las 10:32:22/23 confirmó AOD apagado al encenderlo. En ambos casos las dos lecturas coincidieron, `fit3AodConfirmed=true`, Accessory se restauró automáticamente y su marca de recuperación quedó vacía. Fit3 Plugin siguió habilitado y no detenido. El modo se dejó activado, igual que al comenzar esta prueba. La entrega de la alarma nocturna sigue pendiente de las 23:00; comparte esta misma operación verificada.
+La corrección integrada compiló y se instaló conservando datos. Prueba por el tile real: a las 10:32:07/08 la Fit3 confirmó AOD encendido al apagar Sleep Mode; a las 10:32:22/23 confirmó AOD apagado al encenderlo. En ambos casos las dos lecturas coincidieron, `fit3AodConfirmed=true`, Accessory se restauró automáticamente y su marca de recuperación quedó vacía. En esa versión de la app, Fit3 Plugin siguió habilitado. La entrega de la alarma nocturna sigue pendiente de las 23:00; comparte esta misma operación verificada.
 
 ## Descripción histórica de la implementación inicial (reemplazada)
 

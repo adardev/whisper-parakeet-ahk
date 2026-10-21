@@ -105,14 +105,19 @@ Sleep Mode ignores a delayed or duplicated night activation after a daytime
 wake, until the next 23:00 boundary. Turning it off remains authoritative even
 if the Fit3 handoff or Shizuku operation fails.
 
-The Fit3 Plugin (`com.samsung.wearable.fit3plugin`) must remain enabled and
-unstopped. Nemotron does not freeze or force-stop it. The separate Galaxy
-Wearable tile controls `com.samsung.android.app.watchmanager`; when turned on,
-it clears that package's force-stop state and enables Bluetooth if needed for
-reconnection. The Samsung Health tile manages only `com.sec.android.app.shealth`,
-requiring Firebase confirmation before freezing it. The scheduled Fit3
-settings handoff also leaves the plugin, Galaxy Wearable, Samsung Accessory,
-and Bluetooth alone.
+The Fit3 tile owns both Samsung Health (`com.sec.android.app.shealth`) and its
+plugin (`com.samsung.wearable.fit3plugin`). When turned off, it syncs Health,
+disconnects the watch, then disables and force-stops both packages. When turned
+on, it enables and unstops the plugin first, then Health, before requesting a
+connection. A failed plugin pause restores Health so the tile does not claim an
+off state while leaving the stack half-enabled. The separate Galaxy Wearable
+tile still controls only `com.samsung.android.app.watchmanager`.
+
+Sleep Mode's AOD exchange uses Nemotron's bounded direct BLE session; it does
+not need to leave the Fit3 plugin running after the Fit3 tile is turned off.
+Samsung Accessory is restored after that exchange as before. Plugin state is
+therefore tied to the Fit3 tile, and the tile's off state now requires both
+Health and the plugin to be disabled while the watch is disconnected.
 
 ## Current validation status
 
@@ -126,6 +131,8 @@ for measurements, reproducible tools, and the limits of the checks performed.
 
 The selected IME is
 `com.nemotron.keyboard/com.samsung.android.honeyboard.service.HoneyBoardService`.
-The Fit3 plugin remains enabled and the existing Home/provider permission
-compatibility fixes are retained. A separate unplugged screen-off sample is
-still required to compare background battery use between these UIDs.
+The Fit3 plugin's enabled state now follows the Fit3 Quick Settings tile; it is
+disabled and force-stopped while the tile is off, then enabled before a
+connection request. The existing Home/provider permission compatibility fixes
+are retained. A separate unplugged screen-off sample is still required to
+compare background battery use between these UIDs.

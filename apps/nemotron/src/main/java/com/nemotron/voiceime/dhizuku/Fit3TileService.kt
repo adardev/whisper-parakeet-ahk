@@ -13,7 +13,7 @@ import com.nemotron.voiceime.R
 import com.nemotron.voiceime.guard.DndKeepAliveService
 import java.util.concurrent.atomic.AtomicBoolean
 
-/** Sync Health before switching off, then disconnect Fit3 and freeze Health. */
+/** Sync Health, disconnect Fit3, then freeze both Health and its Fit3 plugin. */
 class Fit3TileService : AppFreezeTileService() {
     override val targetPackage: String = SAMSUNG_HEALTH_PACKAGE
     override val tileLabel: String = "Fit3"
@@ -24,7 +24,9 @@ class Fit3TileService : AppFreezeTileService() {
     // A temporarily disconnected watch must not turn an enabled Health tile
     // into another "connect" action when the user is trying to switch it off.
     override fun isTileFrozen(): Boolean =
-        ShizukuManager.isAppHidden(targetPackage) && !isFit3Connected()
+        ShizukuManager.isAppHidden(targetPackage) &&
+            ShizukuManager.isAppHidden(SAMSUNG_WEARABLE_PLUGIN) &&
+            !isFit3Connected()
 
     override fun onStartListening() {
         if (operationInProgress.get()) setTileState(Tile.STATE_UNAVAILABLE)
@@ -59,8 +61,18 @@ class Fit3TileService : AppFreezeTileService() {
                 val wasConnected = isFit3Connected(device.address)
                 val onlyFit3Connected = wasConnected && isFit3TheOnlyConnectedDevice(device.address)
                 if (targetPackage !in disabled || wasConnected) {
+                    // If the watch is still connected but the plugin was
+                    // disabled by an earlier/partial toggle, restore it long
+                    // enough to deliver Samsung's disconnect request.
+                    if (wasConnected && SAMSUNG_WEARABLE_PLUGIN in disabled) {
+                        check(ShizukuManager.unhideApp(SAMSUNG_WEARABLE_PLUGIN) &&
+                            ShizukuManager.unstopApp(SAMSUNG_WEARABLE_PLUGIN)) {
+                            "No se pudo activar Fit3 Plugin para desconectar la pulsera"
+                        }
+                    }
                     // Preserve exercise data before asking Samsung's own plugin
-                    // to disconnect the watch. Never kill the plugin process.
+                    // to disconnect the watch; it is paused only after the link
+                    // is down and the off operation has completed.
                     Log.i(TAG, "Fit3 conectada; subiendo Samsung Health antes de desconectar")
                     if (targetPackage in disabled) {
                         check(ShizukuManager.unhideApp(targetPackage)) { "No se pudo habilitar Health para sincronizar" }
@@ -119,12 +131,34 @@ class Fit3TileService : AppFreezeTileService() {
                         return@Thread
                     }
                     ShizukuManager.stopApp(targetPackage)
-                    Log.i(TAG, "Apagado completado: subidaConfirmada=$uploaded, Fit3 desconectada, Samsung Health deshabilitado")
-                } else {
-                    if (!ShizukuManager.unhideApp(targetPackage) ||
-                        !ShizukuManager.unstopApp(targetPackage)) {
-                        Log.e(TAG, "No se pudo habilitar Samsung Health para conectar Fit3")
+                    if (!ShizukuManager.hideApp(SAMSUNG_WEARABLE_PLUGIN)) {
+                        // Keep the tile usable if the plugin could not be
+                        // frozen: restore Health instead of reporting a false
+                        // off state with a half-disabled Fit3 stack.
+                        ShizukuManager.unhideApp(targetPackage)
+                        ShizukuManager.unstopApp(targetPackage)
+                        Log.e(TAG, "No se confirmó que Fit3 Plugin quedara deshabilitado")
+                        showMessage("No se pudo pausar Fit3 Plugin; Samsung Health quedó activo")
                         return@Thread
+                    }
+                    ShizukuManager.stopApp(SAMSUNG_WEARABLE_PLUGIN)
+                    val frozen = ShizukuManager.getDisabledPackages().orEmpty()
+                    check(targetPackage in frozen && SAMSUNG_WEARABLE_PLUGIN in frozen) {
+                        "No se confirmó la pausa de Samsung Health y Fit3 Plugin"
+                    }
+                    Log.i(TAG, "Apagado completado: subidaConfirmada=$uploaded, Fit3 desconectada, Samsung Health y Fit3 Plugin pausados")
+                } else {
+                    // Restore the Fit3 service before Health and before
+                    // sending Samsung's Host Manager connection request.
+                    for (pkg in listOf(SAMSUNG_WEARABLE_PLUGIN, targetPackage)) {
+                        if (pkg in disabled && !ShizukuManager.unhideApp(pkg)) {
+                            Log.e(TAG, "No se pudo habilitar $pkg para conectar Fit3")
+                            return@Thread
+                        }
+                        if (!ShizukuManager.unstopApp(pkg)) {
+                            Log.e(TAG, "No se pudo quitar force-stop de $pkg")
+                            return@Thread
+                        }
                     }
                     if (!isBluetoothEnabled()) {
                         val enabled = ShizukuManager.execShellFresh(
@@ -269,7 +303,7 @@ class Fit3TileService : AppFreezeTileService() {
                 tile.icon = createTileIcon()
                 tile.state = when {
                     disabled == null -> Tile.STATE_UNAVAILABLE
-                    targetPackage in disabled && !connected -> Tile.STATE_INACTIVE
+                    targetPackage in disabled && SAMSUNG_WEARABLE_PLUGIN in disabled && !connected -> Tile.STATE_INACTIVE
                     else -> Tile.STATE_ACTIVE
                 }
                 tile.updateTile()
