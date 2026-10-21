@@ -31,8 +31,7 @@ class TilePreferencesActivity : Activity() {
                 "com.nemotron.voiceime.dhizuku.AndroidAutoTileService" ->
                     listOf("com.google.android.projection.gearhead" to null)
                 "com.nemotron.voiceime.dhizuku.TelegramTileService" -> {
-                    startActivity(Intent(this, OrcaCommandActivity::class.java))
-                    emptyList()
+                    listOf("com.termux" to "com.termux.app.TermuxActivity")
                 }
                 "com.nemotron.voiceime.dhizuku.GmsTileService" ->
                     listOf("com.google.android.gms" to null)

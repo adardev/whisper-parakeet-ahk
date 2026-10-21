@@ -1,27 +1,15 @@
 # Tile Orca para Termux
 
-El tile `Orca` es un interruptor de Termux:
+El tile `Orca` habilita Termux y ejecuta la conexión SSH al activarlo; al apagarlo, congela Termux:
 
-- Toque corto: si Termux está congelado, lo habilita; si está habilitado, lo congela. No abre Termux.
-- Con Termux ya habilitado, mantener pulsado inicia la conexión SSH en una Activity puente en primer plano:
-
-```bash
-ssh -J serveo.net adaredu@adardev-orca-20260928-2
-```
-
-## Configuración de Termux
-
-En Termux, activa los comandos externos:
+- Toque corto para activar: descongela Termux, abre su terminal, escribe el comando SSH en el prompt y pulsa Enter mediante eventos de entrada de Shizuku. No muestra una pantalla puente ni usa `RUN_COMMAND`:
 
 ```bash
-mkdir -p ~/.termux
-printf 'allow-external-apps=true\n' >> ~/.termux/termux.properties
+ssh -J serveo.net adaredu@adardev-orca-20261020-f9c7e2
 ```
-
-Después reinicia Termux completamente. Orca solicita a Android ese permiso mediante Shizuku al descongelar Termux, sin abrir Termux; no hace falta concederlo manualmente desde Ajustes.
 
 El relay de Serveo debe estar activo en el PC y la clave SSH debe estar configurada antes de pulsar el tile.
 
-El toque corto nunca abre Termux. Si está habilitado, lo congela; si está congelado, lo habilita. El gesto largo inicia SSH. Así, conectar y alternar el estado son acciones independientes.
+El toque corto que activa Orca inicia la conexión. El siguiente toque la apaga y congela Termux; no vuelve a ejecutar el comando.
 
-Después de instalar el APK, añade `Orca` desde la edición de Quick Settings. La build integrada de 19 de octubre de 2026 quedó instalada en el A54. Se pulsó el tile por ADB: Termux pasó a paquete deshabilitado y no se abrió su interfaz.
+Después de instalar el APK, añade `Orca` desde la edición de Quick Settings. Al activar Orca, Termux debe permitir comandos externos y el relay/llave SSH deben estar listos para que la sesión conecte.
