@@ -177,9 +177,34 @@ if (-not $settingsCode.Contains(':nemotron_native_setting')) {
 '@)
     [IO.File]::WriteAllText($settingsFragment.FullName, $settingsCode, [Text.UTF8Encoding]::new($false))
 }
-# RxJava's default purge executor wakes every second to scan every scheduled
-# executor in One UI builds that bundle RxJava2. Keep the cleanup, but run it
-# every five minutes; cancelled delayed tasks remain bounded for at most 300 s.
+# RxJava 3's IO scheduler wakes at its keep-alive interval to evict cached
+# workers. Keep normal cleanup, but reduce this idle maintenance from once a
+# minute to once every five minutes. Explicit system-property overrides remain
+# respected; idle IO workers are retained for up to five minutes instead.
+$rxIoKeepAlive = Get-ChildItem -LiteralPath $DecodedRoot -Recurse -File -Filter '*.smali' |
+    Where-Object {
+        $code = [IO.File]::ReadAllText($_.FullName)
+        $code.Contains('rx3.io-keep-alive-time') -and $code.Contains('Ljava/lang/Long;->getLong')
+    } | Select-Object -First 1
+if ($rxIoKeepAlive) {
+    $rxIoCode = [IO.File]::ReadAllText($rxIoKeepAlive.FullName)
+    if (-not $rxIoCode.Contains('nemotron_rx3_io_eviction_300s')) {
+        $rxIoPattern = '(?m)(const-string/jumbo v0, "rx3\.io-keep-alive-time"\r?\n\s*const-wide/16 v1, )0x3c(\r?\n\s*invoke-static \{v0, v1, v2\}, Ljava/lang/Long;->getLong)'
+        $rxIoMatches = [regex]::Matches($rxIoCode, $rxIoPattern)
+        if ($rxIoMatches.Count -ne 1) { throw 'RxJava 3 IO keep-alive default changed; refusing to patch it.' }
+        $rxIoCode = [regex]::Replace($rxIoCode, $rxIoPattern, {
+            param($match)
+            $match.Groups[1].Value + '0x12c # nemotron_rx3_io_eviction_300s' + $match.Groups[2].Value
+        }, 1)
+        [IO.File]::WriteAllText($rxIoKeepAlive.FullName, $rxIoCode, [Text.UTF8Encoding]::new($false))
+    }
+} else {
+    Write-Verbose 'This One UI Home build has no RxJava 3 IO scheduler to tune.'
+}
+
+# RxJava 2 builds also use a global purge executor that scans cancelled tasks.
+# Keep cleanup enabled, but run it every five minutes; delayed tasks can remain
+# queued for at most 300 s in those builds.
 $rxPurge = Get-ChildItem -LiteralPath $DecodedRoot -Recurse -File -Filter '*.smali' |
     Where-Object {
         $code = [IO.File]::ReadAllText($_.FullName)

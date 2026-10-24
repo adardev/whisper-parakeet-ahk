@@ -469,6 +469,23 @@ Home foreground launches available. The device reported both app-op modes as
 policy may delay future Home background work such as widget or refresh jobs; a
 screen-off battery comparison is still needed to measure the effect.
 
+#### RxJava 3 IO cleanup interval — 24 October 2026
+
+Static inspection of the bundled Home DEX found RxJava 3's IO scheduler using
+its default 60-second cached-worker eviction interval. The cleanup task wakes
+to check expired idle IO workers even when there is nothing to evict. The
+reproducible Home patch now changes that default to 300 seconds, while still
+respecting an explicit `rx3.io-keep-alive-time` system-property override. This
+reduces idle maintenance wakeups from about 60 to 12 per hour when that
+scheduler is initialized; cached IO workers can remain allocated for up to
+five minutes instead of one minute.
+
+The rebuilt Home APK passed zip alignment and APK signature verification, has
+all 23 DEX files, and uses the same signing certificate as the previous APK.
+ADB disconnected during this follow-up, so this build has not been installed
+or measured on the A54 yet. This is a targeted scheduler reduction, not a
+measured battery-life result.
+
 Nemotron Keyboard is split from Samsung's original package, so the system's
 clipboard service sends history writes to the original package authority while
 Nemotron's panel reads its separate database. A bridge now copies the current
