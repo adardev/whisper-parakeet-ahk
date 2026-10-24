@@ -409,10 +409,12 @@ to quantify drain after clearing the stale accessibility binding.
 
 Thread inspection found One UI's bundled RxJava purge worker (`RxSchedulerPurg`).
 Its scheduler defaulted to waking once per second and scanning scheduled
-executors. The reproducible One UI patch now retains queue cleanup but changes
-the default interval to 60 seconds, bounding cleanup delay to one minute. The
-integrated APK was rebuilt, verified with the same debug certificate as the
-installed APK, and installed at 17:22. No source or data was deleted.
+executors. The reproducible One UI patch retains queue cleanup and changes its
+default interval to 300 seconds in builds that include this RxJava2 worker,
+bounding cleanup delay to five minutes. The integrated APK was rebuilt,
+verified with the same debug certificate as the installed APK, and installed
+at 17:22. No source or data was deleted. The current installed UI APK instead
+contains RxJava3 without that RxJava2 purge worker, so the patch skips it.
 
 Post-install checks resolved HOME to the integrated One UI `LauncherActivity`,
 kept HoneyBoard selected, showed no enabled or bound accessibility service, and
@@ -432,3 +434,47 @@ CPU contribution was already small. The phone remained USB-powered, so neither
 sample measures battery discharge. A further CPU reduction needs tracing the
 `pool-8-thread-1` workload; a controlled daily battery comparison still needs
 an unplugged interval.
+
+### Keep HoneyBoard statistics jobs out of the split keyboard package — 24 October 2026
+
+The packaged `Nemotron-Keyboard.apk` still contained two HoneyBoard services
+that schedule periodic key-input and Keys Cafe statistics jobs. The earlier
+One UI merge patch disabled these jobs only in its own integrated build; the
+three-package split rebuilds Keyboard from the separate Core input, so that
+patch did not reach the keyboard APK. The split step now applies the same
+job-cancellation patch to both statistics scheduler services before signing
+Keyboard. The live A54 check also showed its `RxSchedulerPurg` thread active;
+the packaged RxJava purge default was still one second. The split step now
+changes that interval to 60 seconds, matching the launcher patch and retaining
+cancelled-task cleanup. ADB confirmed both daily statistics jobs were active
+(IDs 1 and 2, each requiring idle and battery-not-low); I cancelled them and
+verified there were no remaining scheduled job records. I rebuilt the current
+Keyboard APK with both fixes, signed it with the existing debug key, and
+installed it on the A54 at 13:40. Pulling the installed APK back from the
+device produced the same SHA-256 as the build (`9e27639f…cb384495`); its
+signer matches the previous package. Android still reports HoneyBoard as the
+default input method, and no statistics job records appeared after the update.
+The packaged DEX contains the 60-second RxJava purge interval. A controlled
+post-install battery sample has not been taken, so the amount saved remains
+unmeasured.
+
+### Nemotron Home background policy and clipboard history bridge — 24 October 2026
+
+The installed Home package had no active services, scheduled jobs, or alarms in
+the inspection snapshot. Android also had not exempted it from Doze. I set
+`RUN_IN_BACKGROUND` and `RUN_ANY_IN_BACKGROUND` to `ignore` for
+`com.nemotron.voiceime2` to prevent background execution while keeping normal
+Home foreground launches available. The device reported both app-op modes as
+`ignore`, and Android still resolves Nemotron Home as the HOME activity. This
+policy may delay future Home background work such as widget or refresh jobs; a
+screen-off battery comparison is still needed to measure the effect.
+
+Nemotron Keyboard is split from Samsung's original package, so the system's
+clipboard service sends history writes to the original package authority while
+Nemotron's panel reads its separate database. A bridge now copies the current
+primary clip into Nemotron's provider when the clipboard panel requests history,
+including text and content URIs. The keyboard APK was rebuilt and installed
+with the existing signing key, and the temporary diagnostic receiver was
+removed from the final installed build. Functional verification is still
+pending: the first test session reached the lock screen, and after the user
+unlocked it ADB disconnected before the copy-and-panel check could run.

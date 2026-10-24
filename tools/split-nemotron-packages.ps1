@@ -147,6 +147,181 @@ function Rewrite-PackageReferences([string] $DecodedRoot, [string] $NewPackage) 
     $manifest.Save($manifestPath)
 }
 
+function Allow-HoneyBoardSelfProviderCalls([string] $DecodedRoot) {
+    # The cloned app has a development signing key, so HoneyBoard's own
+    # signature allowlist rejects its internal ContentProvider calls. Permit
+    # the provider's actual host app identity while retaining the Samsung
+    # certificate check for every external caller.
+    $providerGuard = $null
+    foreach ($file in Get-ChildItem -LiteralPath $DecodedRoot -Recurse -Filter 'b.smali') {
+        $candidate = [IO.File]::ReadAllText($file.FullName)
+        if ($candidate.Contains('.class public abstract Li11/b;')) {
+            $providerGuard = $file
+            $code = $candidate
+            break
+        }
+    }
+    if (-not $providerGuard) { throw 'HoneyBoard clipboard provider signature guard was not found.' }
+    $marker = 'nemotron_self_provider_access'
+    if (-not $code.Contains($marker)) {
+        $pattern = '(?m)^(\.method public static a\(Landroid/content/Context;Ljava/lang/String;\)Z\r?\n    \.locals 5\r?\n\r?\n    const/4 v0, 0x0\r?\n)'
+        $matches = [regex]::Matches($code, $pattern)
+        if ($matches.Count -ne 1) { throw 'HoneyBoard provider signature guard layout changed; refusing to patch it.' }
+        $code = [regex]::Replace($code, $pattern, {
+            param($match)
+            $match.Groups[1].Value + @'
+    if-eqz p0, :nemotron_self_provider_access_external
+    invoke-virtual {p0}, Landroid/content/Context;->getPackageName()Ljava/lang/String;
+    move-result-object v1
+    invoke-virtual {v1, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-eqz v1, :nemotron_self_provider_access_external
+    const/4 v0, 0x1
+    return v0
+:nemotron_self_provider_access_external
+'@
+        }, 1)
+        [IO.File]::WriteAllText($providerGuard.FullName, $code, [Text.UTF8Encoding]::new($false))
+    }
+    if (-not $code.Contains($marker)) {
+        # Keep a stable marker next to the injected fast path for rebuild audits.
+        $code = $code.Replace(':nemotron_self_provider_access_external', ':nemotron_self_provider_access_external # nemotron_self_provider_access')
+        [IO.File]::WriteAllText($providerGuard.FullName, $code, [Text.UTF8Encoding]::new($false))
+    }
+    if (-not $code.Contains(':nemotron_self_provider_access_external')) {
+        throw 'HoneyBoard self-provider access patch was not written.'
+    }
+    if (-not $code.Contains('Landroid/os/Binder;->getCallingUid()I')) {
+        $oldSelfCheck = @'
+    invoke-virtual {v1, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-eqz v1, :nemotron_self_provider_access_external
+    const/4 v0, 0x1
+    return v0
+'@
+        $newSelfCheck = @'
+    invoke-virtual {v1, p1}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-nez v1, :nemotron_same_uid_provider_call
+    if-nez p1, :nemotron_self_provider_access_external
+    invoke-static {}, Landroid/os/Binder;->getCallingUid()I
+    move-result v2
+    invoke-static {}, Landroid/os/Process;->myUid()I
+    move-result v3
+    if-ne v2, v3, :nemotron_self_provider_access_external
+:nemotron_same_uid_provider_call
+    const/4 v0, 0x1
+    return v0
+'@
+        if (-not $code.Contains($oldSelfCheck)) { throw 'HoneyBoard provider caller identity check changed; refusing to extend it.' }
+        $code = $code.Replace($oldSelfCheck, $newSelfCheck)
+        [IO.File]::WriteAllText($providerGuard.FullName, $code, [Text.UTF8Encoding]::new($false))
+    }
+}
+
+function Enable-NemotronClipboardHistoryBridge([string] $DecodedRoot) {
+    $smaliDir = Join-Path $DecodedRoot 'smali_classes14'
+    $bridgeDir = Join-Path $smaliDir 'com/nemotron/keyboard'
+    New-Item -ItemType Directory -Path $bridgeDir -Force | Out-Null
+    $bridgeSource = Join-Path $PSScriptRoot '..\apps\nemotron-keyboard\build\ClipboardHistoryBridge.smali'
+    Copy-Item -LiteralPath $bridgeSource -Destination (Join-Path $bridgeDir 'ClipboardHistoryBridge.smali') -Force
+
+    $query = $null
+    foreach ($file in Get-ChildItem -LiteralPath $DecodedRoot -Recurse -Filter 's.smali') {
+        $candidate = [IO.File]::ReadAllText($file.FullName)
+        if ($candidate.Contains('.class public final Le2/s;') -and $candidate.Contains('RichcontentProvider/clipboard')) {
+            $query = $file
+            $code = $candidate
+            break
+        }
+    }
+    if (-not $query) { throw 'Nemotron clipboard-history query coroutine was not found.' }
+    if (-not $code.Contains('nemotron_clipboard_history_bridge')) {
+        $needle = '    iget-object v5, v5, Le2/t;->a:Landroid/content/Context;'
+        if (-not $code.Contains($needle)) { throw 'Clipboard-history bridge hook point changed; refusing to patch it.' }
+        $replacement = $needle + @'
+
+    # nemotron_clipboard_history_bridge
+    invoke-static {v5}, Lcom/nemotron/keyboard/ClipboardHistoryBridge;->syncPrimaryClip(Landroid/content/Context;)V
+'@
+        $code = $code.Replace($needle, $replacement.TrimEnd())
+        [IO.File]::WriteAllText($query.FullName, $code, [Text.UTF8Encoding]::new($false))
+    }
+}
+
+function Patch-HoneyBoardMaintenanceUserCheck([string] $DecodedRoot) {
+    $helper = $null
+    foreach ($file in Get-ChildItem -LiteralPath $DecodedRoot -Recurse -Filter 'b.smali') {
+        $candidate = [IO.File]::ReadAllText($file.FullName)
+        if ($candidate.Contains('.class public final Lmo/b;')) {
+            $helper = $file
+            $code = $candidate
+            break
+        }
+    }
+    if (-not $helper) { throw 'HoneyBoard maintenance-mode helper was not found.' }
+    if ($code.Contains('Landroid/app/ActivityManager;->semGetCurrentUser()I')) {
+        $replacement = @'
+.method public final c()Z
+    .locals 2
+    invoke-static {}, Landroid/os/UserHandle;->semGetMyUserId()I
+    move-result v1
+    const/16 v0, 0x4d
+    if-ne v1, v0, :nemotron_not_maintenance_user
+    const/4 v0, 0x1
+    return v0
+    :nemotron_not_maintenance_user
+    const/4 v0, 0x0
+    return v0
+.end method
+'@
+        $pattern = '(?ms)^\.method public final c\(\)Z\r?\n.*?^\.end method'
+        if ([regex]::Matches($code, $pattern).Count -ne 1) { throw 'HoneyBoard maintenance-mode check changed; refusing to patch it.' }
+        $code = [regex]::Replace($code, $pattern, $replacement.TrimEnd(), 1)
+        [IO.File]::WriteAllText($helper.FullName, $code, [Text.UTF8Encoding]::new($false))
+    }
+    if ($code.Contains('Landroid/app/ActivityManager;->semGetCurrentUser()I')) {
+        throw 'HoneyBoard maintenance-mode check still uses the privileged current-user API.'
+    }
+}
+
+function Patch-HoneyBoardClipboardSelfAccess([string] $DecodedRoot) {
+    $store = Get-ChildItem -LiteralPath $DecodedRoot -Recurse -Filter 'l.smali' |
+        Where-Object { [IO.File]::ReadAllText($_.FullName).Contains('.class public final Lq2/l;') } |
+        Select-Object -First 1
+    if (-not $store) { throw 'HoneyBoard clipboard store was not found.' }
+    $code = [IO.File]::ReadAllText($store.FullName)
+    $needle = @'
+.method public final f(Ljava/lang/String;)Z
+    .locals 2
+
+'@
+    $replacement = @'
+.method public final f(Ljava/lang/String;)Z
+    .locals 2
+
+    const-string v0, "com.nemotron.keyboard"
+
+    invoke-static {p1, v0}, Lkotlin/jvm/internal/Intrinsics;->areEqual(Ljava/lang/Object;Ljava/lang/Object;)Z
+
+    move-result v0
+
+    if-eqz v0, :nemotron_clipboard_allowlist
+
+    const/4 p0, 0x1
+
+    return p0
+
+    :nemotron_clipboard_allowlist
+'@
+    if (-not $code.Contains($needle)) {
+        if ($code.Contains(':nemotron_clipboard_allowlist')) { return }
+        throw 'HoneyBoard clipboard caller allowlist hook changed; refusing to patch it.'
+    }
+    $code = $code.Replace($needle, $replacement)
+    [IO.File]::WriteAllText($store.FullName, $code, [Text.UTF8Encoding]::new($false))
+}
+
 function Remove-ManifestComponents([string] $DecodedRoot, [scriptblock] $KeepComponent) {
     $manifestPath = Join-Path $DecodedRoot 'AndroidManifest.xml'
     [xml] $manifest = Get-Content -LiteralPath $manifestPath -Raw
@@ -205,6 +380,73 @@ function Assert-NoCrossPackageAuthorityDuplicates([hashtable] $AuthoritySets) {
             }
             $owners.Add($authority, $package)
         }
+    }
+}
+
+function Disable-HoneyBoardStatisticsJobs([string] $DecodedRoot) {
+    # HoneyBoard's two periodic usage-statistics jobs are not needed by
+    # Nemotron Keyboard. The integrated Home build has this patch too, but the
+    # split Keyboard APK is rebuilt from CoreInput and must receive it here.
+    foreach ($job in @(
+        @{ File = 'b.smali'; Descriptor = 'Lvi/b;'; ContextGetter = 'a'; JobId = 1 },
+        @{ File = 'c.smali'; Descriptor = 'Lzi/c;'; ContextGetter = 'a'; JobId = 2 }
+    )) {
+        $classFile = Get-ChildItem -LiteralPath $DecodedRoot -Recurse -File -Filter $job.File |
+            Where-Object { [regex]::IsMatch([IO.File]::ReadAllText($_.FullName), "(?m)^\.class .*" + [regex]::Escape($job.Descriptor)) } |
+            Select-Object -First 1
+        if (-not $classFile) { throw "Missing HoneyBoard statistics scheduler $($job.Descriptor)" }
+        $code = [IO.File]::ReadAllText($classFile.FullName)
+        if (-not $code.Contains(':nemotron_disable_stats_jobs')) {
+            $replacement = @"
+.method public onCreate()V
+    .locals 3
+    :nemotron_disable_stats_jobs
+    invoke-super {p0}, Loo/b;->onCreate()V
+    invoke-direct {p0}, $($job.Descriptor)->$($job.ContextGetter)()Landroid/content/Context;
+    move-result-object v0
+    const-string v1, "jobscheduler"
+    invoke-virtual {v0, v1}, Landroid/content/Context;->getSystemService(Ljava/lang/String;)Ljava/lang/Object;
+    move-result-object v0
+    instance-of v1, v0, Landroid/app/job/JobScheduler;
+    if-eqz v1, :nemotron_stats_jobs_done
+    check-cast v0, Landroid/app/job/JobScheduler;
+    const/4 v1, $($job.JobId)
+    invoke-virtual {v0, v1}, Landroid/app/job/JobScheduler;->cancel(I)V
+    :nemotron_stats_jobs_done
+    return-void
+.end method
+"@
+            $code = [regex]::Replace($code, '(?ms)^\.method public onCreate\(\)V.*?^\.end method', $replacement, 1)
+            if ($code -notmatch ':nemotron_disable_stats_jobs') { throw "Could not patch $($job.Descriptor)" }
+            [IO.File]::WriteAllText($classFile.FullName, $code, [Text.UTF8Encoding]::new($false))
+        }
+    }
+}
+
+function Patch-RxJavaPurgeInterval([string] $DecodedRoot) {
+    # RxJava's purge worker otherwise wakes once per second to scan scheduled
+    # executors. Keep the cleanup, with the same 60-second interval used by UI.
+    $rxPurge = Get-ChildItem -LiteralPath $DecodedRoot -Recurse -File -Filter '*.smali' |
+        Where-Object {
+            $code = [IO.File]::ReadAllText($_.FullName)
+            $code.Contains('rx2.purge-period-seconds') -and $code.Contains('Lrv0/k$a;->b:I')
+        } | Select-Object -First 1
+    if (-not $rxPurge) { throw 'RxJava scheduler purge configuration was not found in Keyboard.' }
+    $rxCode = [IO.File]::ReadAllText($rxPurge.FullName)
+    if (-not $rxCode.Contains('nemotron_rx_purge_60s')) {
+        $rxPattern = '(?m)(^\s*:cond_1\s*\r?\n)(\s*)(iput v2, p0, Lrv0/k\$a;->b:I)'
+        $matches = [regex]::Matches($rxCode, $rxPattern)
+        if ($matches.Count -ne 1) { throw 'Keyboard RxJava purge default layout changed; refusing to patch it.' }
+        $rxCode = [regex]::Replace($rxCode, $rxPattern, {
+            param($match)
+            $newline = if ($match.Value.Contains("`r`n")) { "`r`n" } else { "`n" }
+            $match.Groups[1].Value + $match.Groups[2].Value + 'const/16 v2, 0x3c' + $newline +
+                $match.Groups[2].Value + $match.Groups[3].Value + ' # nemotron_rx_purge_60s'
+        }, 1)
+        [IO.File]::WriteAllText($rxPurge.FullName, $rxCode, [Text.UTF8Encoding]::new($false))
+    }
+    if (-not $rxCode.Contains('nemotron_rx_purge_60s')) {
+        throw 'Keyboard RxJava purge interval marker was not written.'
     }
 }
 
@@ -312,12 +554,18 @@ try {
     $keyboardApplication.SetAttribute('label', $androidNs, 'Nemotron Keyboard')
     $keyboardManifest.Save((Join-Path $keyboardTree 'AndroidManifest.xml'))
     Rewrite-PackageReferences $keyboardTree $keyboardPackage
+    Allow-HoneyBoardSelfProviderCalls $keyboardTree
+    Enable-NemotronClipboardHistoryBridge $keyboardTree
+    Patch-HoneyBoardMaintenanceUserCheck $keyboardTree
+    Patch-HoneyBoardClipboardSelfAccess $keyboardTree
     $keyboardAuthorities = Assert-UniqueProviderAuthorities $keyboardTree $keyboardPackage
     $keyboardImeFound = $false
     foreach ($service in $keyboardManifest.SelectNodes('/manifest/application/service')) {
         if ((Get-ComponentName $service $oldPackage) -eq 'com.samsung.android.honeyboard.service.HoneyBoardService') { $keyboardImeFound = $true }
     }
     if (-not $keyboardImeFound) { throw 'Nemotron Keyboard APK lost HoneyBoardService.' }
+    Disable-HoneyBoardStatisticsJobs $keyboardTree
+    Patch-RxJavaPurgeInterval $keyboardTree
     Build-SignedApk $keyboardTree 'keyboard' $keyboardOutput
 
     # Decode/build the much larger launcher only after the Core working tree
