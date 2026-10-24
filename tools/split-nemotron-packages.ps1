@@ -322,6 +322,54 @@ function Patch-HoneyBoardClipboardSelfAccess([string] $DecodedRoot) {
     [IO.File]::WriteAllText($store.FullName, $code, [Text.UTF8Encoding]::new($false))
 }
 
+function Patch-HoneyBoardClipboardDeleteDialog([string] $DecodedRoot) {
+    $dialog = Get-ChildItem -LiteralPath $DecodedRoot -Recurse -Filter 'd.smali' |
+        Where-Object { [IO.File]::ReadAllText($_.FullName).Contains('.class public final Las0/d;') } |
+        Select-Object -First 1
+    $view = Get-ChildItem -LiteralPath $DecodedRoot -Recurse -Filter 'r.smali' |
+        Where-Object { [IO.File]::ReadAllText($_.FullName).Contains('.class public final Lo3/r;') } |
+        Select-Object -First 1
+    if (-not $dialog -or -not $view) { throw 'HoneyBoard clipboard delete dialog classes were not found.' }
+
+    $dialogCode = [IO.File]::ReadAllText($dialog.FullName)
+    $dialogCode = $dialogCode.Replace('const/16 v1, 0x7dc', 'const/16 v1, 0x3eb # nemotron_attached_ime_dialog')
+    if (-not $dialogCode.Contains('nemotron_attached_ime_dialog')) {
+        throw 'Clipboard confirmation dialog type hook changed; refusing to patch it.'
+    }
+    [IO.File]::WriteAllText($dialog.FullName, $dialogCode, [Text.UTF8Encoding]::new($false))
+
+    $viewCode = [IO.File]::ReadAllText($view.FullName)
+    if (-not $viewCode.Contains('nemotron_clipboard_dialog_token')) {
+        $needle = @'
+    iput-object v0, p0, Lo3/r;->q:Las0/d;
+
+    invoke-virtual {v0}, Landroid/app/Dialog;->show()V
+'@
+        $replacement = @'
+    iput-object v0, p0, Lo3/r;->q:Las0/d;
+
+    # Attach confirmation to the live IME window; Android 16 rejects
+    # TYPE_INPUT_METHOD_DIALOG for this cloned, non-platform-signed package.
+    invoke-virtual {v0}, Landroid/app/Dialog;->getWindow()Landroid/view/Window;
+    move-result-object v1
+    if-eqz v1, :nemotron_clipboard_dialog_show
+    invoke-virtual {p0}, Landroid/view/View;->getWindowToken()Landroid/os/IBinder;
+    move-result-object v2
+    if-eqz v2, :nemotron_clipboard_dialog_show
+    invoke-virtual {v1}, Landroid/view/Window;->getAttributes()Landroid/view/WindowManager$LayoutParams;
+    move-result-object v3
+    iput-object v2, v3, Landroid/view/WindowManager$LayoutParams;->token:Landroid/os/IBinder;
+    invoke-virtual {v1, v3}, Landroid/view/Window;->setAttributes(Landroid/view/WindowManager$LayoutParams;)V
+    :nemotron_clipboard_dialog_show
+    # nemotron_clipboard_dialog_token
+    invoke-virtual {v0}, Landroid/app/Dialog;->show()V
+'@
+        if (-not $viewCode.Contains($needle)) { throw 'Clipboard confirmation show hook changed; refusing to patch it.' }
+        $viewCode = $viewCode.Replace($needle, $replacement)
+        [IO.File]::WriteAllText($view.FullName, $viewCode, [Text.UTF8Encoding]::new($false))
+    }
+}
+
 function Remove-ManifestComponents([string] $DecodedRoot, [scriptblock] $KeepComponent) {
     $manifestPath = Join-Path $DecodedRoot 'AndroidManifest.xml'
     [xml] $manifest = Get-Content -LiteralPath $manifestPath -Raw
@@ -558,6 +606,7 @@ try {
     Enable-NemotronClipboardHistoryBridge $keyboardTree
     Patch-HoneyBoardMaintenanceUserCheck $keyboardTree
     Patch-HoneyBoardClipboardSelfAccess $keyboardTree
+    Patch-HoneyBoardClipboardDeleteDialog $keyboardTree
     $keyboardAuthorities = Assert-UniqueProviderAuthorities $keyboardTree $keyboardPackage
     $keyboardImeFound = $false
     foreach ($service in $keyboardManifest.SelectNodes('/manifest/application/service')) {

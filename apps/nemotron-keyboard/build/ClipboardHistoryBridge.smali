@@ -27,14 +27,13 @@
     const/4 v2, 0x0
     invoke-virtual {v0, v2}, Lcom/samsung/android/content/clipboard/SemClipboardManager;->getLatestClip(I)Lcom/samsung/android/content/clipboard/data/SemClipData;
     move-result-object v0
-    check-cast v0, Lcom/samsung/android/content/clipboard/data/SemTextClipData;
     if-eqz v0, :no_primary_clip
-    invoke-virtual {v0}, Lcom/samsung/android/content/clipboard/data/SemTextClipData;->getText()Ljava/lang/CharSequence;
-    move-result-object v2
-    if-eqz v2, :no_primary_clip
-    const-string v3, "Clipboard"
-    invoke-static {v3, v2}, Landroid/content/ClipData;->newPlainText(Ljava/lang/CharSequence;Ljava/lang/CharSequence;)Landroid/content/ClipData;
+    # SemImageClipData and SemTextClipData both expose the Android ClipData.
+    # Keep the full item (including screenshot URI) so the history provider
+    # can persist and render copied captures as well as text.
+    invoke-virtual {v0}, Lcom/samsung/android/content/clipboard/data/SemClipData;->getClipData()Landroid/content/ClipData;
     move-result-object v1
+    if-eqz v1, :no_primary_clip
     const-string v3, "NemotronClipboardBridge"
     const-string v4, "using Samsung clipboard fallback"
     invoke-static {v3, v4}, Landroid/util/Log;->i(Ljava/lang/String;Ljava/lang/String;)I
