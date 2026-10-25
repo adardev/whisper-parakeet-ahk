@@ -502,10 +502,11 @@ The Fit3 tile now also requests a stop for Samsung's
 `com.samsung.accessory/.services.SAFrameworkService` after disconnecting Fit3.
 Samsung can keep this component bound even after `am stopservice` reports
 success. If no connected GATT, audio, HID, or PAN peripheral remains, Nemotron
-force-stops only the Samsung Accessory package to release that bound process;
-the Fit3-on path explicitly clears the force-stop state before reconnecting.
-When another Bluetooth peripheral is connected, Nemotron does not force-stop
-the shared accessory package.
+disables and force-stops the Samsung Accessory package so SAP cannot restart
+while Fit3 is off. The Fit3-on path enables and unstops Samsung Accessory
+before enabling Bluetooth or asking Samsung Wearable to reconnect. When another
+Bluetooth peripheral is connected, Nemotron preserves the shared package and
+only requests a stop for the SAP component.
 
 Nemotron Keyboard is split from Samsung's original package, so the system's
 clipboard service sends history writes to the original package authority while

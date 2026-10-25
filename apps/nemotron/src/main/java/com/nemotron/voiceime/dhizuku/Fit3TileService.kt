@@ -174,29 +174,31 @@ class Fit3TileService : AppFreezeTileService() {
                         return@Thread
                     }
                     ShizukuManager.stopApp(SAMSUNG_WEARABLE_PLUGIN)
-                    // Disconnecting the watch can leave Samsung's SAP bearer
-                    // service alive even after Health and the Fit3 plugin are
-                    // frozen. Stop that component only; other accessory
-                    // services and paired Bluetooth devices remain untouched.
-                    val sapStopped = ShizukuManager.stopService(SAMSUNG_ACCESSORY_SERVICE)
-                    Log.i(TAG, "Fit3 apagada: Samsung SAP service stop solicitado=$sapStopped")
+                    // stopService cannot release Samsung's self-bound SAP
+                    // bearer. With no connected Bluetooth peripherals, disable
+                    // its package for the Fit3-off interval so SAP cannot be
+                    // restarted in the background. The on path restores it
+                    // before enabling Bluetooth or requesting reconnection.
                     if (!hasConnectedBluetoothPeripherals()) {
-                        // SAFrameworkService can keep itself bound after
-                        // stopService. With no Bluetooth peripherals in use,
-                        // force-stop its package to release the SAP process;
-                        // Fit3-on explicitly clears this stopped state below.
+                        check(ShizukuManager.hideApp(SAMSUNG_ACCESSORY_PACKAGE)) {
+                            "No se pudo desactivar Samsung Accessory después de desconectar Fit3"
+                        }
                         val accessoryStopped = ShizukuManager.stopApp(SAMSUNG_ACCESSORY_PACKAGE)
-                        Log.i(TAG, "Sin periféricos Bluetooth activos: Samsung Accessory force-stopped=$accessoryStopped")
+                        Log.i(TAG, "Fit3 apagada y sin periféricos: Samsung Accessory desactivado y force-stopped=$accessoryStopped")
+                    } else {
+                        val sapStopped = ShizukuManager.stopService(SAMSUNG_ACCESSORY_SERVICE)
+                        Log.i(TAG, "Fit3 apagada con otro periférico activo: stop SAP solicitado=$sapStopped; paquete conservado")
                     }
                     val frozen = ShizukuManager.getDisabledPackages().orEmpty()
-                    check(targetPackage in frozen && SAMSUNG_WEARABLE_PLUGIN in frozen) {
-                        "No se confirmó la pausa de Samsung Health y Fit3 Plugin"
+                    check(targetPackage in frozen && SAMSUNG_WEARABLE_PLUGIN in frozen &&
+                        (hasConnectedBluetoothPeripherals() || SAMSUNG_ACCESSORY_PACKAGE in frozen)) {
+                        "No se confirmó la pausa de Samsung Health, Fit3 Plugin y Samsung Accessory"
                     }
-                    Log.i(TAG, "Apagado completado: subidaConfirmada=$uploaded, Fit3 desconectada, Samsung Health y Fit3 Plugin pausados")
+                    Log.i(TAG, "Apagado completado: subidaConfirmada=$uploaded, Fit3 desconectada; SAP pausado cuando no hay otros periféricos")
                 } else {
                     // Restore packages before waking Samsung's background
                     // health receiver, which initializes its own HostManager.
-                    for (pkg in listOf(SAMSUNG_WEARABLE_PLUGIN, targetPackage)) {
+                    for (pkg in listOf(SAMSUNG_ACCESSORY_PACKAGE, SAMSUNG_WEARABLE_PLUGIN, targetPackage)) {
                         if (pkg in disabled && !ShizukuManager.unhideApp(pkg)) {
                             Log.e(TAG, "No se pudo habilitar $pkg para conectar Fit3")
                             return@Thread
@@ -215,10 +217,6 @@ class Fit3TileService : AppFreezeTileService() {
                             Log.e(TAG, "Bluetooth no quedó encendido; no se solicita conexión")
                             return@Thread
                         }
-                    }
-                    if (!ShizukuManager.unstopApp(SAMSUNG_ACCESSORY_PACKAGE)) {
-                        Log.e(TAG, "No se pudo reactivar Samsung Accessory para reconectar Fit3")
-                        return@Thread
                     }
                     if (!startFit3Connection()) {
                         showMessage("No se pudo iniciar Fit3 Plugin para conectar la pulsera")
