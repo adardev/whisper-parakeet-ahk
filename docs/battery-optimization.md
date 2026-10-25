@@ -493,8 +493,10 @@ components from `dumpsys activity services`. Selected components receive an
 `am stopservice` request after the existing screen-off delay; the app verifies
 all selected components against one post-stop service snapshot to avoid a
 separate system dump for each selection. This stops only the selected service
-when Android is not keeping it alive for an active binding. Bound services may
-remain active until their clients disconnect.
+when Android is not keeping it alive for an active binding. The picker marks
+actively bound services as unavailable, and the screen-off path skips them.
+For example, `com.sec.imsservice/...ImsUpdateService` is bound by the A54
+telephony stack and must not be force-stopped with its package.
 
 The Fit3 tile now also requests a stop for Samsung's
 `com.samsung.accessory/.services.SAFrameworkService` after disconnecting Fit3.

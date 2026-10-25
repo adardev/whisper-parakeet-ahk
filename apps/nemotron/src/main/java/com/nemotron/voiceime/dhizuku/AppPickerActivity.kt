@@ -90,9 +90,17 @@ class AppPickerActivity : AppCompatActivity() {
                 val serviceComponents = (running.map { it.component } + selectedServices).distinct()
                 serviceComponents.mapNotNull { component ->
                     val pkg = component.substringBefore('/')
+                    val runningService = running.firstOrNull { it.component == component }
                     val appInfo = runCatching { packageManager.getApplicationInfo(pkg, PackageManager.GET_META_DATA) }.getOrNull()
                     appInfo?.let {
-                        AppItem(component, "${packageManager.getApplicationLabel(it)} · ${component.substringAfter('/').substringAfterLast('.')}", packageManager.getApplicationIcon(it), component)
+                        val state = if (runningService?.bound == true) " · bound, kept by Android" else ""
+                        AppItem(
+                            component,
+                            "${packageManager.getApplicationLabel(it)} · ${component.substringAfter('/').substringAfterLast('.')}$state",
+                            packageManager.getApplicationIcon(it),
+                            component,
+                            stoppable = runningService?.bound != true
+                        )
                     }
                 }.sortedBy { it.label.lowercase() }
             } else packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
@@ -112,7 +120,7 @@ class AppPickerActivity : AppCompatActivity() {
                 adapter.notifyDataSetChanged()
 
                 appList.forEachIndexed { index, item ->
-                    if (if (mode == MODE_STOP_SERVICES) selectedServices.contains(item.component) else selectedPackages.contains(item.packageName)) {
+                    if (if (mode == MODE_STOP_SERVICES) selectedServices.contains(item.component) && item.stoppable else selectedPackages.contains(item.packageName)) {
                         listView.setItemChecked(index, true)
                     }
                 }
@@ -162,13 +170,17 @@ class AppPickerActivity : AppCompatActivity() {
         val packageName: String,
         val label: String,
         val icon: Drawable,
-        val component: String? = null
+        val component: String? = null,
+        val stoppable: Boolean = true
     )
 
     inner class AppListAdapter : BaseAdapter() {
         override fun getCount(): Int = appList.size
         override fun getItem(position: Int): AppItem = appList[position]
         override fun getItemId(position: Int): Long = position.toLong()
+        override fun areAllItemsEnabled(): Boolean = mode != MODE_STOP_SERVICES
+        override fun isEnabled(position: Int): Boolean =
+            mode != MODE_STOP_SERVICES || appList[position].stoppable
 
         override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
             val view = convertView ?: LayoutInflater.from(this@AppPickerActivity)
@@ -183,6 +195,8 @@ class AppPickerActivity : AppCompatActivity() {
             val stopCb = view.findViewById<CheckBox>(R.id.appStopCheckBox)
 
             cb.isChecked = listView.isItemChecked(position)
+            cb.isEnabled = mode != MODE_STOP_SERVICES || item.stoppable
+            view.alpha = if (mode == MODE_STOP_SERVICES && !item.stoppable) 0.62f else 1f
 
             if (mode == MODE_AUTO_FREEZE) {
                 stopCb.visibility =
@@ -201,6 +215,10 @@ class AppPickerActivity : AppCompatActivity() {
             }
 
             val toggle = View.OnClickListener {
+                if (mode == MODE_STOP_SERVICES && !item.stoppable) {
+                    Toast.makeText(this@AppPickerActivity, "Android mantiene este servicio enlazado; no se puede detener de forma independiente.", Toast.LENGTH_LONG).show()
+                    return@OnClickListener
+                }
                 val newState = !cb.isChecked
                 cb.isChecked = newState
                 listView.setItemChecked(position, newState)

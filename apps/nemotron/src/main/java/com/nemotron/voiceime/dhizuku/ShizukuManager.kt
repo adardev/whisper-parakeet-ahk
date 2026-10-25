@@ -12,7 +12,7 @@ import java.lang.reflect.Method
 /** Shell-backed operations supplied by a running Shizuku server. */
 object ShizukuManager {
 
-    data class RunningService(val component: String, val packageName: String)
+    data class RunningService(val component: String, val packageName: String, val bound: Boolean)
 
     private const val TAG = "ShizukuManager"
     private const val REQUEST_CODE = 4011
@@ -352,13 +352,17 @@ object ShizukuManager {
             ?: return emptyList()
         val result = linkedMapOf<String, RunningService>()
         val record = Regex("(?m)^\\s*\\*?\\s*ServiceRecord\\{[^\\n]*?\\bu\\d+\\s+([A-Za-z0-9_.]+/[^\\s}]+)")
-        record.findAll(output).forEach { match ->
+        val matches = record.findAll(output).toList()
+        matches.forEachIndexed { index, match ->
             val raw = match.groupValues[1]
             val pkg = raw.substringBefore('/')
             val cls = raw.substringAfter('/')
-            val component = "$pkg/${if (cls.startsWith('.')) cls else cls}"
+            val component = "$pkg/$cls"
+            val blockEnd = matches.getOrNull(index + 1)?.range?.first ?: output.length
+            val block = output.substring(match.range.first, blockEnd)
+            val bound = Regex("\\bhasBound=true\\b").containsMatchIn(block)
             if (pkg != "android" && pkg != "com.nemotron.core" && pkg != "com.nemotron.voiceime2") {
-                result.putIfAbsent(component, RunningService(component, pkg))
+                result.putIfAbsent(component, RunningService(component, pkg, bound))
             }
         }
         return result.values.sortedBy { it.component }
@@ -377,7 +381,13 @@ object ShizukuManager {
     /** Stops a batch of selected components and verifies the result in one system snapshot. */
     fun stopServices(components: Collection<String>): Map<String, Boolean> {
         if (components.isEmpty()) return emptyMap()
-        val accepted = components.associateWith { stopService(it) }
+        val before = getRunningServices().associateBy { it.component }
+        val accepted = components.associateWith { component ->
+            if (before[component]?.bound == true) {
+                Log.w(TAG, "Not stopping bound service $component; Android still has active clients")
+                false
+            } else stopService(component)
+        }
         val active = getRunningServices().mapTo(mutableSetOf()) { it.component }
         return accepted.mapValues { (component, commandAccepted) ->
             val stopped = commandAccepted && component !in active
