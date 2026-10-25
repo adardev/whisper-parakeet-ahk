@@ -174,6 +174,20 @@ class Fit3TileService : AppFreezeTileService() {
                         return@Thread
                     }
                     ShizukuManager.stopApp(SAMSUNG_WEARABLE_PLUGIN)
+                    // Disconnecting the watch can leave Samsung's SAP bearer
+                    // service alive even after Health and the Fit3 plugin are
+                    // frozen. Stop that component only; other accessory
+                    // services and paired Bluetooth devices remain untouched.
+                    val sapStopped = ShizukuManager.stopService(SAMSUNG_ACCESSORY_SERVICE)
+                    Log.i(TAG, "Fit3 apagada: Samsung SAP service stop solicitado=$sapStopped")
+                    if (!hasConnectedBluetoothPeripherals()) {
+                        // SAFrameworkService can keep itself bound after
+                        // stopService. With no Bluetooth peripherals in use,
+                        // force-stop its package to release the SAP process;
+                        // Fit3-on explicitly clears this stopped state below.
+                        val accessoryStopped = ShizukuManager.stopApp(SAMSUNG_ACCESSORY_PACKAGE)
+                        Log.i(TAG, "Sin periféricos Bluetooth activos: Samsung Accessory force-stopped=$accessoryStopped")
+                    }
                     val frozen = ShizukuManager.getDisabledPackages().orEmpty()
                     check(targetPackage in frozen && SAMSUNG_WEARABLE_PLUGIN in frozen) {
                         "No se confirmó la pausa de Samsung Health y Fit3 Plugin"
@@ -201,6 +215,10 @@ class Fit3TileService : AppFreezeTileService() {
                             Log.e(TAG, "Bluetooth no quedó encendido; no se solicita conexión")
                             return@Thread
                         }
+                    }
+                    if (!ShizukuManager.unstopApp(SAMSUNG_ACCESSORY_PACKAGE)) {
+                        Log.e(TAG, "No se pudo reactivar Samsung Accessory para reconectar Fit3")
+                        return@Thread
                     }
                     if (!startFit3Connection()) {
                         showMessage("No se pudo iniciar Fit3 Plugin para conectar la pulsera")
@@ -285,6 +303,25 @@ class Fit3TileService : AppFreezeTileService() {
         }
     }.onFailure { Log.e(TAG, "No se pudo verificar si Fit3 era el único dispositivo conectado", it) }
         .getOrDefault(false)
+
+    /** True only when no connected GATT, audio, HID, or PAN peripheral needs SAP. */
+    private fun hasConnectedBluetoothPeripherals(): Boolean = runCatching {
+        val manager = bluetoothManager() ?: return true
+        val adapter = manager.adapter ?: return true
+        if (manager.getConnectedDevices(BluetoothProfile.GATT).isNotEmpty()) return true
+        listOf(
+            BluetoothProfile.HEADSET,
+            BluetoothProfile.A2DP,
+            4, // HID_HOST
+            5, // PAN
+            BluetoothProfile.HEARING_AID,
+            22 // LE_AUDIO
+        ).any { profile ->
+            runCatching { adapter.getProfileConnectionState(profile) }
+                .getOrDefault(BluetoothProfile.STATE_DISCONNECTED) != BluetoothProfile.STATE_DISCONNECTED
+        }
+    }.onFailure { Log.e(TAG, "No se pudo comprobar el uso de periféricos Bluetooth", it) }
+        .getOrDefault(true)
 
     private fun sendWatchRequest(action: String, address: String): Boolean {
         // This receiver is protected by Samsung's signature permission.
@@ -382,6 +419,8 @@ class Fit3TileService : AppFreezeTileService() {
         private const val KNOWN_FIT3_ADDRESS = "74:19:0A:49:64:DD"
         private const val SAMSUNG_HEALTH_PACKAGE = "com.sec.android.app.shealth"
         private const val SAMSUNG_WEARABLE_PLUGIN = "com.samsung.wearable.fit3plugin"
+        private const val SAMSUNG_ACCESSORY_PACKAGE = "com.samsung.accessory"
+        private const val SAMSUNG_ACCESSORY_SERVICE = "com.samsung.accessory/.services.SAFrameworkService"
         private const val DISCONNECT_ACTION = "com.samsung.android.watchmanager.ACTION_HM_REQUEST_DISCONNECT"
         private const val HEALTH_CAPABILITY_ACTION =
             "com.samsung.android.sdk.healthconnectivity.REQUEST_MANAGER_CAPABILITY"

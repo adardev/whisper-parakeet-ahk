@@ -24,7 +24,8 @@ class AutoFreezeScreenReceiver : BroadcastReceiver() {
                 cancelPendingFreeze()
                 applyDozeExempt(ctx)
                 val apps = SecureStore.getAutoFreezeApps(ctx).toList()
-                if (apps.isEmpty()) {
+                val services = SecureStore.getStopOnScreenOffServices(ctx).toList()
+                if (apps.isEmpty() && services.isEmpty()) {
                     forceDoze(ctx)
                     return
                 }
@@ -35,7 +36,7 @@ class AutoFreezeScreenReceiver : BroadcastReceiver() {
                         Log.d(TAG, "Screen already on, skipping freeze")
                         return@Runnable
                     }
-                    doFreeze(ctx, apps)
+                    doFreeze(ctx, apps, services)
                 }
                 pendingFreeze = freezeRunnable
                 if (delay == 0L) {
@@ -140,7 +141,7 @@ class AutoFreezeScreenReceiver : BroadcastReceiver() {
         }.start()
     }
 
-    private fun doFreeze(ctx: Context, apps: List<String>) {
+    private fun doFreeze(ctx: Context, apps: List<String>, services: List<String>) {
         Thread {
             if (!ShizukuManager.hasPermission()) {
                 Log.w(TAG, "Freeze skipped: Shizuku unavailable")
@@ -152,10 +153,11 @@ class AutoFreezeScreenReceiver : BroadcastReceiver() {
                 Log.d(TAG, "Coche conectado: se omite el auto-freeze")
                 return@Thread
             }
+            if (services.isNotEmpty()) ShizukuManager.stopServices(services)
             for (pkg in apps) ShizukuManager.hideApp(pkg)
             val stopApps = SecureStore.getStopOnUnlockApps(ctx).toList()
             for (pkg in stopApps) ShizukuManager.stopApp(pkg)
-            Log.d(TAG, "Froze ${apps.size} apps, stopped on lock: $stopApps")
+            Log.d(TAG, "Froze ${apps.size} apps, stopped ${services.size} selected services, stopped on lock: $stopApps")
             // Freeze selected apps before entering deep idle. If force-idle is
             // applied at screen-off, Android can suspend this delayed work.
             forceDoze(ctx)

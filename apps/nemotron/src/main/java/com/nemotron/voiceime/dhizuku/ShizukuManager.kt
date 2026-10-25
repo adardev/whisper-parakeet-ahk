@@ -12,6 +12,8 @@ import java.lang.reflect.Method
 /** Shell-backed operations supplied by a running Shizuku server. */
 object ShizukuManager {
 
+    data class RunningService(val component: String, val packageName: String)
+
     private const val TAG = "ShizukuManager"
     private const val REQUEST_CODE = 4011
 
@@ -341,6 +343,47 @@ object ShizukuManager {
     fun stopApp(packageName: String): Boolean {
         if (!hasPermission()) return false
         return execShell("am force-stop $packageName")
+    }
+
+    /** Queries ActivityManager's live service records through Shizuku shell. */
+    fun getRunningServices(): List<RunningService> {
+        if (!hasPermission()) return emptyList()
+        val output = execShellFresh(arrayOf("dumpsys", "activity", "services"), timeoutMs = 12_000L)
+            ?: return emptyList()
+        val result = linkedMapOf<String, RunningService>()
+        val record = Regex("(?m)^\\s*\\*?\\s*ServiceRecord\\{[^\\n]*?\\bu\\d+\\s+([A-Za-z0-9_.]+/[^\\s}]+)")
+        record.findAll(output).forEach { match ->
+            val raw = match.groupValues[1]
+            val pkg = raw.substringBefore('/')
+            val cls = raw.substringAfter('/')
+            val component = "$pkg/${if (cls.startsWith('.')) cls else cls}"
+            if (pkg != "android" && pkg != "com.nemotron.core" && pkg != "com.nemotron.voiceime2") {
+                result.putIfAbsent(component, RunningService(component, pkg))
+            }
+        }
+        return result.values.sortedBy { it.component }
+    }
+
+    /** Stops only the selected service component; it does not force-stop its package. */
+    fun stopService(component: String): Boolean {
+        if (!hasPermission() || !component.matches(Regex("[A-Za-z0-9_.]+/[A-Za-z0-9_.$]+"))) return false
+        val out = execShellFresh(arrayOf("am", "stopservice", "--user", "0", "-n", component), timeoutMs = 8_000L)
+            ?: return false
+        val accepted = out.contains("Stopping service:") && !out.contains("Error", ignoreCase = true)
+        Log.i(TAG, "stopservice $component → $out (accepted=$accepted)")
+        return accepted
+    }
+
+    /** Stops a batch of selected components and verifies the result in one system snapshot. */
+    fun stopServices(components: Collection<String>): Map<String, Boolean> {
+        if (components.isEmpty()) return emptyMap()
+        val accepted = components.associateWith { stopService(it) }
+        val active = getRunningServices().mapTo(mutableSetOf()) { it.component }
+        return accepted.mapValues { (component, commandAccepted) ->
+            val stopped = commandAccepted && component !in active
+            Log.i(TAG, "screen-off service $component stopped=$stopped stillRunning=${component in active}")
+            stopped
+        }
     }
 
     /** Returns the package currently holding Android's default assistant role. */

@@ -482,9 +482,28 @@ five minutes instead of one minute.
 
 The rebuilt Home APK passed zip alignment and APK signature verification, has
 all 23 DEX files, and uses the same signing certificate as the previous APK.
-ADB disconnected during this follow-up, so this build has not been installed
-or measured on the A54 yet. This is a targeted scheduler reduction, not a
-measured battery-life result.
+It was installed on the A54 and the installed APK hash matched the build.
+The phone was USB-powered during the follow-up, so this is a targeted scheduler
+reduction, not a measured battery-life result.
+
+### Selective background service stop on screen off — 24 October 2026
+
+Nemotron Core's Auto Freeze settings now list currently running service
+components from `dumpsys activity services`. Selected components receive an
+`am stopservice` request after the existing screen-off delay; the app verifies
+all selected components against one post-stop service snapshot to avoid a
+separate system dump for each selection. This stops only the selected service
+when Android is not keeping it alive for an active binding. Bound services may
+remain active until their clients disconnect.
+
+The Fit3 tile now also requests a stop for Samsung's
+`com.samsung.accessory/.services.SAFrameworkService` after disconnecting Fit3.
+Samsung can keep this component bound even after `am stopservice` reports
+success. If no connected GATT, audio, HID, or PAN peripheral remains, Nemotron
+force-stops only the Samsung Accessory package to release that bound process;
+the Fit3-on path explicitly clears the force-stop state before reconnecting.
+When another Bluetooth peripheral is connected, Nemotron does not force-stop
+the shared accessory package.
 
 Nemotron Keyboard is split from Samsung's original package, so the system's
 clipboard service sends history writes to the original package authority while

@@ -142,6 +142,12 @@
             android:layout_height="wrap_content"
             android:text="Select apps"
             android:layout_marginTop="8dp" />
+        <Button
+            android:id="@+id/btnStopBackgroundServices"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Select background services to stop"
+            android:layout_marginTop="4dp" />
         <TextView
             android:id="@+id/tvAutoFreezeStatus"
             android:layout_width="match_parent"

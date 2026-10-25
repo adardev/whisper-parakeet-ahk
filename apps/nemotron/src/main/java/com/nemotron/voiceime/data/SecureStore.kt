@@ -22,6 +22,7 @@ object SecureStore {
     private const val KEY_AUTO_FREEZE_DOZE = "auto_freeze_doze"
     private const val KEY_DOZE_EXEMPT = "doze_exempt_apps"
     private const val KEY_STOP_ON_UNLOCK = "stop_on_unlock_apps"
+    private const val KEY_STOP_ON_SCREEN_OFF_SERVICES = "stop_on_screen_off_services"
     private const val KEY_GUARD_ENABLED = "addiction_guard_enabled"
     private const val KEY_GUARD_OPT_IN_MIGRATED = "addiction_guard_opt_in_migrated"
     private const val KEY_DNS_ENFORCER_ENABLED = "dns_enforcer_enabled"
@@ -274,6 +275,22 @@ object SecureStore {
     fun setStopOnUnlockApps(ctx: Context, apps: Set<String>) {
         val json = JSONArray(apps.toList()).toString()
         plainPrefs(ctx).edit().putString(KEY_STOP_ON_UNLOCK, json).apply()
+    }
+
+    fun getStopOnScreenOffServices(ctx: Context): Set<String> {
+        val json = plainPrefs(ctx).getString(KEY_STOP_ON_SCREEN_OFF_SERVICES, null) ?: return emptySet()
+        return try {
+            val arr = JSONArray(json)
+            (0 until arr.length()).mapTo(mutableSetOf()) { arr.getString(it) }
+        } catch (_: Throwable) {
+            emptySet()
+        }
+    }
+
+    fun setStopOnScreenOffServices(ctx: Context, services: Set<String>) {
+        plainPrefs(ctx).edit()
+            .putString(KEY_STOP_ON_SCREEN_OFF_SERVICES, JSONArray(services.toList()).toString())
+            .apply()
     }
 
     fun getAutoFreezeAppLabels(ctx: Context): List<String> {

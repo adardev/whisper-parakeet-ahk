@@ -162,6 +162,13 @@ class SetupActivity : AppCompatActivity() {
             autoFreezePickerLauncher.launch(intent)
         }
 
+        b.btnStopBackgroundServices.setOnClickListener {
+            val intent = Intent(this, AppPickerActivity::class.java).apply {
+                putExtra(AppPickerActivity.EXTRA_MODE, AppPickerActivity.MODE_STOP_SERVICES)
+            }
+            autoFreezePickerLauncher.launch(intent)
+        }
+
         b.switchAutoFreezeInstant.isChecked = SecureStore.isAutoFreezeTestMode(this)
         b.switchAutoFreezeInstant.setOnCheckedChangeListener { _, isChecked ->
             SecureStore.setAutoFreezeTestMode(this, isChecked)
@@ -193,10 +200,11 @@ class SetupActivity : AppCompatActivity() {
         val enabled = SecureStore.isAutoFreezeEnabled(this)
         val apps = SecureStore.getAutoFreezeApps(this)
         val stopApps = SecureStore.getStopOnUnlockApps(this)
+        val stopServices = SecureStore.getStopOnScreenOffServices(this)
         b.tvAutoFreezeStatus.text = when {
             !enabled -> "Disabled"
-            apps.isEmpty() && stopApps.isEmpty() -> "Enabled, no apps selected"
-            else -> "Enabled: ${apps.size} freeze when the screen turns off, ${stopApps.size} stop when unlocked"
+            apps.isEmpty() && stopApps.isEmpty() && stopServices.isEmpty() -> "Enabled, no apps or services selected"
+            else -> "Enabled: ${apps.size} apps freeze on screen off, ${stopServices.size} services stop on screen off, ${stopApps.size} apps stop when unlocked"
         }
     }
 

@@ -20,6 +20,7 @@ class AppPickerActivity : AppCompatActivity() {
         const val MODE_AUTO_FREEZE = "auto_freeze"
         const val MODE_STOP_ON_UNLOCK = "stop_on_unlock"
         const val MODE_DOZE_EXEMPT = "doze_exempt"
+        const val MODE_STOP_SERVICES = "stop_services"
     }
 
     private lateinit var listView: ListView
@@ -29,6 +30,7 @@ class AppPickerActivity : AppCompatActivity() {
     private val appList = mutableListOf<AppItem>()
     private val selectedPackages = mutableSetOf<String>()
     private val stopPackages = mutableSetOf<String>()
+    private val selectedServices = mutableSetOf<String>()
     private var mode = MODE_FREEZE
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -45,6 +47,7 @@ class AppPickerActivity : AppCompatActivity() {
             MODE_AUTO_FREEZE -> "Select apps"
             MODE_STOP_ON_UNLOCK -> "Stop on unlock"
             MODE_DOZE_EXEMPT -> "Doze exclusions"
+            MODE_STOP_SERVICES -> "Stop running services"
             else -> "Select apps to freeze"
         }
 
@@ -56,6 +59,8 @@ class AppPickerActivity : AppCompatActivity() {
                 "Apps that stop when unlocked (force-stop; they are not frozen)."
             MODE_DOZE_EXEMPT ->
                 "Apps excluded from deep doze: they can sound alarms and work with the screen off (doze whitelist)."
+            MODE_STOP_SERVICES ->
+                "With Auto Freeze enabled, selected services receive a stop request after screen off. Bound services can remain active while another app still holds them."
             else ->
                 "Select apps to freeze or unfreeze manually."
         }
@@ -65,9 +70,11 @@ class AppPickerActivity : AppCompatActivity() {
             MODE_AUTO_FREEZE -> SecureStore.getAutoFreezeApps(this)
             MODE_STOP_ON_UNLOCK -> SecureStore.getStopOnUnlockApps(this)
             MODE_DOZE_EXEMPT -> SecureStore.getDozeExemptApps(this)
+            MODE_STOP_SERVICES -> SecureStore.getStopOnScreenOffServices(this).map { it.substringBefore('/') }.toSet()
             else -> SecureStore.getFrozenApps(this)
         }
         selectedPackages.addAll(currentApps)
+        selectedServices.addAll(SecureStore.getStopOnScreenOffServices(this))
         if (mode == MODE_AUTO_FREEZE) {
             stopPackages.addAll(SecureStore.getStopOnUnlockApps(this))
         }
@@ -78,7 +85,17 @@ class AppPickerActivity : AppCompatActivity() {
         listView.adapter = adapter
 
         Thread {
-            val installed = packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
+            val installed = if (mode == MODE_STOP_SERVICES) {
+                val running = ShizukuManager.getRunningServices()
+                val serviceComponents = (running.map { it.component } + selectedServices).distinct()
+                serviceComponents.mapNotNull { component ->
+                    val pkg = component.substringBefore('/')
+                    val appInfo = runCatching { packageManager.getApplicationInfo(pkg, PackageManager.GET_META_DATA) }.getOrNull()
+                    appInfo?.let {
+                        AppItem(component, "${packageManager.getApplicationLabel(it)} · ${component.substringAfter('/').substringAfterLast('.')}", packageManager.getApplicationIcon(it), component)
+                    }
+                }.sortedBy { it.label.lowercase() }
+            } else packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
                 .filter { it.packageName != packageName }
                 .map { appInfo ->
                     AppItem(
@@ -95,7 +112,7 @@ class AppPickerActivity : AppCompatActivity() {
                 adapter.notifyDataSetChanged()
 
                 appList.forEachIndexed { index, item ->
-                    if (selectedPackages.contains(item.packageName)) {
+                    if (if (mode == MODE_STOP_SERVICES) selectedServices.contains(item.component) else selectedPackages.contains(item.packageName)) {
                         listView.setItemChecked(index, true)
                     }
                 }
@@ -106,13 +123,17 @@ class AppPickerActivity : AppCompatActivity() {
         btnSave.setOnClickListener {
             val checked = listView.checkedItemPositions
             selectedPackages.clear()
+            selectedServices.clear()
             for (i in 0 until appList.size) {
                 if (checked.get(i)) {
-                    selectedPackages.add(appList[i].packageName)
+                    if (mode == MODE_STOP_SERVICES) selectedServices.add(appList[i].component!!)
+                    else selectedPackages.add(appList[i].packageName)
                 }
             }
 
-            if (mode == MODE_AUTO_FREEZE) {
+            if (mode == MODE_STOP_SERVICES) {
+                SecureStore.setStopOnScreenOffServices(this, selectedServices)
+            } else if (mode == MODE_AUTO_FREEZE) {
                 SecureStore.setAutoFreezeApps(this, selectedPackages)
                 SecureStore.setStopOnUnlockApps(this, stopPackages)
             } else if (mode == MODE_STOP_ON_UNLOCK) {
@@ -128,7 +149,8 @@ class AppPickerActivity : AppCompatActivity() {
                 }.start()
             }
 
-            Toast.makeText(this, "Saved: ${selectedPackages.size} apps", Toast.LENGTH_SHORT).show()
+            val savedCount = if (mode == MODE_STOP_SERVICES) selectedServices.size else selectedPackages.size
+            Toast.makeText(this, "Saved: $savedCount ${if (mode == MODE_STOP_SERVICES) "services" else "apps"}", Toast.LENGTH_SHORT).show()
             setResult(RESULT_OK)
             finish()
         }
@@ -139,7 +161,8 @@ class AppPickerActivity : AppCompatActivity() {
     data class AppItem(
         val packageName: String,
         val label: String,
-        val icon: Drawable
+        val icon: Drawable,
+        val component: String? = null
     )
 
     inner class AppListAdapter : BaseAdapter() {
@@ -154,7 +177,7 @@ class AppPickerActivity : AppCompatActivity() {
             val item = getItem(position)
             view.findViewById<ImageView>(R.id.appIcon).setImageDrawable(item.icon)
             view.findViewById<TextView>(R.id.appLabel).text = item.label
-            view.findViewById<TextView>(R.id.appPackage).text = item.packageName
+            view.findViewById<TextView>(R.id.appPackage).text = item.component ?: item.packageName
 
             val cb = view.findViewById<CheckBox>(R.id.appCheckBox)
             val stopCb = view.findViewById<CheckBox>(R.id.appStopCheckBox)
