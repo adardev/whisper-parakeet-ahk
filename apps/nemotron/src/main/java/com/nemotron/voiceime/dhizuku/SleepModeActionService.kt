@@ -46,6 +46,7 @@ class SleepModeActionService : Service() {
         }
         val scheduled = intent.getBooleanExtra(SCHEDULED, false)
         val enabled = intent.getBooleanExtra(ENABLED, true)
+        val retry = intent.getBooleanExtra(AirplaneModeSchedule.EXTRA_RETRY, false)
         applying.set(true)
         requestedEnabled = enabled
         worker.execute {
@@ -58,13 +59,23 @@ class SleepModeActionService : Service() {
                 }
                 // Carry the target chosen at the tap, rather than evaluating
                 // another toggle later when the worker eventually starts.
-                val result = SleepModeController.setEnabled(this, enabled)
-                Log.i(TAG, "scheduled=$scheduled requested=$enabled success=${result.success}: ${result.message}")
+                val result = if (scheduled) {
+                    SleepModeController.setScheduledEnabled(this, enabled)
+                } else {
+                    SleepModeController.setEnabled(this, enabled)
+                }
+                Log.i(TAG, "scheduled=$scheduled retry=$retry requested=$enabled success=${result.success}: ${result.message}")
+                if (result.success) {
+                    AirplaneModeSchedule.cancelRetry(this)
+                } else if (!retry) {
+                    AirplaneModeSchedule.scheduleRetry(this, enabled)
+                }
                 if (!scheduled || !result.success) mainHandler.post {
                     Toast.makeText(applicationContext, result.message, Toast.LENGTH_LONG).show()
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Falló el cambio de Sleep Mode", e)
+                if (!retry) runCatching { AirplaneModeSchedule.scheduleRetry(this, enabled) }
                 mainHandler.post {
                     Toast.makeText(applicationContext, "No se pudo cambiar Sleep Mode", Toast.LENGTH_LONG).show()
                 }
@@ -97,15 +108,23 @@ class SleepModeActionService : Service() {
         @Volatile var requestedEnabled: Boolean? = null
             private set
         val isApplying: Boolean get() = applying.get()
-        fun start(context: Context, scheduled: Boolean = false): Boolean {
+        fun start(
+            context: Context,
+            scheduled: Boolean = false,
+            enabled: Boolean? = null,
+            retry: Boolean = false,
+        ): Boolean {
             // Reserve synchronously, before Android starts the service. Two
             // taps in that gap used to enqueue two opposite toggle actions.
             if (!applying.compareAndSet(false, true)) return false
-            val enabled = scheduled || !SleepModeController.isEnabled(context)
-            requestedEnabled = enabled
+            val target = enabled ?: (scheduled || !SleepModeController.isEnabled(context))
+            if (!retry) AirplaneModeSchedule.cancelRetry(context)
+            requestedEnabled = target
             try {
                 context.startForegroundService(Intent(context, SleepModeActionService::class.java)
-                    .putExtra(SCHEDULED, scheduled).putExtra(ENABLED, enabled))
+                    .putExtra(SCHEDULED, scheduled)
+                    .putExtra(AirplaneModeSchedule.EXTRA_RETRY, retry)
+                    .putExtra(ENABLED, target))
             } catch (e: Exception) {
                 requestedEnabled = null
                 applying.set(false)

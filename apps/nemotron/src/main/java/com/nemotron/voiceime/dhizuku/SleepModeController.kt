@@ -22,25 +22,24 @@ object SleepModeController {
 
     @Synchronized
     fun setScheduledEnabled(context: Context, enabled: Boolean): Result =
-        if (enabled) applyEnabled(context, true)
-        else Result(true, isEnabled(context), "El apagado de Sleep Mode es manual")
+        applyEnabled(context, enabled)
 
     private fun applyEnabled(context: Context, enabled: Boolean): Result {
-        if (isEnabled(context) == enabled) return Result(true, enabled, "Sin cambios")
+        val wasEnabled = isEnabled(context)
         if (!ShizukuManager.hasPermission()) {
-            return Result(false, isEnabled(context), "Shizuku no está disponible")
+            return Result(false, wasEnabled, "Shizuku no está disponible")
         }
 
         // Restore connectivity before sending the manual daytime watch settings.
         if (!enabled && !setAirplaneMode(false)) {
-            return Result(false, isEnabled(context), "No se pudo desactivar el modo avión")
+            return Result(false, wasEnabled, "No se pudo desactivar el modo avión")
         }
         // Watch settings are optional: an unavailable watch must not prevent
         // the phone's sleep mode (or its manual off action) from working.
         val routine = NightRoutineActions.run(context.applicationContext, night = enabled)
         if (!routine.success) Log.w(TAG, "Ajustes Fit3 pendientes: ${routine.message}")
         if (enabled && !setAirplaneMode(true))
-            return Result(false, isEnabled(context), "No se pudo activar el modo avión")
+            return Result(false, wasEnabled, "No se pudo activar el modo avión")
 
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putBoolean(KEY_ENABLED, enabled).commit()
@@ -49,7 +48,7 @@ object SleepModeController {
         }.onFailure { Log.w(TAG, "No se pudo actualizar el tile", it) }
         Log.i(TAG, "Sleep Mode ${if (enabled) "activado" else "desactivado"}")
         val message = if (enabled) "Modo sueño activado" else "Modo sueño desactivado"
-        return Result(true, enabled, if (routine.success) message else "$message. ${routine.message}")
+        return Result(routine.success, enabled, if (routine.success) message else "$message. ${routine.message}")
     }
 
     private fun setAirplaneMode(enabled: Boolean): Boolean {

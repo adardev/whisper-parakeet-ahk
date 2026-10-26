@@ -31,7 +31,7 @@ class SleepModeTileService : TileService() {
         val pending = SleepModeActionService.requestedEnabled
         val enabled = pending ?: SleepModeController.isEnabled(this)
         tile.label = "Sleep Mode"
-        tile.subtitle = if (enabled) "Activo hasta apagarlo" else "Activación diaria: 23:00"
+        tile.subtitle = if (enabled) "Se apaga a las 08:00" else "Activación diaria: 23:00"
         tile.icon = Icon.createWithResource(this, R.drawable.ic_sleep_mode_tile)
         tile.state = if (enabled) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
         if (pending != null) tile.subtitle = if (pending) "Activando: enviando ajustes…" else "Desactivando…"

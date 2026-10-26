@@ -9,18 +9,25 @@ class AirplaneModeScheduleReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         when (intent.action) {
             AirplaneModeSchedule.ACTION_TOGGLE -> {
-                val enable = intent.getBooleanExtra(AirplaneModeSchedule.EXTRA_ENABLE, false)
-                // Ignore a legacy 08:00 alarm already queued before this update.
-                if (!enable) {
-                    AirplaneModeSchedule.scheduleNext(context)
+                val enable = intent.getBooleanExtra(AirplaneModeSchedule.EXTRA_ENABLE, true)
+                AirplaneModeSchedule.scheduleNext(context)
+                if (!AirplaneModeSchedule.isScheduledActionCurrentWindow(enable)) {
+                    Log.i(TAG, "se ignora alarma Sleep Mode atrasada; enable=$enable")
                     return
                 }
-                // A BLE handshake can exceed the lifetime of a broadcast.
-                // Schedule tomorrow first and hand this single action to a
-                // bounded service, rather than leaving a receiver thread alive.
-                AirplaneModeSchedule.scheduleNext(context)
-                runCatching { SleepModeActionService.start(context, scheduled = true) }
-                    .onFailure { Log.e(TAG, "No se pudo iniciar Sleep Mode programado", it) }
+                AirplaneModeSchedule.cancelRetry(context)
+                runCatching {
+                    SleepModeActionService.start(context, scheduled = true, enabled = enable)
+                }.onFailure {
+                    Log.e(TAG, "No se pudo iniciar Sleep Mode programado", it)
+                    AirplaneModeSchedule.scheduleRetry(context, enable)
+                }
+            }
+            AirplaneModeSchedule.ACTION_RETRY -> {
+                val enable = intent.getBooleanExtra(AirplaneModeSchedule.EXTRA_ENABLE, true)
+                runCatching {
+                    SleepModeActionService.start(context, scheduled = true, enabled = enable, retry = true)
+                }.onFailure { Log.e(TAG, "No se pudo reintentar Sleep Mode", it) }
             }
             Intent.ACTION_BOOT_COMPLETED,
             Intent.ACTION_MY_PACKAGE_REPLACED,
