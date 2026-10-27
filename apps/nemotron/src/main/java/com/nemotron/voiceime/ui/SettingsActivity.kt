@@ -30,7 +30,45 @@ class SettingsActivity : AppCompatActivity() {
             setupAddictionGuardPreference()
             updateStatusSummary()
             setupHealthPrefs()
+            setupWorkoutPowerSaver()
             setupAodTest()
+        }
+
+        private fun setupWorkoutPowerSaver() {
+            val ctx = context ?: return
+            val pref = preferenceScreen.findPreference<androidx.preference.SwitchPreferenceCompat>(
+                "health_workout_power_saver_enabled"
+            ) ?: return
+            pref.isChecked = com.nemotron.voiceime.dhizuku.HealthWorkoutPowerSaver.isEnabled(ctx)
+            pref.onPreferenceChangeListener =
+                androidx.preference.Preference.OnPreferenceChangeListener { _, value ->
+                    val enabled = value as? Boolean ?: return@OnPreferenceChangeListener false
+                    if (!com.nemotron.voiceime.dhizuku.ShizukuManager.hasPermission()) {
+                        com.nemotron.voiceime.dhizuku.ShizukuManager.requestPermission()
+                        android.widget.Toast.makeText(
+                            ctx, "Concede el permiso de Shizuku y vuelve a activar esta opción.",
+                            android.widget.Toast.LENGTH_LONG
+                        ).show()
+                        return@OnPreferenceChangeListener false
+                    }
+                    pref.isEnabled = false
+                    Thread {
+                        val success = com.nemotron.voiceime.dhizuku.HealthWorkoutPowerSaver
+                            .setEnabled(ctx.applicationContext, enabled)
+                        activity?.runOnUiThread {
+                            pref.isEnabled = true
+                            if (!success) {
+                                pref.isChecked = !enabled
+                                android.widget.Toast.makeText(
+                                    ctx,
+                                    "No se pudo configurar el acceso a notificaciones de Samsung Health.",
+                                    android.widget.Toast.LENGTH_LONG
+                                ).show()
+                            }
+                        }
+                    }.start()
+                    true
+                }
         }
 
         private fun setupAddictionGuardPreference() {

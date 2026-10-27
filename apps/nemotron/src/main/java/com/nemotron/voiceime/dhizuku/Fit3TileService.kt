@@ -232,6 +232,7 @@ class Fit3TileService : AppFreezeTileService() {
             } finally {
                 operationInProgress.set(false)
                 try {
+                    HealthWorkoutPowerSaver.syncForFit3State(applicationContext)
                     DndKeepAliveService.update(applicationContext)
                     refreshState()
                 } finally {

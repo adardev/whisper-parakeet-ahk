@@ -473,7 +473,7 @@ function Disable-HoneyBoardStatisticsJobs([string] $DecodedRoot) {
 
 function Patch-RxJavaPurgeInterval([string] $DecodedRoot) {
     # RxJava's purge worker otherwise wakes once per second to scan scheduled
-    # executors. Keep the cleanup, with the same 60-second interval used by UI.
+    # executors. Keep cleanup, but match the launcher's five-minute interval.
     $rxPurge = Get-ChildItem -LiteralPath $DecodedRoot -Recurse -File -Filter '*.smali' |
         Where-Object {
             $code = [IO.File]::ReadAllText($_.FullName)
@@ -481,19 +481,31 @@ function Patch-RxJavaPurgeInterval([string] $DecodedRoot) {
         } | Select-Object -First 1
     if (-not $rxPurge) { throw 'RxJava scheduler purge configuration was not found in Keyboard.' }
     $rxCode = [IO.File]::ReadAllText($rxPurge.FullName)
-    if (-not $rxCode.Contains('nemotron_rx_purge_60s')) {
+    if ($rxCode.Contains('nemotron_rx_purge_60s')) {
+        $oldMarkerPattern = '(?m)^([ \t]*)const/16 v2, 0x3c\r?\n([ \t]*iput v2, p0, Lrv0/k\$a;->b:I) # nemotron_rx_purge_60s$'
+        $oldMarkerMatches = [regex]::Matches($rxCode, $oldMarkerPattern)
+        if ($oldMarkerMatches.Count -ne 1) { throw 'Keyboard 60-second RxJava marker layout changed; refusing to patch it.' }
+        $rxCode = [regex]::Replace($rxCode, $oldMarkerPattern, {
+            param($match)
+            $newline = if ($match.Value.Contains("`r`n")) { "`r`n" } else { "`n" }
+            $match.Groups[1].Value + 'const/16 v2, 0x12c' + $newline +
+                $match.Groups[2].Value + ' # nemotron_rx_purge_300s'
+        }, 1)
+        [IO.File]::WriteAllText($rxPurge.FullName, $rxCode, [Text.UTF8Encoding]::new($false))
+    }
+    if (-not $rxCode.Contains('nemotron_rx_purge_300s')) {
         $rxPattern = '(?m)(^\s*:cond_1\s*\r?\n)(\s*)(iput v2, p0, Lrv0/k\$a;->b:I)'
         $matches = [regex]::Matches($rxCode, $rxPattern)
         if ($matches.Count -ne 1) { throw 'Keyboard RxJava purge default layout changed; refusing to patch it.' }
         $rxCode = [regex]::Replace($rxCode, $rxPattern, {
             param($match)
             $newline = if ($match.Value.Contains("`r`n")) { "`r`n" } else { "`n" }
-            $match.Groups[1].Value + $match.Groups[2].Value + 'const/16 v2, 0x3c' + $newline +
-                $match.Groups[2].Value + $match.Groups[3].Value + ' # nemotron_rx_purge_60s'
+            $match.Groups[1].Value + $match.Groups[2].Value + 'const/16 v2, 0x12c' + $newline +
+                $match.Groups[2].Value + $match.Groups[3].Value + ' # nemotron_rx_purge_300s'
         }, 1)
         [IO.File]::WriteAllText($rxPurge.FullName, $rxCode, [Text.UTF8Encoding]::new($false))
     }
-    if (-not $rxCode.Contains('nemotron_rx_purge_60s')) {
+    if (-not $rxCode.Contains('nemotron_rx_purge_300s')) {
         throw 'Keyboard RxJava purge interval marker was not written.'
     }
 }

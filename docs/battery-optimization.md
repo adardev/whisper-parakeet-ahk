@@ -517,3 +517,35 @@ with the existing signing key, and the temporary diagnostic receiver was
 removed from the final installed build. Functional verification is still
 pending: the first test session reached the lock screen, and after the user
 unlocked it ADB disconnected before the copy-and-panel check could run.
+
+### Only monitor route workouts while Fit3 is connected — 27 October 2026
+
+The Health workout notification listener was previously granted continuously
+after the feature was enabled, even when the Fit3 tile had disconnected the
+watch. It is now granted only while the saved user preference is on and the
+paired Fit3 GATT connection is live. Core reconciles this on app startup, after
+the Fit3 tile finishes either connection operation, and on Bluetooth connect,
+disconnect, or adapter-off broadcasts. Disconnecting Fit3 restores the prior
+Battery Saver state and revokes notification access; route workout callbacks
+also check the live Fit3 connection before changing settings. Notification
+removals not belonging to a tracked workout are ignored before reaching the
+worker thread.
+
+The on-device BatteryStats snapshot on 27 October attributed about 1.52 mAh to
+Nemotron Core, 4.83 mAh to Nemotron Keyboard, and 18.9 mAh to the shared Home
+UID over its current, longer-than-a-day accounting window. Home's estimate
+included 12.8 mAh of screen use and 6.12 mAh of CPU; Keyboard had 4.30 mAh
+attributed to background CPU and only 0.003 mAh of background partial wake
+locks. These estimates do not isolate Shizuku or prove a causal source for
+System UI's separate 0.8% shown in the screenshot. Shizuku shell commands run
+as the shell identity, not System UI. The keyboard's RxJava 2 purge interval is
+raised from 60 to 300 seconds to reduce idle scheduler wakeups while retaining
+cancelled-task cleanup. The Home build already uses a 300-second RxJava 3
+keep-alive interval. The battery percentages and mAh values are system
+estimates, not a controlled before/after discharge test.
+
+The Fit3-off live check could not complete: Samsung Wearable did not disconnect
+the Fit3 within the tile's 8-second confirmation window while other Bluetooth
+peripherals were connected. The tile safely left Bluetooth, Fit3, and the
+listener enabled. Thus the disconnect handler is compiled and installed, but
+its end-to-end inactive transition was not observed in this session.

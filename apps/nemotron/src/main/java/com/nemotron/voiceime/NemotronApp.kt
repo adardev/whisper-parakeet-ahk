@@ -84,6 +84,8 @@ class NemotronApp : android.app.Application() {
         Thread({
             runCatching { com.nemotron.voiceime.dhizuku.SamsungFit3Handoff.recoverIfNeeded(this) }
                 .onFailure { Log.e("NemotronApp", "No se pudo recuperar la conexión Samsung", it) }
+            runCatching { com.nemotron.voiceime.dhizuku.HealthWorkoutPowerSaver.syncForFit3State(this) }
+                .onFailure { Log.e("NemotronApp", "No se pudo sincronizar el ahorro del entrenamiento con Fit3", it) }
         }, "Nemotron-Fit3-Recovery").start()
         try {
             com.nemotron.voiceime.dhizuku.AirplaneModeSchedule.scheduleNext(this)

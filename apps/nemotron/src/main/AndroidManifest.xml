@@ -185,6 +185,27 @@
                 android:value="Apply a user-requested or nightly sleep action and bounded watch BLE settings transfer" />
         </service>
 
+        <service
+            android:name=".dhizuku.HealthWorkoutPowerSaverListener"
+            android:label="Samsung Health workout battery saver"
+            android:exported="true"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
+        <receiver
+            android:name=".dhizuku.Fit3WorkoutBatteryReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.bluetooth.device.action.ACL_CONNECTED" />
+                <action android:name="android.bluetooth.device.action.ACL_DISCONNECTED" />
+                <action android:name="android.bluetooth.adapter.action.STATE_CHANGED" />
+            </intent-filter>
+        </receiver>
+
         <receiver
             android:name=".dhizuku.AirplaneModeScheduleReceiver"
             android:exported="false"

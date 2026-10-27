@@ -67,4 +67,12 @@
             app:summary="Read and upload Samsung Health data immediately" />
     </PreferenceCategory>
 
+    <PreferenceCategory app:title="Samsung Health workouts">
+        <SwitchPreferenceCompat
+            app:key="health_workout_power_saver_enabled"
+            app:title="Battery saver for GPS workouts"
+            app:summary="Only monitors GPS workouts while Galaxy Fit3 is connected; restores Battery saver when the workout ends or Fit3 disconnects. Requires Shizuku and notification access."
+            app:defaultValue="false" />
+    </PreferenceCategory>
+
 </PreferenceScreen>
