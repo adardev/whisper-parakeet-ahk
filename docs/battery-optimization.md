@@ -533,7 +533,7 @@ worker thread.
 
 The on-device BatteryStats snapshot on 27 October attributed about 1.52 mAh to
 Nemotron Core, 4.83 mAh to Nemotron Keyboard, and 18.9 mAh to the shared Home
-UID over its current, longer-than-a-day accounting window. Home's estimate
+UID over the current BatteryStats accounting window. Home's estimate
 included 12.8 mAh of screen use and 6.12 mAh of CPU; Keyboard had 4.30 mAh
 attributed to background CPU and only 0.003 mAh of background partial wake
 locks. These estimates do not isolate Shizuku or prove a causal source for
