@@ -8,7 +8,7 @@ import android.os.Build
 import android.util.Log
 import java.util.Calendar
 
-/** Daily Sleep Mode activation at 23:00 and wake restoration at 08:00. */
+/** Daily Sleep Mode activation at 23:00; daytime exit is manual only. */
 object AirplaneModeSchedule {
     private const val TAG = "AirplaneSchedule"
     const val ACTION_TOGGLE = "com.nemotron.voiceime.FIT3_AOD_SCHEDULE_TOGGLE"
@@ -22,20 +22,26 @@ object AirplaneModeSchedule {
 
     fun scheduleNext(context: Context) {
         val alarmManager = context.getSystemService(AlarmManager::class.java) ?: return
-        // Only Core owns automation after the three-package split. Cancel both
-        // daily alarms if an older UI/Keyboard process starts.
+        // Cancel the legacy 08:00 disable alarm and any retry created by an
+        // older build. Sleep Mode may only activate automatically at 23:00.
+        alarmManager.cancel(pendingIntent(context, false, REQUEST_DISABLE))
+        cancelRetry(context)
+        // Only Core owns automation after the three-package split.
         if (context.packageName != "com.nemotron.core") {
             alarmManager.cancel(pendingIntent(context, true, REQUEST_ENABLE))
-            alarmManager.cancel(pendingIntent(context, false, REQUEST_DISABLE))
             return
         }
         scheduleDaily(context, 23, 0, true, REQUEST_ENABLE, "activación")
-        scheduleDaily(context, 8, 0, false, REQUEST_DISABLE, "restauración")
     }
 
     /** One bounded retry handles a transient Shizuku or BLE failure. */
     fun scheduleRetry(context: Context, enabled: Boolean) {
         val alarmManager = context.getSystemService(AlarmManager::class.java) ?: return
+        if (!enabled) {
+            cancelRetry(context)
+            Log.w(TAG, "se descarta el reintento de apagado automático; Sleep Mode solo se desactiva manualmente")
+            return
+        }
         val intent = Intent(context, AirplaneModeScheduleReceiver::class.java)
             .setAction(ACTION_RETRY)
             .putExtra(EXTRA_ENABLE, enabled)
@@ -59,10 +65,11 @@ object AirplaneModeSchedule {
         alarmManager.cancel(retryPendingIntent(context))
     }
 
-    /** Ignore an alarm delivered on the wrong side of the 08:00/23:00 boundary. */
+    /** Only a delayed 23:00 activation may run during the overnight window. */
     fun isScheduledActionCurrentWindow(enabled: Boolean): Boolean {
+        if (!enabled) return false
         val hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-        return if (enabled) hour >= 23 || hour < 8 else hour in 8..22
+        return hour >= 23 || hour < 8
     }
 
     private fun scheduleDaily(

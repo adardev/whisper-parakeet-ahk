@@ -25,6 +25,11 @@ class AirplaneModeScheduleReceiver : BroadcastReceiver() {
             }
             AirplaneModeSchedule.ACTION_RETRY -> {
                 val enable = intent.getBooleanExtra(AirplaneModeSchedule.EXTRA_ENABLE, true)
+                if (!AirplaneModeSchedule.isScheduledActionCurrentWindow(enable)) {
+                    AirplaneModeSchedule.cancelRetry(context)
+                    Log.i(TAG, "se descarta reintento Sleep Mode atrasado o de desactivación; enable=$enable")
+                    return
+                }
                 runCatching {
                     SleepModeActionService.start(context, scheduled = true, enabled = enable, retry = true)
                 }.onFailure { Log.e(TAG, "No se pudo reintentar Sleep Mode", it) }

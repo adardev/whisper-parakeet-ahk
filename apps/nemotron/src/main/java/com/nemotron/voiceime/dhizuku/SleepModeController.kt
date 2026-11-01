@@ -21,8 +21,13 @@ object SleepModeController {
     fun setEnabled(context: Context, enabled: Boolean): Result = applyEnabled(context, enabled)
 
     @Synchronized
-    fun setScheduledEnabled(context: Context, enabled: Boolean): Result =
-        applyEnabled(context, enabled)
+    fun setScheduledEnabled(context: Context, enabled: Boolean): Result {
+        if (!enabled) {
+            Log.w(TAG, "Se rechaza la desactivación automática; solo el usuario puede apagar Sleep Mode")
+            return Result(false, isEnabled(context), "La desactivación de Sleep Mode es manual")
+        }
+        return applyEnabled(context, true)
+    }
 
     private fun applyEnabled(context: Context, enabled: Boolean): Result {
         val wasEnabled = isEnabled(context)

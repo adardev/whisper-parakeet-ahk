@@ -114,6 +114,10 @@ class SleepModeActionService : Service() {
             enabled: Boolean? = null,
             retry: Boolean = false,
         ): Boolean {
+            if (scheduled && enabled == false) {
+                Log.w(TAG, "Se rechaza cualquier desactivación programada de Sleep Mode")
+                return false
+            }
             // Reserve synchronously, before Android starts the service. Two
             // taps in that gap used to enqueue two opposite toggle actions.
             if (!applying.compareAndSet(false, true)) return false
