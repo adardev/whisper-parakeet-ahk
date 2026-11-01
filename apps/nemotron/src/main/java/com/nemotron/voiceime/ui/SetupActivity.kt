@@ -169,6 +169,23 @@ class SetupActivity : AppCompatActivity() {
             autoFreezePickerLauncher.launch(intent)
         }
 
+        b.btnManagePmHiddenApps.setOnClickListener {
+            if (!ShizukuManager.hasPermission()) {
+                val requested = ShizukuManager.requestPermission()
+                Toast.makeText(
+                    this,
+                    if (requested) "Grant Nemotron permission in Shizuku, then tap this again."
+                    else "Start Shizuku and grant Nemotron permission first.",
+                    Toast.LENGTH_LONG
+                ).show()
+                return@setOnClickListener
+            }
+            val intent = Intent(this, AppPickerActivity::class.java).apply {
+                putExtra(AppPickerActivity.EXTRA_MODE, AppPickerActivity.MODE_PM_HIDE)
+            }
+            autoFreezePickerLauncher.launch(intent)
+        }
+
         b.switchAutoFreezeInstant.isChecked = SecureStore.isAutoFreezeTestMode(this)
         b.switchAutoFreezeInstant.setOnCheckedChangeListener { _, isChecked ->
             SecureStore.setAutoFreezeTestMode(this, isChecked)

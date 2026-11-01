@@ -21,6 +21,7 @@ class AppPickerActivity : AppCompatActivity() {
         const val MODE_STOP_ON_UNLOCK = "stop_on_unlock"
         const val MODE_DOZE_EXEMPT = "doze_exempt"
         const val MODE_STOP_SERVICES = "stop_services"
+        const val MODE_PM_HIDE = "pm_hide"
     }
 
     private lateinit var listView: ListView
@@ -48,6 +49,7 @@ class AppPickerActivity : AppCompatActivity() {
             MODE_STOP_ON_UNLOCK -> "Stop on unlock"
             MODE_DOZE_EXEMPT -> "Doze exclusions"
             MODE_STOP_SERVICES -> "Stop running services"
+            MODE_PM_HIDE -> "Hide apps (pm hide)"
             else -> "Select apps to freeze"
         }
 
@@ -61,6 +63,8 @@ class AppPickerActivity : AppCompatActivity() {
                 "Apps excluded from deep doze: they can sound alarms and work with the screen off (doze whitelist)."
             MODE_STOP_SERVICES ->
                 "With Auto Freeze enabled, selected services receive a stop request after screen off. Bound services can remain active while another app still holds them."
+            MODE_PM_HIDE ->
+                "Hide or show apps without disabling them. This uses Shizuku's shell permission and keeps each change reversible here."
             else ->
                 "Select apps to freeze or unfreeze manually."
         }
@@ -71,6 +75,7 @@ class AppPickerActivity : AppCompatActivity() {
             MODE_STOP_ON_UNLOCK -> SecureStore.getStopOnUnlockApps(this)
             MODE_DOZE_EXEMPT -> SecureStore.getDozeExemptApps(this)
             MODE_STOP_SERVICES -> SecureStore.getStopOnScreenOffServices(this).map { it.substringBefore('/') }.toSet()
+            MODE_PM_HIDE -> SecureStore.getPmHiddenApps(this)
             else -> SecureStore.getFrozenApps(this)
         }
         selectedPackages.addAll(currentApps)
@@ -103,16 +108,25 @@ class AppPickerActivity : AppCompatActivity() {
                         )
                     }
                 }.sortedBy { it.label.lowercase() }
-            } else packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
-                .filter { it.packageName != packageName }
-                .map { appInfo ->
-                    AppItem(
-                        packageName = appInfo.packageName,
-                        label = packageManager.getApplicationLabel(appInfo).toString(),
-                        icon = packageManager.getApplicationIcon(appInfo)
-                    )
-                }
-                .sortedBy { it.label.lowercase() }
+            } else {
+                val protected = setOf("com.nemotron.core", "com.nemotron.keyboard", "com.nemotron.voiceime2")
+                val applications = packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
+                    .associateBy { it.packageName }
+                val packageNames = (applications.keys +
+                    if (mode == MODE_PM_HIDE) SecureStore.getPmHiddenApps(this) else emptySet())
+                    .filter { it != packageName && (mode != MODE_PM_HIDE || it !in protected) }
+                    .distinct()
+                packageNames.mapNotNull { pkg ->
+                    val appInfo = applications[pkg] ?: runCatching {
+                        packageManager.getApplicationInfo(pkg, PackageManager.GET_META_DATA)
+                    }.getOrNull()
+                    val icon = appInfo?.let { runCatching { packageManager.getApplicationIcon(it) }.getOrNull() }
+                        ?: packageManager.defaultActivityIcon
+                    val label = appInfo?.let { runCatching { packageManager.getApplicationLabel(it).toString() }.getOrNull() }
+                        ?: pkg
+                    AppItem(pkg, label, icon)
+                }.sortedBy { it.label.lowercase() }
+            }
 
             appList.addAll(installed)
 
@@ -129,6 +143,7 @@ class AppPickerActivity : AppCompatActivity() {
         }.start()
 
         btnSave.setOnClickListener {
+            val previouslyHidden = if (mode == MODE_PM_HIDE) SecureStore.getPmHiddenApps(this) else emptySet()
             val checked = listView.checkedItemPositions
             selectedPackages.clear()
             selectedServices.clear()
@@ -141,6 +156,33 @@ class AppPickerActivity : AppCompatActivity() {
 
             if (mode == MODE_STOP_SERVICES) {
                 SecureStore.setStopOnScreenOffServices(this, selectedServices)
+            } else if (mode == MODE_PM_HIDE) {
+                val desiredHidden = selectedPackages.toSet()
+                btnSave.isEnabled = false
+                Thread {
+                    val resultingHidden = previouslyHidden.toMutableSet()
+                    var failures = 0
+                    (previouslyHidden + desiredHidden).sorted().forEach { pkg ->
+                        val shouldHide = pkg in desiredHidden
+                        if (ShizukuManager.setPackageHidden(pkg, shouldHide)) {
+                            if (shouldHide) resultingHidden.add(pkg) else resultingHidden.remove(pkg)
+                        } else failures++
+                    }
+                    SecureStore.setPmHiddenApps(this, resultingHidden)
+                    runOnUiThread {
+                        btnSave.isEnabled = true
+                        val changed = (previouslyHidden - resultingHidden).size + (resultingHidden - previouslyHidden).size
+                        val message = if (failures == 0) {
+                            "Hidden apps updated: $changed changed"
+                        } else {
+                            "Updated: $changed · Failed: $failures. Check Shizuku and pm hide support."
+                        }
+                        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+                        setResult(RESULT_OK)
+                        finish()
+                    }
+                }.start()
+                return@setOnClickListener
             } else if (mode == MODE_AUTO_FREEZE) {
                 SecureStore.setAutoFreezeApps(this, selectedPackages)
                 SecureStore.setStopOnUnlockApps(this, stopPackages)
