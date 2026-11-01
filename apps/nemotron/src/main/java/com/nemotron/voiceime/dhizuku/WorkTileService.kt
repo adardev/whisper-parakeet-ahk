@@ -24,7 +24,8 @@ class WorkTileService : TileService() {
         "com.google.android.apps.classroom",
         "com.whatsapp.w4b",
         "proton.android.past",
-        "com.google.android.apps.docs"
+        "com.google.android.apps.docs",
+        "com.microsoft.teams"
     )
 
     override fun onStartListening() {
