@@ -16,7 +16,6 @@ object SecureStore {
     private const val KEY_SYSTEM_PROMPT = "system_prompt"
     private const val KEY_LOCALE = "dict_locale"
     private const val KEY_FROZEN_APPS = "frozen_apps"
-    private const val KEY_PM_HIDDEN_APPS = "pm_hidden_apps"
     private const val KEY_AUTO_FREEZE_APPS = "auto_freeze_apps"
     private const val KEY_AUTO_FREEZE_ENABLED = "auto_freeze_enabled"
     private const val KEY_AUTO_FREEZE_TEST = "auto_freeze_test"
@@ -178,23 +177,6 @@ object SecureStore {
     fun setFrozenApps(ctx: Context, apps: Set<String>) {
         val json = JSONArray(apps.toList()).toString()
         plainPrefs(ctx).edit().putString(KEY_FROZEN_APPS, json).apply()
-    }
-
-    /** Packages explicitly hidden with PackageManager's pm hide command. */
-    fun getPmHiddenApps(ctx: Context): Set<String> {
-        val json = plainPrefs(ctx).getString(KEY_PM_HIDDEN_APPS, null) ?: return emptySet()
-        return try {
-            val arr = JSONArray(json)
-            (0 until arr.length()).mapTo(mutableSetOf()) { arr.getString(it) }
-        } catch (_: Throwable) {
-            emptySet()
-        }
-    }
-
-    fun setPmHiddenApps(ctx: Context, apps: Set<String>) {
-        plainPrefs(ctx).edit()
-            .putString(KEY_PM_HIDDEN_APPS, JSONArray(apps.toList()).toString())
-            .apply()
     }
 
     fun addFrozenApp(ctx: Context, pkg: String) {

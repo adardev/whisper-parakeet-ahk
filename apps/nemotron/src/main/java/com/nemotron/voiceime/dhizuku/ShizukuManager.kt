@@ -287,32 +287,6 @@ object ShizukuManager {
         return getDisabledPackages()?.contains(packageName) == true
     }
 
-    /**
-     * Hides an app with PackageManager's hidden state (`pm hide`) without
-     * disabling its package. This is intentionally separate from hideApp(),
-     * which freezes apps with `pm disable-user`.
-     */
-    fun setPackageHidden(packageName: String, hidden: Boolean): Boolean {
-        if (!hasPermission() || !packageName.matches(Regex("[A-Za-z0-9_.]+"))) return false
-        // Keep the control app, its keyboard, and its launcher visible so a
-        // mistaken selection cannot remove the only UI for reversing a hide.
-        if (packageName in setOf("com.nemotron.core", "com.nemotron.keyboard", "com.nemotron.voiceime2")) {
-            return false
-        }
-        val action = if (hidden) "hide" else "unhide"
-        val output = execShellFresh(
-            arrayOf("pm", action, "--user", "0", packageName), timeoutMs = 8_000L
-        ) ?: return false
-        val state = execShellFresh(
-            arrayOf("dumpsys", "package", packageName), timeoutMs = 8_000L
-        ) ?: return false
-        val userState = Regex("(?m)^\\s*User 0:.*$").find(state)?.value.orEmpty()
-        val actualHidden = Regex("\\bhidden=true\\b").containsMatchIn(userState)
-        val confirmed = userState.isNotEmpty() && actualHidden == hidden
-        Log.i(TAG, "pm $action $packageName → $output; $userState; confirmed=$confirmed")
-        return confirmed
-    }
-
     fun unhideApp(packageName: String): Boolean {
         if (!hasPermission()) return false
         val out = execShellFresh(arrayOf("pm", "enable", "--user", "0", packageName)) ?: return false
