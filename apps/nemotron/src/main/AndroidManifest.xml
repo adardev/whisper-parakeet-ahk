@@ -303,7 +303,7 @@
             </intent-filter>
         </service>
 
-        <!-- Fit3: sync Health, toggle the watch link and pause Health/plugin together. -->
+        <!-- Fit3: sync Health, repair Health Connect grants with Shizuku, and pause only the plugin. -->
         <service
             android:name=".dhizuku.Fit3TileService"
             android:exported="true"

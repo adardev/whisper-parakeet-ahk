@@ -314,6 +314,91 @@ object ShizukuManager {
         return confirmed
     }
 
+    /**
+     * Re-applies Health Connect permissions declared by an app through the
+     * Shizuku shell. This is used for Samsung Health after its historical
+     * disable/enable cycle revoked Health Connect access. The package remains
+     * enabled now; the grants are only repaired if Android reports them absent.
+     */
+    fun ensureHealthConnectPermissions(packageName: String): Boolean {
+        if (!hasPermission()) return false
+        val dump = execShellFresh(arrayOf("dumpsys", "package", packageName), timeoutMs = 12_000L)
+            ?: return false
+        val requested = linkedSetOf<String>()
+        var inRequestedPermissions = false
+        for (line in dump.lineSequence()) {
+            val trimmed = line.trim()
+            if (trimmed == "requested permissions:") {
+                inRequestedPermissions = true
+                continue
+            }
+            if (inRequestedPermissions && trimmed.endsWith("permissions:")) break
+            if (inRequestedPermissions && HEALTH_PERMISSION.matches(trimmed)) requested += trimmed
+        }
+        if (requested.isEmpty()) {
+            Log.w(TAG, "No se encontraron permisos Health Connect declarados por $packageName")
+            return false
+        }
+
+        val before = grantedHealthPermissions(dump)
+        val missing = requested - before
+        for (permission in missing) {
+            execShellFresh(arrayOf("pm", "grant", "--user", "0", packageName, permission), timeoutMs = 5_000L)
+        }
+
+        val afterDump = execShellFresh(arrayOf("dumpsys", "package", packageName), timeoutMs = 12_000L)
+            ?: return false
+        val after = grantedHealthPermissions(afterDump)
+        val complete = requested.all { it in after }
+        Log.i(TAG, "Health Connect $packageName: ${after.intersect(requested).size}/${requested.size} permisos concedidos; corregidos=${missing.size}")
+        if (!complete) return false
+
+        // pm grant itself is silent. If Health Connect's permission page was
+        // already left in front by an earlier/manual flow, dismiss it only
+        // after the grants above have been verified, never before.
+        return closeHealthConnectPermissionActivityIfForeground()
+    }
+
+    private fun closeHealthConnectPermissionActivityIfForeground(): Boolean {
+        val activityDump = execShellFresh(
+            arrayOf("dumpsys", "activity", "activities"), timeoutMs = 10_000L
+        ) ?: return false
+        val topComponent = Regex("(?m)^\\s*topResumedActivity=ActivityRecord\\{[^\\n]*?\\bu\\d+\\s+([^\\s}]+)")
+            .find(activityDump)?.groupValues?.getOrNull(1).orEmpty()
+        val topPackage = topComponent.substringBefore('/')
+        if (topPackage != HEALTH_CONNECT_CONTROLLER_PACKAGE) return true
+
+        execShellFresh(arrayOf("am", "force-stop", "--user", "0", HEALTH_CONNECT_CONTROLLER_PACKAGE), timeoutMs = 5_000L)
+        val afterDump = execShellFresh(
+            arrayOf("dumpsys", "activity", "activities"), timeoutMs = 10_000L
+        ) ?: return false
+        val stillForeground = Regex("(?m)^\\s*topResumedActivity=ActivityRecord\\{[^\\n]*?\\bu\\d+\\s+([^\\s}]+)")
+            .find(afterDump)?.groupValues?.getOrNull(1)
+            ?.substringBefore('/') == HEALTH_CONNECT_CONTROLLER_PACKAGE
+        Log.i(TAG, "Health Connect permiso completo antes de cerrar actividad; pantalla al frente=${!stillForeground}")
+        return !stillForeground
+    }
+
+    private fun grantedHealthPermissions(packageDump: String): Set<String> {
+        val result = mutableSetOf<String>()
+        var inRuntimePermissions = false
+        for (line in packageDump.lineSequence()) {
+            val trimmed = line.trim()
+            if (trimmed == "runtime permissions:") {
+                inRuntimePermissions = true
+                continue
+            }
+            if (inRuntimePermissions && trimmed.endsWith("permissions:")) break
+            if (!inRuntimePermissions || !trimmed.startsWith("android.permission.health.")) continue
+            val permission = trimmed.substringBefore(':')
+            if (trimmed.contains("granted=true")) result += permission
+        }
+        return result
+    }
+
+    private val HEALTH_PERMISSION = Regex("android\\.permission\\.health\\.[A-Z0-9_]+")
+    private const val HEALTH_CONNECT_CONTROLLER_PACKAGE = "com.google.android.healthconnect.controller"
+
     fun isAppHidden(packageName: String): Boolean {
         return getDisabledPackages()?.contains(packageName) ?: false
     }
