@@ -75,4 +75,13 @@
             app:defaultValue="false" />
     </PreferenceCategory>
 
+    <PreferenceCategory app:title="Android Auto · Shizuku">
+        <EditTextPreference
+            app:key="shizuku_start_auth_token"
+            app:title="Shizuku restart authorization token"
+            app:summary="Paste the auth token from Shizuku → View intents. Stored encrypted; used only to restart Shizuku while the Android Auto tile is on."
+            app:dialogMessage="Paste the token shown by Shizuku → View intents. Nemotron stores it encrypted."
+            android:inputType="textPassword" />
+    </PreferenceCategory>
+
 </PreferenceScreen>

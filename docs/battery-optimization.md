@@ -575,6 +575,23 @@ process is freezer-suspended. Core now starts
 stops it after a confirmed freeze. It is a low-priority, silent foreground
 service with no polling; the ongoing notification makes the OS keep the binder
 listener runnable while the tile is on. Startup reconciliation restores it
-only if the last confirmed tile state is on. The APK builds and installs, but
-the positive crash/restart test still awaits a live Shizuku binder and enabled
-tile; the present session has neither.
+only if the last confirmed tile state is on.
+
+The first forced server-death test exposed a second bug: the old binder callback
+ran `am start` on Shizuku's launcher Activity. Android blocks that background
+activity launch, so it did not restart Shizuku. Core now sends the fork's
+explicit authenticated `moe.shizuku.privileged.api.START` broadcast to
+`ManualStartReceiver` instead. It does not open an Activity. The fork validates
+the `auth` extra against its View intents token, so Core adds a masked settings
+field and keeps its value in encrypted preferences (never in ordinary AndroidX
+preferences). Leave the field blank to disable automatic restart; the fallback
+notification points to Nemotron settings.
+
+The updated debug APK compiled and installed in place on the A54; Auto remained
+unfrozen, its persisted state was `true`, the low-priority FGS was active, and
+Shizuku's server was manually restored after the death test. The death test was
+run before this receiver change and proved that the previous `am start` path
+failed. End-to-end recovery through the authenticated receiver remains
+unverified until the Shizuku View intents token is configured in Nemotron. Do
+not treat this as fixed on-device until a second forced server-death test shows
+the process return without an Activity launch.

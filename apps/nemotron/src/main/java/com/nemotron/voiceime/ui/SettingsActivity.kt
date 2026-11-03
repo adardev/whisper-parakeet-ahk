@@ -32,6 +32,7 @@ class SettingsActivity : AppCompatActivity() {
             setupHealthPrefs()
             setupWorkoutPowerSaver()
             setupAodTest()
+            setupShizukuWatchdog()
         }
 
         private fun setupWorkoutPowerSaver() {
@@ -152,6 +153,27 @@ class SettingsActivity : AppCompatActivity() {
                     }
                     com.nemotron.voiceime.health.HealthTransferService.start(ctx)
                     android.widget.Toast.makeText(ctx, "Uploading Samsung Health data to Firebase...", android.widget.Toast.LENGTH_LONG).show()
+                    true
+                }
+        }
+
+        private fun setupShizukuWatchdog() {
+            val ctx = context ?: return
+            val pref = preferenceScreen.findPreference<androidx.preference.EditTextPreference>(
+                "shizuku_start_auth_token"
+            ) ?: return
+            // Do not let PreferenceManager persist this credential in plaintext.
+            pref.isPersistent = false
+            pref.text = SecureStore.getShizukuStartAuthToken(ctx)
+            pref.summaryProvider = androidx.preference.Preference.SummaryProvider<androidx.preference.EditTextPreference> {
+                if (SecureStore.getShizukuStartAuthToken(ctx).isBlank())
+                    "Not configured · required for silent background restart"
+                else
+                    "Configured securely · restart only while Android Auto tile is on"
+            }
+            pref.onPreferenceChangeListener =
+                androidx.preference.Preference.OnPreferenceChangeListener { _, value ->
+                    SecureStore.setShizukuStartAuthToken(ctx, value as? String ?: "")
                     true
                 }
         }

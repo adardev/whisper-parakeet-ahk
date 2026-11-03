@@ -8,7 +8,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.net.Uri
 import android.os.Build
 import android.util.Log
 import java.util.concurrent.atomic.AtomicBoolean
@@ -121,21 +120,11 @@ class NemotronApp : android.app.Application() {
 
         // Watchdog: solo actúa si el tile de Android Auto está encendido.
         if (SecureStore.isAndroidAutoTileOn(this)) {
-            // Intentar reiniciar Shizuku abriendo la app del fork (que tiene
-            // auto-start). Si está en background el am start puede fallar; la
-            // notificación es el respaldo.
-            try {
-                Runtime.getRuntime().exec(arrayOf(
-                    "am", "start", "-n",
-                    "moe.shizuku.privileged.api/moe.shizuku.manager.MainActivity",
-                    "--activity-clear-task"
-                ))
-                Log.d("NemotronApp", "Watchdog: intentando reiniciar Shizuku via am start")
-            } catch (t: Throwable) {
-                Log.w("NemotronApp", "am start falló", t)
+            // The fork exposes an authenticated receiver for background starts.
+            // This avoids launching its UI (which Android may block from background).
+            if (!com.nemotron.voiceime.dhizuku.ShizukuAutoRestart.requestStart(this)) {
+                notifyShizukuDead()
             }
-            // Notificación de respaldo (si am start no funciona por restricciones de background)
-            notifyShizukuDead()
         }
     }
 
@@ -151,17 +140,16 @@ class NemotronApp : android.app.Application() {
                     )
                 }
             }
-            val openShizuku = PendingIntent.getActivity(
+            val openNemotronSettings = PendingIntent.getActivity(
                 this, 0,
-                packageManager.getLaunchIntentForPackage("moe.shizuku.privileged.api")
-                    ?: Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/thedjchi/Shizuku")),
+                Intent(this, com.nemotron.voiceime.ui.SettingsActivity::class.java),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
             val notif: Notification = NotificationCompat.Builder(this, WATCHDOG_CHANNEL)
                 .setSmallIcon(com.nemotron.voiceime.R.drawable.ic_auto_tile)
                 .setContentTitle("Shizuku se detuvo")
-                .setContentText("Android Auto está activo pero Shizuku murió (cambio de USB). Toca para reiniciarlo.")
-                .setContentIntent(openShizuku)
+                .setContentText("No se pudo reiniciar en segundo plano. Revisa el token de inicio de Shizuku en Ajustes de Nemotron.")
+                .setContentIntent(openNemotronSettings)
                 .setAutoCancel(true)
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .build()
