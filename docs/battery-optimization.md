@@ -587,11 +587,19 @@ field and keeps its value in encrypted preferences (never in ordinary AndroidX
 preferences). Leave the field blank to disable automatic restart; the fallback
 notification points to Nemotron settings.
 
-The updated debug APK compiled and installed in place on the A54; Auto remained
-unfrozen, its persisted state was `true`, the low-priority FGS was active, and
-Shizuku's server was manually restored after the death test. The death test was
-run before this receiver change and proved that the previous `am start` path
-failed. End-to-end recovery through the authenticated receiver remains
-unverified until the Shizuku View intents token is configured in Nemotron. Do
-not treat this as fixed on-device until a second forced server-death test shows
-the process return without an Activity launch.
+The debug APK compiled and was installed in place on the A54 with app data
+preserved. Nemotron Settings showed the start token as configured securely.
+With Auto enabled, the watchdog FGS was active and Gearhead was enabled. Killing
+`shizuku_server` caused Nemotron to dispatch the authenticated start broadcast;
+the binder returned and a new server PID appeared in under one second. The
+resumed activity remained Nemotron Settings; Shizuku's Activity was not
+launched.
+
+The negative test used the actual Quick Settings tile: persisted tile state
+`false`, Gearhead in the disabled package list, and no Nemotron watchdog FGS.
+After killing the server, `pidof shizuku_server` stayed empty for 12 seconds and
+there was no `ShizukuAutoRestart` dispatch. Shizuku was restored manually while
+the tile remained off. Auto was then enabled again; final checks showed state
+`true`, Gearhead enabled, watchdog FGS active, Shizuku running, and location,
+Bluetooth, and mobile data restored to their enabled Auto-mode values. The
+working tree was clean after pushing this documentation update to `nemotron`.
