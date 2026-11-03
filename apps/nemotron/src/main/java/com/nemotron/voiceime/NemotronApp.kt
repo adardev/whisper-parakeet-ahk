@@ -95,6 +95,9 @@ class NemotronApp : android.app.Application() {
             }
             com.nemotron.voiceime.guard.AddictionGuard.applyEnabled(this)
             CarDetector.refresh(this)
+            if (SecureStore.isAndroidAutoTileOn(this)) {
+                com.nemotron.voiceime.dhizuku.AndroidAutoShizukuWatchdogService.start(this)
+            }
             AutoAndroidAuto.reconcile(this)
         } catch (t: Throwable) {
             shizukuFeaturesInitialized.set(false)

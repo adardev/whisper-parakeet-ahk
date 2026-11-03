@@ -185,6 +185,12 @@
                 android:value="Apply a user-requested or nightly sleep action and bounded watch BLE settings transfer" />
         </service>
 
+        <service android:name=".dhizuku.AndroidAutoShizukuWatchdogService"
+            android:exported="false" android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Keep the Shizuku binder-death recovery listener active only while the Android Auto quick setting tile is enabled" />
+        </service>
+
         <service
             android:name=".dhizuku.HealthWorkoutPowerSaverListener"
             android:label="Samsung Health workout battery saver"

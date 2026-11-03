@@ -10,6 +10,11 @@ class AndroidAutoTileService : AppFreezeTileService() {
     override val tileIconRes: Int = R.drawable.ic_auto_tile
 
     override fun onAfterUnfreeze() {
+        // The package is confirmed enabled before this hook is called. Persist
+        // the tile state before starting the service so its cold-start guard
+        // cannot race with publishTileState's main-thread callback.
+        SecureStore.setAndroidAutoTileOn(this, true)
+        AndroidAutoShizukuWatchdogService.start(this)
         Thread {
             grantNotificationListener()
             setLocation(true)
@@ -21,6 +26,8 @@ class AndroidAutoTileService : AppFreezeTileService() {
     }
 
     override fun onAfterFreeze() {
+        SecureStore.setAndroidAutoTileOn(this, false)
+        AndroidAutoShizukuWatchdogService.stop(this)
         Thread {
             setLocation(false)
             setBluetooth(false)

@@ -566,3 +566,15 @@ the existing signing certificate, preserving app data. The device's Android
 Auto package was frozen during this installation session, so the enabled-tile
 USB disconnect/recovery sequence was not induced; end-to-end recovery remains
 to be confirmed with the tile enabled and the car/USB connection present.
+
+Follow-up device inspection found One UI had frozen the cached Core process
+(`cmd activity isfrozen com.nemotron.core` returned `true`) while the Auto tile
+was off. An app-level Shizuku binder listener is not dependable while its
+process is freezer-suspended. Core now starts
+`AndroidAutoShizukuWatchdogService` only after a confirmed Auto unfreeze and
+stops it after a confirmed freeze. It is a low-priority, silent foreground
+service with no polling; the ongoing notification makes the OS keep the binder
+listener runnable while the tile is on. Startup reconciliation restores it
+only if the last confirmed tile state is on. The APK builds and installs, but
+the positive crash/restart test still awaits a live Shizuku binder and enabled
+tile; the present session has neither.
