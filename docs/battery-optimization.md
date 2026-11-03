@@ -549,3 +549,20 @@ the Fit3 within the tile's 8-second confirmation window while other Bluetooth
 peripherals were connected. The tile safely left Bluetooth, Fit3, and the
 listener enabled. Thus the disconnect handler is compiled and installed, but
 its end-to-end inactive transition was not observed in this session.
+
+## Keep the Android Auto Shizuku watchdog armed during binder loss — 3 November 2026
+
+`AndroidAutoTileService` persists whether Android Auto is enabled so
+`NemotronApp` can gate its Shizuku binder-death recovery on that tile. A Quick
+Settings refresh can happen while Shizuku is down. In that case, the package
+state query is unavailable and `hasPermission()` is false; treating the
+fallback `hidden=false` as authoritative overwrote the saved tile state with
+`false`, disarming the recovery path. The tile now writes the saved state only
+after Shizuku is available and the package state was confirmed. A confirmed
+freeze still stores `false`; a confirmed unfreeze stores `true`.
+
+The Core APK compiled and was installed on the A54 as an in-place update with
+the existing signing certificate, preserving app data. The device's Android
+Auto package was frozen during this installation session, so the enabled-tile
+USB disconnect/recovery sequence was not induced; end-to-end recovery remains
+to be confirmed with the tile enabled and the car/USB connection present.

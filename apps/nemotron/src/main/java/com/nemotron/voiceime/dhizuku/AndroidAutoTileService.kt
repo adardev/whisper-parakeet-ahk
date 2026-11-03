@@ -36,7 +36,17 @@ class AndroidAutoTileService : AppFreezeTileService() {
      * de Auto esté encendido.
      */
     override fun onTileState(granted: Boolean, hidden: Boolean) {
-        SecureStore.setAndroidAutoTileOn(this, granted && !hidden)
+        // A failed Shizuku binder is not evidence that the tile is off. Quick
+        // Settings can refresh this service while Shizuku is restarting; do
+        // not erase the last confirmed state, or Nemotron's binder-death
+        // watchdog will disarm itself before it can recover Shizuku.
+        if (!granted) {
+            android.util.Log.d(TAG, "Shizuku unavailable; keeping last confirmed Android Auto tile state")
+            return
+        }
+        val enabled = !hidden
+        SecureStore.setAndroidAutoTileOn(this, enabled)
+        android.util.Log.d(TAG, "Confirmed Android Auto tile state: enabled=$enabled")
     }
 
     /**
