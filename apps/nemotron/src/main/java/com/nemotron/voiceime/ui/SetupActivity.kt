@@ -20,6 +20,7 @@ import com.nemotron.voiceime.R
 import com.nemotron.voiceime.data.SecureStore
 import com.nemotron.voiceime.dhizuku.AppPickerActivity
 import com.nemotron.voiceime.dhizuku.ShizukuManager
+import com.nemotron.voiceime.dhizuku.RootAccessManager
 import rikka.shizuku.Shizuku
 import com.nemotron.voiceime.databinding.ActivityMainBinding
 
@@ -45,6 +46,25 @@ class SetupActivity : AppCompatActivity() {
         setUpButtons()
         setUpAutoFreeze()
         setUpShizuku()
+        setUpRootAccess()
+    }
+
+    private fun setUpRootAccess() {
+        b.btnRootPermission.setOnClickListener {
+            b.btnRootPermission.isEnabled = false
+            b.tvRootStatus.text = "Waiting for KernelSU approval…"
+            Thread {
+                val result = RootAccessManager.requestAccess()
+                runOnUiThread {
+                    b.btnRootPermission.isEnabled = true
+                    b.tvRootStatus.text = if (result.success) {
+                        "Root granted to Nemotron (${result.detail})"
+                    } else {
+                        "Root not granted: ${result.detail}. Approve Nemotron in KernelSU and try again."
+                    }
+                }
+            }.start()
+        }
     }
 
     private fun setUpShizuku() {

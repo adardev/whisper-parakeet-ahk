@@ -257,6 +257,21 @@
             android:text="Request Shizuku permission"
             android:layout_marginTop="8dp" />
 
+        <TextView
+            android:id="@+id/tvRootStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="KernelSU root access has not been checked."
+            android:textSize="13sp"
+            android:textColor="@color/text_dim" />
+        <Button
+            android:id="@+id/btnRootPermission"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Request KernelSU root access"
+            android:layout_marginTop="6dp" />
+
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
