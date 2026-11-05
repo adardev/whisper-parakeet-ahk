@@ -29,7 +29,7 @@ class HealthSnapshotJobService : JobService() {
         }
         transfer = scope.launch {
             try {
-                val manager = SamsungHealthManager(this@HealthSnapshotJobService)
+                val manager = SamsungHealthManager(this@HealthSnapshotJobService, scope)
                 if (manager.grantedPermissions().isEmpty()) {
                     Log.w(TAG, "Sync periódico omitido: Samsung Health sin permisos")
                     return@launch
