@@ -91,7 +91,7 @@ abstract class AppFreezeTileService : TileService() {
                         val hidden = RootShellManager.hideApp(pkg)
                         allHidden = allHidden && hidden
                         val stopped = RootShellManager.stopApp(pkg)
-                        Log.i(TAG, "$tileLabel: $pkg disabled=$hidden forceStopped=$stopped")
+                        Log.i(TAG, "$tileLabel: $pkg hidden=$hidden forceStopped=$stopped")
                     }
                     if (allHidden) {
                         publishTileState(granted = true, hidden = true)
