@@ -8,7 +8,7 @@ import android.provider.Settings
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import com.nemotron.voiceime.data.SecureStore
-import com.nemotron.voiceime.dhizuku.ShizukuManager
+import com.nemotron.voiceime.dhizuku.RootShellManager
 import com.nemotron.voiceime.dhizuku.DnsEnforcer
 import java.util.concurrent.ConcurrentHashMap
 
@@ -43,7 +43,7 @@ object AddictionGuard {
         event.className?.toString()?.contains("StatusPlayback", ignoreCase = true) == true ||
             event.source?.className?.toString()?.contains("StatusPlayback", ignoreCase = true) == true
 
-    /** Bloquea la pantalla y, con Shizuku, también hace force-stop de la app. */
+    /** Bloquea la pantalla y, con root autorizado, también detiene la app. */
     fun block(service: AccessibilityService, pkg: String) {
         val now = System.currentTimeMillis()
         if (now - (lastBlocked[pkg] ?: 0L) < BLOCK_COOLDOWN_MS) return
@@ -55,8 +55,8 @@ object AddictionGuard {
         } else {
             service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME)
         }
-        if (ShizukuManager.hasPermission()) {
-            Thread { ShizukuManager.stopApp(pkg) }.start()
+        if (RootShellManager.hasPermission()) {
+            Thread { RootShellManager.stopApp(pkg) }.start()
         }
     }
 
@@ -116,12 +116,12 @@ object AddictionGuard {
         }.getOrDefault(false)
 
         if (!servicesUpdated || !flagUpdated) {
-            val shellUpdated = ShizukuManager.setAccessibilityServiceEnabled(comp, enabled)
+            val shellUpdated = RootShellManager.setAccessibilityServiceEnabled(comp, enabled)
             if (enabled && shellUpdated) {
-                ShizukuManager.execShell("settings put secure accessibility_enabled 1")
+                RootShellManager.execShell("settings put secure accessibility_enabled 1")
             }
             if (!shellUpdated) {
-                Log.w(TAG, "no se pudo cambiar el servicio de accesibilidad; se requiere permiso Shizuku")
+                Log.w(TAG, "no se pudo cambiar el servicio de accesibilidad; se requiere root de KernelSU")
             }
         }
     }

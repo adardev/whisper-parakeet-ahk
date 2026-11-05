@@ -33,16 +33,16 @@ class WalletTileService : TileService() {
         super.onClick()
         Log.d(TAG, "onClick: toggle NFC")
 
-        if (!ShizukuManager.hasPermission()) {
-            Log.w(TAG, "Shizuku permission not granted")
+        if (!RootShellManager.hasPermission()) {
+            Log.w(TAG, "KernelSU permission not granted")
             return
         }
 
-        val enabled = ShizukuManager.isNfcEnabled()
+        val enabled = RootShellManager.isNfcEnabled()
         Log.d(TAG, "NFC currently: $enabled")
 
         Thread {
-            ShizukuManager.setNfcEnabled(!enabled)
+            RootShellManager.setNfcEnabled(!enabled)
             Thread.sleep(300)
             handler.post { try { updateTileState() } catch (_: Throwable) {} }
         }.start()
@@ -53,7 +53,7 @@ class WalletTileService : TileService() {
         val tile = qsTile ?: return
         tile.label = "NFC"
         tile.icon = Icon.createWithResource(this, R.drawable.ic_wallet_tile)
-        tile.state = if (ShizukuManager.isNfcEnabled()) {
+        tile.state = if (RootShellManager.isNfcEnabled()) {
             Tile.STATE_ACTIVE
         } else {
             Tile.STATE_INACTIVE

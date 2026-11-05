@@ -1,131 +1,68 @@
 package com.nemotron.voiceime.dhizuku
 
 import android.content.Context
-import android.content.pm.PackageManager
 import android.util.Log
-import rikka.shizuku.Shizuku
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.io.PrintWriter
-import java.lang.reflect.Method
 
-/** Shell-backed operations supplied by a running Shizuku server. */
-object ShizukuManager {
+/** Privileged shell operations supplied exclusively by KernelSU root. */
+object RootShellManager {
 
     data class RunningService(val component: String, val packageName: String, val bound: Boolean)
 
-    private const val TAG = "ShizukuManager"
-    private const val REQUEST_CODE = 4011
-
-    private var newProcessMethod: Method? = null
+    private const val TAG = "RootShellManager"
     private var shellProc: Process? = null
     private var shellIn: PrintWriter? = null
     private var shellOut: BufferedReader? = null
     private var shellErr: BufferedReader? = null
+    private var shellUsesRoot = false
     private val shellLock = Any()
 
     private const val ASSISTANT_ROLE = "android.app.role.ASSISTANT"
     private const val GEMINI_PACKAGE = "com.google.android.googlequicksearchbox"
     private const val TOOTSIE_PACKAGE = "com.adarbot.app"
 
-    fun isAvailable(): Boolean = try {
-        Shizuku.pingBinder()
-    } catch (t: Throwable) {
-        Log.d(TAG, "Shizuku is not running", t)
-        false
-    }
+    fun isAvailable(): Boolean = RootAccessManager.hasRootAccess()
 
-    fun hasPermission(): Boolean = try {
-        isAvailable() && Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED
-    } catch (t: Throwable) {
-        Log.w(TAG, "Could not check Shizuku permission", t)
-        false
+    fun hasPermission(): Boolean = RootAccessManager.hasRootAccess()
+
+    /** Package freeze tiles can use KernelSU root when KernelSU is not authorized. */
+    fun hasTilePermission(): Boolean = hasPermission()
+
+    private fun execTileCommand(cmd: Array<String>, timeoutMs: Long = 6_000L): String? {
+        return execShellFresh(cmd, timeoutMs)
     }
 
     fun requestPermission(): Boolean {
-        if (!isAvailable()) return false
-        return try {
-            if (hasPermission()) true
-            else {
-                Shizuku.requestPermission(REQUEST_CODE)
-                true
-            }
-        } catch (t: Throwable) {
-            Log.w(TAG, "Could not request Shizuku permission", t)
-            false
-        }
+        return RootAccessManager.hasRootAccess() ||
+            RootAccessManager.requestAccess(timeoutMs = 5_000L).success
     }
 
-    private fun getNewProcessMethod(): Method? {
-        if (newProcessMethod == null) {
-            newProcessMethod = try {
-                Shizuku::class.java.getDeclaredMethod(
-                    "newProcess",
-                    Array<String>::class.java,
-                    Array<String>::class.java,
-                    String::class.java
-                ).also { it.isAccessible = true }
-            } catch (t: Throwable) {
-                Log.w(TAG, "Failed to get newProcess method", t)
-                null
-            }
-        }
-        return newProcessMethod
-    }
-
-    /** Ejecuta un comando en un proceso NUEVO de Shizuku pasando argv directo
-     *  (sin shell intermedio). Evita que caracteres como '$' se expandan. */
+    /** Runs a fresh argv-safe command as root. */
     fun execShellFresh(cmd: Array<String>, timeoutMs: Long = 6000L): String? {
-        val method = getNewProcessMethod() ?: return null
-        return try {
-            val proc = method.invoke(
-                null,
-                cmd,
-                arrayOf("PATH=/system/bin:/system/xbin:/vendor/bin"),
-                null
-            ) as Process
-            val sb = StringBuilder()
-            val input = proc.inputStream
-            val buf = ByteArray(8192)
-            val deadline = System.currentTimeMillis() + timeoutMs
-            while (System.currentTimeMillis() < deadline) {
-                val n = try { input.read(buf) } catch (_: Throwable) { -1 }
-                if (n == -1) break
-                if (n == 0) { Thread.sleep(5); continue }
-                sb.append(String(buf, 0, n, Charsets.UTF_8))
-            }
-            proc.destroy()
-            sb.toString().trim()
-        } catch (t: Throwable) {
-            Log.w(TAG, "execFresh failed: ${cmd.joinToString(" ")}", t)
-            null
-        }
+        if (!RootAccessManager.hasRootAccess()) return null
+        val result = RootAccessManager.runRoot(cmd, timeoutMs)
+        return if (result.success) result.detail else null
     }
 
     private fun ensureShell() {
-        // Un shell persistente cuya vida depende del binder de Shizuku: los
-        // procesos creados con newProcess mueren con Shizuku (p.ej. One UI 8 lo
-        // mata al bloquear la pantalla, o al conectar el teléfono al coche).
-        //
-        // NOTA: NO se usa Process.isAlive() aquí. ShizukuRemoteProcess.isAlive()
-        // llama a exitValue() que lanza IllegalArgumentException("process
-        // hasn't exited") para un proceso VIVO, así que isAlive() nunca funciona
-        // y rompería todos los comandos. La detección de un proceso muerto se
-        // hace con input.checkError() tras escribir (EPIPE) y con onBinderDead().
-        if (shellProc != null && shellIn != null) return
+        if (shellProc != null && shellIn != null && shellUsesRoot) return
         closeShell()
-        val method = getNewProcessMethod() ?: return
-        try {
-            val proc = method.invoke(null, arrayOf("sh"), arrayOf("PATH=/system/bin:/system/xbin:/vendor/bin"), null) as Process
-            shellProc = proc
-            shellIn = PrintWriter(proc.outputStream, true)
-            shellOut = BufferedReader(InputStreamReader(proc.inputStream))
-            shellErr = BufferedReader(InputStreamReader(proc.errorStream))
-            Log.d(TAG, "persistent shell started")
-        } catch (t: Throwable) {
-            Log.w(TAG, "Failed to start persistent shell", t)
-            shellProc = null
-            shellIn = null
+        if (RootAccessManager.hasRootAccess()) {
+            try {
+                val proc = RootAccessManager.openRootShell()
+                shellProc = proc
+                shellUsesRoot = true
+                shellIn = PrintWriter(proc.outputStream, true)
+                shellOut = BufferedReader(InputStreamReader(proc.inputStream))
+                shellErr = BufferedReader(InputStreamReader(proc.errorStream))
+                Log.d(TAG, "persistent KernelSU root shell started")
+            } catch (t: Throwable) {
+                Log.w(TAG, "Failed to start KernelSU root shell", t)
+                closeShell()
+            }
+            return
         }
     }
 
@@ -193,7 +130,7 @@ object ShizukuManager {
         }
     }
 
-    /** El binder de Shizuku ha muerto: descarta el shell persistente para
+    /** El binder de KernelSU ha muerto: descarta el shell persistente para
      *  no reutilizar un proceso sin vida y que se vuelva a crear limpio. */
     fun onBinderDead() {
         synchronized(shellLock) {
@@ -216,6 +153,7 @@ object ShizukuManager {
         shellIn = null
         shellOut = null
         shellErr = null
+        shellUsesRoot = false
     }
 
     fun pasteText(context: Context, @Suppress("UNUSED_PARAMETER") text: String): Boolean {
@@ -223,12 +161,12 @@ object ShizukuManager {
         return try {
             exec("input keyevent 279")
         } catch (t: Throwable) {
-            Log.w(TAG, "Shizuku pasteText failed", t)
+            Log.w(TAG, "KernelSU pasteText failed", t)
             false
         }
     }
 
-    /** Escribe texto a un archivo vía Shizuku. Resetea el shell persistente
+    /** Escribe texto a un archivo vía KernelSU. Resetea el shell persistente
      *  (descarta colas viejas atascadas), encola la escritura del base64 en
      *  chunks, y confirma por polling con procesos FRESCOS independientes. */
     fun writeTextFile(path: String, content: String): Boolean {
@@ -281,29 +219,33 @@ object ShizukuManager {
     }
 
     fun hideApp(packageName: String): Boolean {
-        if (!hasPermission()) return false
-        val out = execShellFresh(arrayOf("pm", "disable-user", "--user", "0", packageName)) ?: return false
-        Log.d(TAG, "pm disable-user $packageName → $out")
-        return getDisabledPackages()?.contains(packageName) == true
+        if (!hasTilePermission()) return false
+        if (!PACKAGE_NAME.matches(packageName)) return false
+        val out = execTileCommand(arrayOf("pm", "hide", "--user", "0", packageName)) ?: return false
+        val hidden = out.contains("new hidden state: true", ignoreCase = true) && isAppHidden(packageName)
+        Log.d(TAG, "pm hide $packageName → $out (confirmed=$hidden)")
+        return hidden
     }
 
     fun unhideApp(packageName: String): Boolean {
-        if (!hasPermission()) return false
-        val out = execShellFresh(arrayOf("pm", "enable", "--user", "0", packageName)) ?: return false
-        Log.d(TAG, "pm enable $packageName → $out")
-        return out.contains("new state: enabled") && getDisabledPackages()?.contains(packageName) == false
+        if (!hasTilePermission()) return false
+        if (!PACKAGE_NAME.matches(packageName)) return false
+        val out = execTileCommand(arrayOf("pm", "unhide", "--user", "0", packageName)) ?: return false
+        val unhidden = out.contains("new hidden state: false", ignoreCase = true) && !isAppHidden(packageName)
+        Log.d(TAG, "pm unhide $packageName → $out (confirmed=$unhidden)")
+        return unhidden
     }
 
     /** Clears ActivityManager's force-stop bit so system broadcasts can wake a package again. */
     fun unstopApp(packageName: String): Boolean {
-        if (!hasPermission()) return false
-        // Use a fresh process: the persistent Shizuku shell can retain stale
+        if (!hasTilePermission()) return false
+        // Use a fresh process: the persistent KernelSU shell can retain stale
         // output after long-running tile actions, making a successful unstop
         // look like a failure (or vice versa).
-        val out = execShellFresh(
+        val out = execTileCommand(
             arrayOf("pm", "unstop", "--user", "0", packageName), timeoutMs = 5_000L
         ) ?: return false
-        val status = execShellFresh(
+        val status = execTileCommand(
             arrayOf("dumpsys", "package", packageName), timeoutMs = 5_000L
         ).orEmpty()
         val userState = Regex("(?m)^\\s*User 0:.*$")
@@ -316,7 +258,7 @@ object ShizukuManager {
 
     /**
      * Re-applies Health Connect permissions declared by an app through the
-     * Shizuku shell. This is used for Samsung Health after its historical
+     * KernelSU shell. This is used for Samsung Health after its historical
      * disable/enable cycle revoked Health Connect access. The package remains
      * enabled now; the grants are only repaired if Android reports them absent.
      */
@@ -400,37 +342,39 @@ object ShizukuManager {
     private const val HEALTH_CONNECT_CONTROLLER_PACKAGE = "com.google.android.healthconnect.controller"
 
     fun isAppHidden(packageName: String): Boolean {
-        return getDisabledPackages()?.contains(packageName) ?: false
+        return getHiddenPackages(listOf(packageName))?.contains(packageName) ?: false
     }
 
-    /** Returns disabled package names, or null when Shizuku/query is unavailable. */
-    fun getDisabledPackages(): Set<String>? {
-        if (!hasPermission()) return null
-        val out = execShellFresh(arrayOf("pm", "list", "packages", "-d", "--user", "0")) ?: return null
-        return out.lineSequence()
-            .map { it.trim() }
-            .filter { it.startsWith("package:") }
-            .mapTo(mutableSetOf()) { it.removePrefix("package:") }
+    /** Returns hidden packages from a bounded set in one root process. */
+    fun getHiddenPackages(packages: Collection<String>): Set<String>? {
+        if (!hasTilePermission()) return null
+        if (packages.any { !PACKAGE_NAME.matches(it) }) return null
+        if (packages.isEmpty()) return emptySet()
+        val script = buildString {
+            append("for p in")
+            packages.distinct().forEach { append(" '").append(it).append("'") }
+            append("; do dumpsys package \"\$p\" | grep -Eq '^[[:space:]]*User 0:.*hidden=true' && echo \"\$p\"; done; exit 0")
+        }
+        val out = execTileCommand(arrayOf("sh", "-c", script), timeoutMs = 12_000L) ?: return null
+        return out.lineSequence().map { it.trim() }
+            .filter { it.isNotEmpty() && PACKAGE_NAME.matches(it) }.toSet()
     }
 
-    /** Returns which of [packages] are still in disabled state (freeze persists). */
-    fun stillDisabled(packages: Collection<String>): Set<String> {
+    /** Returns which of [packages] are still hidden after a hide/unhide action. */
+    fun stillHidden(packages: Collection<String>): Set<String> {
         if (packages.isEmpty()) return emptySet()
         if (!hasPermission()) return emptySet()
-        val out = execShellFresh(arrayOf("pm", "list", "packages", "-d", "--user", "0")) ?: return emptySet()
-        val disabled = out.lineSequence()
-            .map { it.trim() }
-            .filter { it.startsWith("package:") }
-            .mapTo(mutableSetOf()) { it.removePrefix("package:") }
-        return packages.filterTo(mutableSetOf()) { it in disabled }
+        return getHiddenPackages(packages)?.intersect(packages.toSet()).orEmpty()
     }
+
+    private val PACKAGE_NAME = Regex("[A-Za-z0-9_]+(?:\\.[A-Za-z0-9_]+)+")
 
     fun stopApp(packageName: String): Boolean {
         if (!hasPermission()) return false
         return execShell("am force-stop $packageName")
     }
 
-    /** Queries ActivityManager's live service records through Shizuku shell. */
+    /** Queries ActivityManager's live service records through KernelSU shell. */
     fun getRunningServices(): List<RunningService> {
         if (!hasPermission()) return emptyList()
         val output = execShellFresh(arrayOf("dumpsys", "activity", "services"), timeoutMs = 12_000L)
@@ -497,7 +441,7 @@ object ShizukuManager {
         return component?.substringBefore('/')?.takeIf { it.startsWith("com.") }
     }
 
-    /** Ask the system role manager (through Shizuku's shell identity) to switch assistant. */
+    /** Ask the system role manager (through KernelSU's shell identity) to switch assistant. */
     fun setDefaultAssistantPackage(packageName: String): Boolean {
         if (!hasPermission() || packageName !in setOf(GEMINI_PACKAGE, TOOTSIE_PACKAGE)) return false
         val output = execShellCapture(

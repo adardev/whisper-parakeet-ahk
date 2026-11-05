@@ -11,25 +11,25 @@ internal object Fit3TileAutomation {
     private val packages = listOf("com.sec.android.app.shealth")
 
     fun prepareConnection(context: Context): Boolean {
-        if (!ShizukuManager.hasPermission()) {
-            Log.w(TAG, "Shizuku no está autorizado")
+        if (!RootShellManager.hasPermission()) {
+            Log.w(TAG, "KernelSU no está autorizado")
             return false
         }
         // Only Samsung Health is controlled here. Fit3 Plugin and Galaxy Wearable
         // are left to their always-active service and their dedicated user tile.
-        val frozen = ShizukuManager.stillDisabled(packages)
+        val frozen = RootShellManager.stillHidden(packages)
         for (pkg in packages) {
-            if (pkg in frozen && !ShizukuManager.unhideApp(pkg)) {
+            if (pkg in frozen && !RootShellManager.unhideApp(pkg)) {
                 Log.e(TAG, "no se pudo activar $pkg")
                 return false
             }
-            if (!ShizukuManager.unstopApp(pkg)) {
+            if (!RootShellManager.unstopApp(pkg)) {
                 Log.e(TAG, "no se pudo quitar force-stop de $pkg")
                 return false
             }
         }
 
-        if (!ShizukuManager.ensureHealthConnectPermissions("com.sec.android.app.shealth")) {
+        if (!RootShellManager.ensureHealthConnectPermissions("com.sec.android.app.shealth")) {
             Log.e(TAG, "No se pudieron asegurar todos los permisos de Health Connect antes de preparar la conexión")
             return false
         }
@@ -40,17 +40,17 @@ internal object Fit3TileAutomation {
 
     /** After sending settings, stop Samsung Health without disabling its Health Connect grants. */
     fun freezeAfterSetting(context: Context): Boolean {
-        if (!ShizukuManager.hasPermission()) return false
-        if (!ShizukuManager.ensureHealthConnectPermissions("com.sec.android.app.shealth")) {
+        if (!RootShellManager.hasPermission()) return false
+        if (!RootShellManager.ensureHealthConnectPermissions("com.sec.android.app.shealth")) {
             Log.e(TAG, "No se pudieron asegurar todos los permisos de Health Connect antes de pausar Samsung Health")
             return false
         }
         var ok = true
         for (pkg in packages) {
-            if (pkg in ShizukuManager.stillDisabled(listOf(pkg))) {
-                if (!ShizukuManager.unhideApp(pkg)) ok = false
+            if (pkg in RootShellManager.stillHidden(listOf(pkg))) {
+                if (!RootShellManager.unhideApp(pkg)) ok = false
             }
-            if (!ShizukuManager.stopApp(pkg)) ok = false
+            if (!RootShellManager.stopApp(pkg)) ok = false
         }
         requestTileRefresh(context)
         return ok

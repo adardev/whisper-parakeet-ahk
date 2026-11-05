@@ -4,11 +4,11 @@ import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
-import com.nemotron.voiceime.dhizuku.ShizukuManager
+import com.nemotron.voiceime.dhizuku.RootShellManager
 
 /**
  * Actividad transparente lanzada desde los atajos del home screen.
- * Abre la app destino (vía Shizuku si hace falta) y se cierra.
+ * Abre la app destino (vía root si hace falta) y se cierra.
  */
 class ShortcutActivity : Activity() {
 
@@ -20,9 +20,9 @@ class ShortcutActivity : Activity() {
         Log.d(TAG, "open pkg=$pkg activity=$activity")
 
         if (pkg.isNotBlank() && activity.isNotBlank()) {
-            if (ShizukuManager.hasPermission()) {
+            if (RootShellManager.hasPermission()) {
                 Thread {
-                    ShizukuManager.launchApp(pkg, activity)
+                    RootShellManager.launchApp(pkg, activity)
                 }.start()
             } else {
                 try {

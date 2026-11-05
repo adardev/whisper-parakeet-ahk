@@ -9,8 +9,8 @@ object NightRoutineActions {
 
     @Synchronized
     fun run(context: Context, night: Boolean): Result {
-        if (!ShizukuManager.hasPermission()) {
-            return Result(false, "Shizuku no está autorizado para activar el tile Galaxy Wearable.")
+        if (!RootShellManager.hasPermission()) {
+            return Result(false, "KernelSU no está autorizado para activar el tile Galaxy Wearable.")
         }
         val aod = try {
             SamsungFit3Handoff.run(context.applicationContext) {

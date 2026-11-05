@@ -75,9 +75,9 @@ class TilePreferencesActivity : Activity() {
         Log.d(TAG, "Target packages: $launchTargets")
 
         launchTargets.forEach { (targetPackage, targetActivity) ->
-            if (targetActivity != null && ShizukuManager.hasPermission()) {
+            if (targetActivity != null && RootShellManager.hasPermission()) {
                 Thread {
-                    ShizukuManager.launchApp(targetPackage, targetActivity)
+                    RootShellManager.launchApp(targetPackage, targetActivity)
                 }.start()
             } else {
                 val launchIntent = packageManager.getLaunchIntentForPackage(targetPackage)

@@ -6,7 +6,7 @@ import android.os.Build
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
-import com.nemotron.voiceime.dhizuku.ShizukuManager
+import com.nemotron.voiceime.dhizuku.RootShellManager
 import java.util.Locale
 
 /**
@@ -113,7 +113,7 @@ class AntiScrollAccessibilityService : AccessibilityService() {
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
         val windowClass = event.className?.toString().orEmpty()
         // Los Reels compartidos por DM viven en ModalActivity, no en el visor
-        // principal. Se desarma sin esperar a la consulta por Shizuku.
+        // principal. Se desarma sin esperar a la consulta de privilegios.
         if (windowClass.contains("com.instagram.modal.") || windowClass.contains("Direct")) {
             isInstagramConversationSurface = true
             isInstagramMainTab = false

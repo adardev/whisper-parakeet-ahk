@@ -55,7 +55,7 @@ class AutoFreezeScreenReceiver : BroadcastReceiver() {
         }
     }
 
-    /** Call this when Shizuku comes back to heal apps frozen while it was down. */
+    /** Call this when KernelSU comes back to heal apps frozen while it was down. */
     fun recover(ctx: Context) {
         if (!SecureStore.isAutoFreezeEnabled(ctx)) return
         if (!isScreenOn(ctx)) return
@@ -90,9 +90,9 @@ class AutoFreezeScreenReceiver : BroadcastReceiver() {
                     Log.w(TAG, "Gave up unfreezing after $MAX_RETRIES attempts: $remaining")
                     return@post
                 }
-                // No reintentar si Shizuku sigue muerto: el binder listener lo revive solo.
-                if (!ShizukuManager.hasPermission()) {
-                    Log.d(TAG, "Shizuku unavailable, waiting for binder instead of retrying")
+                // No reintentar si KernelSU sigue muerto: el binder listener lo revive solo.
+                if (!RootShellManager.hasPermission()) {
+                    Log.d(TAG, "KernelSU unavailable, waiting for binder instead of retrying")
                     return@post
                 }
                 val runnable = Runnable {
@@ -106,12 +106,12 @@ class AutoFreezeScreenReceiver : BroadcastReceiver() {
     }
 
     private fun tryUnfreeze(apps: List<String>): Set<String> {
-        if (!ShizukuManager.hasPermission()) return apps.toSet()
+        if (!RootShellManager.hasPermission()) return apps.toSet()
         val failed = mutableSetOf<String>()
         for (pkg in apps) {
-            if (!ShizukuManager.unhideApp(pkg)) failed.add(pkg)
+            if (!RootShellManager.unhideApp(pkg)) failed.add(pkg)
         }
-        val still = ShizukuManager.stillDisabled(apps)
+            val still = RootShellManager.stillHidden(apps)
         failed.addAll(still)
         Log.d(TAG, "Unfreeze: still disabled=$still")
         return failed
@@ -122,10 +122,10 @@ class AutoFreezeScreenReceiver : BroadcastReceiver() {
             val stopApps = SecureStore.getStopOnUnlockApps(ctx).toList()
             if (stopApps.isEmpty()) return@Thread
             for (attempt in 1..STOP_RETRIES) {
-                if (!ShizukuManager.hasPermission()) {
-                    Log.w(TAG, "Stop on unlock attempt $attempt/$STOP_RETRIES skipped: Shizuku unavailable")
+                if (!RootShellManager.hasPermission()) {
+                    Log.w(TAG, "Stop on unlock attempt $attempt/$STOP_RETRIES skipped: KernelSU unavailable")
                 } else {
-                    val ok = stopApps.all { ShizukuManager.stopApp(it) }
+                    val ok = stopApps.all { RootShellManager.stopApp(it) }
                     if (ok) {
                         Log.d(TAG, "Stopped on unlock: $stopApps")
                         return@Thread
@@ -143,8 +143,8 @@ class AutoFreezeScreenReceiver : BroadcastReceiver() {
 
     private fun doFreeze(ctx: Context, apps: List<String>, services: List<String>) {
         Thread {
-            if (!ShizukuManager.hasPermission()) {
-                Log.w(TAG, "Freeze skipped: Shizuku unavailable")
+            if (!RootShellManager.hasPermission()) {
+                Log.w(TAG, "Freeze skipped: KernelSU unavailable")
                 return@Thread
             }
             // Con Android Auto conectado no se congelan apps: congelar GMS
@@ -153,10 +153,10 @@ class AutoFreezeScreenReceiver : BroadcastReceiver() {
                 Log.d(TAG, "Coche conectado: se omite el auto-freeze")
                 return@Thread
             }
-            if (services.isNotEmpty()) ShizukuManager.stopServices(services)
-            for (pkg in apps) ShizukuManager.hideApp(pkg)
+            if (services.isNotEmpty()) RootShellManager.stopServices(services)
+            for (pkg in apps) RootShellManager.hideApp(pkg)
             val stopApps = SecureStore.getStopOnUnlockApps(ctx).toList()
-            for (pkg in stopApps) ShizukuManager.stopApp(pkg)
+            for (pkg in stopApps) RootShellManager.stopApp(pkg)
             Log.d(TAG, "Froze ${apps.size} apps, stopped ${services.size} selected services, stopped on lock: $stopApps")
             // Freeze selected apps before entering deep idle. If force-idle is
             // applied at screen-off, Android can suspend this delayed work.
@@ -168,8 +168,8 @@ class AutoFreezeScreenReceiver : BroadcastReceiver() {
         val exempt = SecureStore.getDozeExemptApps(ctx)
         if (exempt.isEmpty()) return
         Thread {
-            if (!ShizukuManager.hasPermission()) return@Thread
-            for (pkg in exempt) ShizukuManager.exemptFromDoze(pkg)
+            if (!RootShellManager.hasPermission()) return@Thread
+            for (pkg in exempt) RootShellManager.exemptFromDoze(pkg)
             Log.d(TAG, "Doze whitelist applied: $exempt")
         }.start()
     }
@@ -177,22 +177,22 @@ class AutoFreezeScreenReceiver : BroadcastReceiver() {
     private fun forceDoze(ctx: Context) {
         if (!SecureStore.isAutoFreezeDozeEnabled(ctx)) return
         Thread {
-            if (!ShizukuManager.hasPermission()) return@Thread
-            // El doze profundo en el coche mataría procesos (incluido Shizuku y
+            if (!RootShellManager.hasPermission()) return@Thread
+            // El doze profundo en el coche mataría procesos (incluido KernelSU y
             // la proyección de Android Auto); se omite con el coche conectado.
             if (CarDetector.isCarConnected()) {
                 Log.d(TAG, "Coche conectado: se omite force-idle")
                 return@Thread
             }
-            ShizukuManager.forceIdle()
+            RootShellManager.forceIdle()
         }.start()
     }
 
     private fun unforceDoze(ctx: Context) {
         if (!SecureStore.isAutoFreezeDozeEnabled(ctx)) return
         Thread {
-            if (!ShizukuManager.hasPermission()) return@Thread
-            ShizukuManager.unforceIdle()
+            if (!RootShellManager.hasPermission()) return@Thread
+            RootShellManager.unforceIdle()
         }.start()
     }
 

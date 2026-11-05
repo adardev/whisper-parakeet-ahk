@@ -1,91 +1,73 @@
 package com.nemotron.voiceime
 
-import android.app.Notification
-import android.app.NotificationChannel
-import android.app.NotificationManager
-import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
-import android.content.Intent
 import android.content.IntentFilter
 import android.os.Build
 import android.util.Log
-import java.util.concurrent.atomic.AtomicBoolean
-import androidx.core.app.NotificationCompat
 import com.nemotron.voiceime.data.SecureStore
 import com.nemotron.voiceime.dhizuku.AutoAndroidAuto
 import com.nemotron.voiceime.dhizuku.CarDetector
-import com.nemotron.voiceime.dhizuku.ShizukuManager
+import com.nemotron.voiceime.dhizuku.RootAccessManager
 import com.nemotron.voiceime.guard.DndLockReceiver
 import com.nemotron.voiceime.ui.AutoFreezeScheduler
-import rikka.shizuku.Shizuku
-import rikka.shizuku.ShizukuProvider
+import java.util.concurrent.atomic.AtomicBoolean
 
+/** Application bootstrap for Nemotron's KernelSU-only privileged backend. */
 class NemotronApp : android.app.Application() {
 
     private val dndReceiver = DndLockReceiver()
     private var dndRegistered = false
-    private val shizukuFeaturesInitialized = AtomicBoolean(false)
+    private val privilegedFeaturesInitialized = AtomicBoolean(false)
 
     override fun onCreate() {
         super.onCreate()
-        ShizukuProvider.enableMultiProcessSupport(true)
         instance = this
-        com.nemotron.voiceime.dhizuku.AirplaneModeSchedule.scheduleNext(this)
-
-        com.nemotron.voiceime.guard.AddictionGuard.applyEnabled(this)
-        Shizuku.addBinderReceivedListener(binderListener)
-        Shizuku.addBinderDeadListener(binderDeadListener)
+        RootAccessManager.initialize(this)
         registerDndReceiver()
         CarDetector.refresh(this)
         com.nemotron.voiceime.guard.DndKeepAliveService.update(this)
         com.nemotron.voiceime.dhizuku.ConnectionExclusionManager.start(this)
-        // Si Shizuku ya estaba corriendo al arrancar la app, el binderListener
-        // no se dispara. Comprobar pasado un momento para no perder la
-        // inicialización (auto-freeze, guard, detección de coche).
-        android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
-            // BinderReceived normally performs this setup. Keep the delayed
-            // fallback for Shizuku versions that are already bound at startup,
-            // but let an atomic gate ensure it cannot repeat the same work.
-            initializeShizukuFeatures()
-        }, 2500L)
+
+        // Check KernelSU away from the main thread so startup and Quick Settings
+        // tile taps never wait on the SU manager.
+        Thread({
+            val result = RootAccessManager.requestAccess(timeoutMs = 5_000L)
+            if (result.success) initializePrivilegedFeatures()
+            else Log.w("NemotronApp", "KernelSU root unavailable at startup: ${result.detail}")
+        }, "Nemotron-root-init").start()
     }
 
-    /**
-     * El broadcast de No Molestar no llega de forma fiable por manifest en
-     * Android 12+; hay que registrarlo dinámicamente mientras el proceso vive.
-     */
     private fun registerDndReceiver() {
         if (dndRegistered) return
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                registerReceiver(dndReceiver, intentFilter, Context.RECEIVER_EXPORTED)
+                registerReceiver(
+                    dndReceiver,
+                    IntentFilter(android.app.NotificationManager.ACTION_INTERRUPTION_FILTER_CHANGED),
+                    Context.RECEIVER_EXPORTED
+                )
             } else {
-                registerReceiver(dndReceiver, intentFilter)
+                registerReceiver(
+                    dndReceiver,
+                    IntentFilter(android.app.NotificationManager.ACTION_INTERRUPTION_FILTER_CHANGED)
+                )
             }
             dndRegistered = true
-            Log.d("NemotronApp", "DndLockReceiver registrado dinámicamente")
         } catch (t: Throwable) {
-            Log.w("NemotronApp", "No se pudo registrar DndLockReceiver", t)
+            Log.w("NemotronApp", "Could not register DND receiver", t)
         }
     }
 
-    private val binderListener = Shizuku.OnBinderReceivedListener {
-        Log.d("NemotronApp", "Shizuku binder received")
-        registerDndReceiver()
-        shizukuDeadNotified = false
-        initializeShizukuFeatures()
-    }
-
-    private fun initializeShizukuFeatures() {
-        if (!ShizukuManager.hasPermission()) return
-        if (!shizukuFeaturesInitialized.compareAndSet(false, true)) return
+    private fun initializePrivilegedFeatures() {
+        if (!privilegedFeaturesInitialized.compareAndSet(false, true)) return
         Thread({
             runCatching { com.nemotron.voiceime.dhizuku.SamsungFit3Handoff.recoverIfNeeded(this) }
-                .onFailure { Log.e("NemotronApp", "No se pudo recuperar la conexión Samsung", it) }
+                .onFailure { Log.e("NemotronApp", "Samsung connection recovery failed", it) }
             runCatching { com.nemotron.voiceime.dhizuku.HealthWorkoutPowerSaver.syncForFit3State(this) }
-                .onFailure { Log.e("NemotronApp", "No se pudo sincronizar el ahorro del entrenamiento con Fit3", it) }
+                .onFailure { Log.e("NemotronApp", "Fit3 workout power sync failed", it) }
         }, "Nemotron-Fit3-Recovery").start()
+
         try {
             com.nemotron.voiceime.dhizuku.AirplaneModeSchedule.scheduleNext(this)
             if (SecureStore.isAutoFreezeEnabled(this)) {
@@ -94,79 +76,15 @@ class NemotronApp : android.app.Application() {
             }
             com.nemotron.voiceime.guard.AddictionGuard.applyEnabled(this)
             CarDetector.refresh(this)
-            if (SecureStore.isAndroidAutoTileOn(this)) {
-                com.nemotron.voiceime.dhizuku.AndroidAutoShizukuWatchdogService.start(this)
-            }
             AutoAndroidAuto.reconcile(this)
         } catch (t: Throwable) {
-            shizukuFeaturesInitialized.set(false)
-            Log.e("NemotronApp", "Shizuku feature initialization failed", t)
-        }
-    }
-
-    private val binderDeadListener = Shizuku.OnBinderDeadListener {
-        Log.d("NemotronApp", "Shizuku binder dead")
-        // Descartar el shell persistente: sus procesos hijos mueren con Shizuku
-        // (p.ej. al conectar al coche / bloquear pantalla en One UI 8). Sin esto,
-        // execShellCapture reutilizaría un proceso muerto y bloquearía hasta el
-        // timeout, congelando el main thread de la app.
-        ShizukuManager.onBinderDead()
-        // A new binder connection is a new initialization cycle. The listener
-        // and delayed fallback are then allowed to race safely again.
-        shizukuFeaturesInitialized.set(false)
-        // No se desregistra el receiver de auto-freeze: hace falta para seguir
-        // recibiendo SCREEN_ON y que el loop de reintentos descongele las apps
-        // en cuanto Shizuku vuelva (en One UI 8 Shizuku muere al bloquear pantalla).
-
-        // Watchdog: solo actúa si el tile de Android Auto está encendido.
-        if (SecureStore.isAndroidAutoTileOn(this)) {
-            // The fork exposes an authenticated receiver for background starts.
-            // This avoids launching its UI (which Android may block from background).
-            if (!com.nemotron.voiceime.dhizuku.ShizukuAutoRestart.requestStart(this)) {
-                notifyShizukuDead()
-            }
-        }
-    }
-
-    private var shizukuDeadNotified = false
-
-    private fun notifyShizukuDead() {
-        try {
-            val nm = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                if (nm.getNotificationChannel(WATCHDOG_CHANNEL) == null) {
-                    nm.createNotificationChannel(
-                        NotificationChannel(WATCHDOG_CHANNEL, "Watchdog Shizuku", NotificationManager.IMPORTANCE_HIGH)
-                    )
-                }
-            }
-            val openNemotronSettings = PendingIntent.getActivity(
-                this, 0,
-                Intent(this, com.nemotron.voiceime.ui.SettingsActivity::class.java),
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-            )
-            val notif: Notification = NotificationCompat.Builder(this, WATCHDOG_CHANNEL)
-                .setSmallIcon(com.nemotron.voiceime.R.drawable.ic_auto_tile)
-                .setContentTitle("Shizuku se detuvo")
-                .setContentText("No se pudo reiniciar en segundo plano. Revisa el token de inicio de Shizuku en Ajustes de Nemotron.")
-                .setContentIntent(openNemotronSettings)
-                .setAutoCancel(true)
-                .setPriority(NotificationCompat.PRIORITY_HIGH)
-                .build()
-            if (!shizukuDeadNotified) {
-                nm.notify(WATCHDOG_NOTIF_ID, notif)
-                shizukuDeadNotified = true
-            }
-        } catch (t: Throwable) {
-            Log.w("NemotronApp", "No se pudo notificar muerte de Shizuku", t)
+            privilegedFeaturesInitialized.set(false)
+            Log.e("NemotronApp", "Root feature initialization failed", t)
         }
     }
 
     companion object {
         lateinit var instance: NemotronApp
             private set
-        private val intentFilter = IntentFilter(NotificationManager.ACTION_INTERRUPTION_FILTER_CHANGED)
-        private const val WATCHDOG_CHANNEL = "nemotron_shizuku_watchdog"
-        private const val WATCHDOG_NOTIF_ID = 9022
     }
 }

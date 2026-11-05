@@ -19,9 +19,8 @@ import androidx.core.content.ContextCompat
 import com.nemotron.voiceime.R
 import com.nemotron.voiceime.data.SecureStore
 import com.nemotron.voiceime.dhizuku.AppPickerActivity
-import com.nemotron.voiceime.dhizuku.ShizukuManager
+import com.nemotron.voiceime.dhizuku.RootShellManager
 import com.nemotron.voiceime.dhizuku.RootAccessManager
-import rikka.shizuku.Shizuku
 import com.nemotron.voiceime.databinding.ActivityMainBinding
 
 class SetupActivity : AppCompatActivity() {
@@ -45,70 +44,44 @@ class SetupActivity : AppCompatActivity() {
 
         setUpButtons()
         setUpAutoFreeze()
-        setUpShizuku()
         setUpRootAccess()
     }
 
     private fun setUpRootAccess() {
-        b.btnRootPermission.setOnClickListener {
-            b.btnRootPermission.isEnabled = false
-            b.tvRootStatus.text = "Waiting for KernelSU approval…"
+        refreshRootStatus()
+        b.btnKernelSUPermission.setOnClickListener {
+            b.btnKernelSUPermission.isEnabled = false
+            b.tvKernelSUStatus.text = "Waiting for KernelSU approval…"
             Thread {
                 val result = RootAccessManager.requestAccess()
                 runOnUiThread {
-                    b.btnRootPermission.isEnabled = true
-                    b.tvRootStatus.text = if (result.success) {
+                    b.btnKernelSUPermission.isEnabled = true
+                    b.tvKernelSUStatus.text = if (result.success) {
                         "Root granted to Nemotron (${result.detail})"
                     } else {
                         "Root not granted: ${result.detail}. Approve Nemotron in KernelSU and try again."
                     }
+                    b.tvKernelSUIcon.text = if (result.success) "✓" else "✗"
                 }
             }.start()
         }
     }
 
-    private fun setUpShizuku() {
-        refreshShizukuStatus()
-
-        b.btnShizukuPermission.setOnClickListener {
-            if (!ShizukuManager.isAvailable()) {
-                Toast.makeText(this, "Shizuku unavailable: open the Shizuku app and start the server", Toast.LENGTH_LONG).show()
-                return@setOnClickListener
+    private fun refreshRootStatus() {
+        b.tvKernelSUStatus.text = "Checking KernelSU root access…"
+        Thread {
+            val granted = RootAccessManager.hasRootAccess()
+            runOnUiThread {
+                b.tvKernelSUIcon.text = if (granted) "✓" else "✗"
+                b.tvKernelSUIcon.setBackgroundColor(
+                    ContextCompat.getColor(this, if (granted) R.color.status_ok else R.color.status_bad)
+                )
+                b.tvKernelSUIcon.setTextColor(Color.WHITE)
+                b.tvKernelSUStatus.text = if (granted) "KernelSU root authorized ✓" else
+                    "KernelSU root not authorized: tap Request root access"
+                b.btnKernelSUPermission.text = if (!granted) "Request KernelSU root access" else "Verify KernelSU root access"
             }
-            // Forzar diálogo siempre para que aparezca en lista de Authorized apps
-            val listener = Shizuku.OnRequestPermissionResultListener { _, grantResult ->
-                runOnUiThread {
-                    val granted = grantResult == PackageManager.PERMISSION_GRANTED
-                    Toast.makeText(
-                        this,
-                        if (granted) "Shizuku authorized ✓ (it should now appear in the list)" else "Shizuku denied: freeze/doze will not work",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                    refreshShizukuStatus()
-                }
-            }
-            Shizuku.addRequestPermissionResultListener(listener)
-            ShizukuManager.requestPermission()
-        }
-    }
-
-    private fun refreshShizukuStatus() {
-        val available = ShizukuManager.isAvailable()
-        val granted = ShizukuManager.hasPermission()
-        val icon = if (granted) "✓" else if (available) "○" else "✗"
-        val text = when {
-            !available -> "Shizuku is not running: open Shizuku and tap \"Start\""
-            !granted -> "Shizuku is running without permission: tap \"Request permission\""
-            else -> "Shizuku authorized ✓"
-        }
-        b.tvShizukuIcon.text = icon
-        b.tvShizukuIcon.setBackgroundColor(
-            ContextCompat.getColor(this, if (granted) R.color.status_ok else if (available) R.color.status_bad else R.color.status_bad)
-        )
-        b.tvShizukuIcon.setTextColor(Color.WHITE)
-        b.tvShizukuStatus.text = text
-        b.btnShizukuPermission.text = if (!granted) "Request Shizuku permission" else "Request Shizuku permission again"
-        b.btnShizukuPermission.isEnabled = available
+        }.start()
     }
 
     private fun setUpButtons() {
@@ -168,7 +141,7 @@ class SetupActivity : AppCompatActivity() {
         refreshAutoFreezeStatus()
 
         b.switchAutoFreeze.setOnCheckedChangeListener { _, isChecked ->
-            if (isChecked) ShizukuManager.requestPermission()
+            if (isChecked) RootShellManager.requestPermission()
             SecureStore.setAutoFreezeEnabled(this, isChecked)
             updateAutoFreezeIcon(isChecked)
             refreshAutoFreezeStatus()
@@ -196,7 +169,7 @@ class SetupActivity : AppCompatActivity() {
 
         b.switchAutoFreezeDoze.isChecked = SecureStore.isAutoFreezeDozeEnabled(this)
         b.switchAutoFreezeDoze.setOnCheckedChangeListener { _, isChecked ->
-            if (isChecked) ShizukuManager.requestPermission()
+            if (isChecked) RootShellManager.requestPermission()
             SecureStore.setAutoFreezeDozeEnabled(this, isChecked)
         }
 
@@ -232,7 +205,7 @@ class SetupActivity : AppCompatActivity() {
         super.onResume()
         refreshStatus()
         refreshAutoFreezeStatus()
-        refreshShizukuStatus()
+        refreshRootStatus()
     }
 
     private fun refreshStatus() {
@@ -382,16 +355,16 @@ class SetupActivity : AppCompatActivity() {
     private fun launchAppShortcut() {
         val targetPackage = "com.ceti.escolomos"
         val targetActivity = "com.ceti.escolomos.MainActivity"
-        // Shizuku: am start funciona aunque la app esté oculta/congelada.
-        if (ShizukuManager.hasPermission()) {
+        // Root: am start works even when the app is hidden/frozen.
+        if (RootShellManager.hasPermission()) {
             Thread {
-                ShizukuManager.launchApp(targetPackage, targetActivity)
+                RootShellManager.launchApp(targetPackage, targetActivity)
             }.start()
         } else {
             runOnUiThread {
                 Toast.makeText(
                     this,
-                    "Grant Shizuku permission to open frozen apps",
+                    "Grant KernelSU root access to open frozen apps",
                     Toast.LENGTH_SHORT
                 ).show()
             }

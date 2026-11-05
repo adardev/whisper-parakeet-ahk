@@ -32,7 +32,6 @@ class SettingsActivity : AppCompatActivity() {
             setupHealthPrefs()
             setupWorkoutPowerSaver()
             setupAodTest()
-            setupShizukuWatchdog()
         }
 
         private fun setupWorkoutPowerSaver() {
@@ -44,10 +43,10 @@ class SettingsActivity : AppCompatActivity() {
             pref.onPreferenceChangeListener =
                 androidx.preference.Preference.OnPreferenceChangeListener { _, value ->
                     val enabled = value as? Boolean ?: return@OnPreferenceChangeListener false
-                    if (!com.nemotron.voiceime.dhizuku.ShizukuManager.hasPermission()) {
-                        com.nemotron.voiceime.dhizuku.ShizukuManager.requestPermission()
+                    if (!com.nemotron.voiceime.dhizuku.RootShellManager.hasPermission()) {
+                        com.nemotron.voiceime.dhizuku.RootShellManager.requestPermission()
                         android.widget.Toast.makeText(
-                            ctx, "Concede el permiso de Shizuku y vuelve a activar esta opción.",
+                            ctx, "Concede acceso root de KernelSU y vuelve a activar esta opción.",
                             android.widget.Toast.LENGTH_LONG
                         ).show()
                         return@OnPreferenceChangeListener false
@@ -101,11 +100,11 @@ class SettingsActivity : AppCompatActivity() {
                         requestPermissions(arrayOf(android.Manifest.permission.BLUETOOTH_CONNECT), 2308)
                         return@setOnPreferenceClickListener true
                     }
-                    if (!com.nemotron.voiceime.dhizuku.ShizukuManager.hasPermission()) {
-                        com.nemotron.voiceime.dhizuku.ShizukuManager.requestPermission()
+                    if (!com.nemotron.voiceime.dhizuku.RootShellManager.hasPermission()) {
+                        com.nemotron.voiceime.dhizuku.RootShellManager.requestPermission()
                         android.widget.Toast.makeText(
                             ctx,
-                            "Concede el permiso de Shizuku y vuelve a pulsar.",
+                            "Concede acceso root de KernelSU y vuelve a pulsar.",
                             android.widget.Toast.LENGTH_LONG
                         ).show()
                         return@setOnPreferenceClickListener true
@@ -153,27 +152,6 @@ class SettingsActivity : AppCompatActivity() {
                     }
                     com.nemotron.voiceime.health.HealthTransferService.start(ctx)
                     android.widget.Toast.makeText(ctx, "Uploading Samsung Health data to Firebase...", android.widget.Toast.LENGTH_LONG).show()
-                    true
-                }
-        }
-
-        private fun setupShizukuWatchdog() {
-            val ctx = context ?: return
-            val pref = preferenceScreen.findPreference<androidx.preference.EditTextPreference>(
-                "shizuku_start_auth_token"
-            ) ?: return
-            // Do not let PreferenceManager persist this credential in plaintext.
-            pref.isPersistent = false
-            pref.text = SecureStore.getShizukuStartAuthToken(ctx)
-            pref.summaryProvider = androidx.preference.Preference.SummaryProvider<androidx.preference.EditTextPreference> {
-                if (SecureStore.getShizukuStartAuthToken(ctx).isBlank())
-                    "Not configured · required for silent background restart"
-                else
-                    "Configured securely · restart only while Android Auto tile is on"
-            }
-            pref.onPreferenceChangeListener =
-                androidx.preference.Preference.OnPreferenceChangeListener { _, value ->
-                    SecureStore.setShizukuStartAuthToken(ctx, value as? String ?: "")
                     true
                 }
         }

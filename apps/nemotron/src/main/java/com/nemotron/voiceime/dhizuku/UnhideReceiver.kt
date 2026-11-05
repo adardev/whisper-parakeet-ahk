@@ -10,8 +10,8 @@ class UnhideReceiver : BroadcastReceiver() {
         val pkg = intent.getStringExtra("package") ?: return
         Log.d("UnhideReceiver", "unhide: $pkg")
         Thread {
-            if (ShizukuManager.hasPermission()) {
-                val result = ShizukuManager.unhideApp(pkg)
+            if (RootShellManager.hasPermission()) {
+                val result = RootShellManager.unhideApp(pkg)
                 Log.d("UnhideReceiver", "result: $result")
             }
         }.start()

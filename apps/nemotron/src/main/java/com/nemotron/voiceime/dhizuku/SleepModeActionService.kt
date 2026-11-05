@@ -51,10 +51,10 @@ class SleepModeActionService : Service() {
         requestedEnabled = enabled
         worker.execute {
             try {
-                // The Shizuku provider binds asynchronously on a cold start.
+                // The KernelSU provider binds asynchronously on a cold start.
                 // Wait only for this action; no watchdog or background loop.
                 val deadline = SystemClock.elapsedRealtime() + 5_000L
-                while (!ShizukuManager.hasPermission() && SystemClock.elapsedRealtime() < deadline) {
+                while (!RootShellManager.hasPermission() && SystemClock.elapsedRealtime() < deadline) {
                     Thread.sleep(100)
                 }
                 // Carry the target chosen at the tap, rather than evaluating

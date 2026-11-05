@@ -30,7 +30,7 @@ import android.view.inputmethod.InputConnection
 import androidx.core.app.NotificationCompat
 import com.nemotron.voiceime.R
 import com.nemotron.voiceime.data.SecureStore
-import com.nemotron.voiceime.dhizuku.ShizukuManager
+import com.nemotron.voiceime.dhizuku.RootShellManager
 
 class VoiceRecordService : Service() {
 
@@ -242,7 +242,7 @@ class VoiceRecordService : Service() {
         }
         cb.setPrimaryClip(clip)
         main.postDelayed({
-            ShizukuManager.pasteText(this, finalText)
+            RootShellManager.pasteText(this, finalText)
             cleanup()
         }, 100)
     }

@@ -5,7 +5,7 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.util.Log
 import com.nemotron.voiceime.dhizuku.AutoFreezeScreenReceiver
-import com.nemotron.voiceime.dhizuku.ShizukuManager
+import com.nemotron.voiceime.dhizuku.RootShellManager
 
 object AutoFreezeScheduler {
 

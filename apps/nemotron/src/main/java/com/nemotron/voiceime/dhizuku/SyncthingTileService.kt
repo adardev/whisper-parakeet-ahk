@@ -38,24 +38,31 @@ class SyncthingTileService : TileService() {
         super.onClick()
         Log.d(TAG, "onClick: Syncthing")
 
-        if (!ShizukuManager.hasPermission()) {
-            Log.w(TAG, "Shizuku permission not granted")
+        if (!RootShellManager.hasPermission()) {
+            Log.w(TAG, "KernelSU permission not granted")
             return
         }
 
-        val frozen = targetPackages.any { ShizukuManager.isAppHidden(it) }
-        Log.d(TAG, "Currently frozen: $frozen")
-
         Thread {
-            targetPackages.forEach { pkg ->
-                if (frozen) {
-                    ShizukuManager.unhideApp(pkg)
-                } else {
-                    ShizukuManager.hideApp(pkg)
-                    ShizukuManager.stopApp(pkg)
+            try {
+                val hidden = RootShellManager.getHiddenPackages(targetPackages)
+                if (hidden == null) {
+                    Log.w(TAG, "Could not query hidden package state")
+                    return@Thread
                 }
+                val frozen = targetPackages.any { it in hidden }
+                Log.d(TAG, "Currently hidden: $hidden")
+                targetPackages.forEach { pkg ->
+                    if (frozen && pkg in hidden) {
+                        RootShellManager.unhideApp(pkg)
+                    } else if (!frozen && pkg !in hidden) {
+                        RootShellManager.hideApp(pkg)
+                        RootShellManager.stopApp(pkg)
+                    }
+                }
+            } finally {
+                handler.post { try { updateTileState() } catch (_: Throwable) {} }
             }
-            handler.post { try { updateTileState() } catch (_: Throwable) {} }
         }.start()
     }
 
@@ -64,12 +71,20 @@ class SyncthingTileService : TileService() {
         val tile = qsTile ?: return
         tile.label = "Syncthing"
         tile.icon = Icon.createWithResource(this, R.drawable.ic_syncthing_tile)
-        tile.state = if (targetPackages.any { ShizukuManager.isAppHidden(it) }) {
-            Tile.STATE_INACTIVE
-        } else {
-            Tile.STATE_ACTIVE
-        }
+        tile.state = Tile.STATE_UNAVAILABLE
         tile.updateTile()
+        Thread {
+            val hidden = RootShellManager.getHiddenPackages(targetPackages)
+            handler.post {
+                val current = qsTile ?: return@post
+                current.state = when {
+                    hidden == null -> Tile.STATE_UNAVAILABLE
+                    targetPackages.any { it in hidden } -> Tile.STATE_INACTIVE
+                    else -> Tile.STATE_ACTIVE
+                }
+                current.updateTile()
+            }
+        }.start()
     }
 
     companion object {

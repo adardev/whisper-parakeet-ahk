@@ -43,10 +43,6 @@ abstract class AppFreezeTileService : TileService() {
         super.onClick()
         Log.d(TAG, "onClick: $tileLabel ($targetPackage)")
 
-        if (!ShizukuManager.hasPermission()) {
-            Log.w(TAG, "Shizuku permission not granted")
-            return
-        }
         if (!clickInProgress.compareAndSet(false, true)) {
             Log.w(TAG, "Ignorado toque duplicado mientras $tileLabel sigue procesando")
             return
@@ -60,12 +56,16 @@ abstract class AppFreezeTileService : TileService() {
 
         Thread {
             try {
-                val disabled = ShizukuManager.getDisabledPackages()
+                if (!RootShellManager.requestPermission()) {
+                    Log.w(TAG, "KernelSU root is not authorized")
+                    return@Thread
+                }
+                val hiddenPackages = RootShellManager.getHiddenPackages(targetPackages)
                     ?: throw IllegalStateException("No se pudo consultar el estado de $tileLabel")
-                Log.d(TAG, "Currently frozen: $disabled")
-                val anyFrozen = targetPackages.any { it in disabled }
+                Log.d(TAG, "Currently hidden: $hiddenPackages")
+                val anyFrozen = targetPackages.any { it in hiddenPackages }
                 if (anyFrozen || alwaysUnfreezeOnClick) {
-                    val allEnabled = targetPackages.all { pkg -> ShizukuManager.unhideApp(pkg) }
+                    val allEnabled = targetPackages.all { pkg -> RootShellManager.unhideApp(pkg) }
                     if (allEnabled) {
                         publishTileState(granted = true, hidden = false)
                         onAfterUnfreeze()
@@ -88,9 +88,9 @@ abstract class AppFreezeTileService : TileService() {
                     if (beforeFreezeDelayMs > 0) Thread.sleep(beforeFreezeDelayMs)
                     var allHidden = true
                     for (pkg in targetPackages) {
-                        val hidden = ShizukuManager.hideApp(pkg)
+                        val hidden = RootShellManager.hideApp(pkg)
                         allHidden = allHidden && hidden
-                        val stopped = ShizukuManager.stopApp(pkg)
+                        val stopped = RootShellManager.stopApp(pkg)
                         Log.i(TAG, "$tileLabel: $pkg disabled=$hidden forceStopped=$stopped")
                     }
                     if (allHidden) {
@@ -129,22 +129,23 @@ abstract class AppFreezeTileService : TileService() {
 
     /** Override when a tile controls a group of packages rather than one app. */
     open fun isTileFrozen(): Boolean {
-        val disabled = ShizukuManager.getDisabledPackages()
+        val hidden = RootShellManager.getHiddenPackages(targetPackages)
             ?: throw IllegalStateException("No se pudo consultar el estado de $tileLabel")
-        return targetPackages.any { it in disabled }
+        return targetPackages.any { it in hidden }
     }
 
     @SuppressLint("MissingPermission")
     private fun updateTileState() {
         if (qsTile == null) return
-        // isAppHidden puede tardar hasta el timeout si el shell persistente está
-        // roto (Shizuku muerto al conectar al coche/bloquear pantalla). Hacerlo
+        // isAppHidden puede tardar hasta el timeout si la shell persistente está
+        // roto (KernelSU muerto al conectar al coche/bloquear pantalla). Hacerlo
         // en background evita que el main thread se congele y ANR.
         if (!tileRefreshInProgress.compareAndSet(false, true)) return
         Thread({
             try {
-                val hidden = try { isTileFrozen() } catch (_: Throwable) { false }
-                val granted = ShizukuManager.hasPermission()
+                val state = runCatching { isTileFrozen() }
+                val hidden = state.getOrDefault(false)
+                val granted = RootShellManager.hasTilePermission() && state.isSuccess
                 try { onTileState(granted, hidden) } catch (_: Throwable) {}
                 handler.post {
                     try {

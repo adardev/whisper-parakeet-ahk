@@ -40,14 +40,6 @@
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.NemotronVoiceIME">
 
-        <provider
-            android:name="rikka.shizuku.ShizukuProvider"
-            android:authorities="${applicationId}.shizuku"
-            android:multiprocess="false"
-            android:enabled="true"
-            android:exported="true"
-            android:permission="android.permission.INTERACT_ACROSS_USERS_FULL" />
-
         <!-- ============================================================== -->
         <!--  MainActivity: destino invisible del doble toque del botón lateral. -->
         <!-- ============================================================== -->
@@ -185,12 +177,6 @@
                 android:value="Apply a user-requested or nightly sleep action and bounded watch BLE settings transfer" />
         </service>
 
-        <service android:name=".dhizuku.AndroidAutoShizukuWatchdogService"
-            android:exported="false" android:foregroundServiceType="specialUse">
-            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
-                android:value="Keep the Shizuku binder-death recovery listener active only while the Android Auto quick setting tile is enabled" />
-        </service>
-
         <service
             android:name=".dhizuku.HealthWorkoutPowerSaverListener"
             android:label="Samsung Health workout battery saver"
@@ -240,6 +226,7 @@
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
             </intent-filter>
         </service>
+
 
         <service
             android:name=".dhizuku.TelegramTileService"
@@ -309,7 +296,7 @@
             </intent-filter>
         </service>
 
-        <!-- Fit3: sync Health, repair Health Connect grants with Shizuku, and pause only the plugin. -->
+        <!-- Fit3: sync Health, repair Health Connect grants with root, and pause only the plugin. -->
         <service
             android:name=".dhizuku.Fit3TileService"
             android:exported="true"

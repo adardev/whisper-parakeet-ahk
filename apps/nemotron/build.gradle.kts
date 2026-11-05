@@ -60,8 +60,6 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-parcelize-runtime:1.9.24")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("com.squareup.okhttp3:okhttp-sse:4.12.0")
-    implementation("dev.rikka.shizuku:api:13.1.5")
-    implementation("dev.rikka.shizuku:provider:13.1.5")
     // Samsung Health Data SDK v1.1.0 (AAR oficial en app/libs)
     implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.aar"))))
 }

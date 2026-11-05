@@ -125,9 +125,9 @@ object ConnectionExclusionManager {
     }
 
     private fun exec(vararg args: String) {
-        if (!ShizukuManager.hasPermission()) return
+        if (!RootShellManager.hasPermission()) return
         Log.d(TAG, "ejecutando: ${args.joinToString(" ")}")
-        ShizukuManager.execShellFresh(arrayOf(*args))
+        RootShellManager.execShellFresh(arrayOf(*args))
     }
 
     private fun isWifiOn(ctx: Context): Boolean = try {

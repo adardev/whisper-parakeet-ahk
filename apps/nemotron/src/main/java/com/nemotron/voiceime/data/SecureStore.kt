@@ -31,7 +31,6 @@ object SecureStore {
     private const val KEY_AUTO_AA_ENABLED = "auto_android_auto_enabled"
     private const val KEY_AUTO_AA_WAS_UNFROZE = "auto_android_auto_was_unfroze"
     private const val KEY_AA_TILE_ON = "android_auto_tile_on"
-    private const val KEY_SHIZUKU_START_AUTH_TOKEN = "shizuku_start_auth_token"
     private const val KEY_FIREBASE_API_KEY = "firebase_api_key"
     private const val KEY_FIREBASE_DATABASE_URL = "firebase_database_url"
     private const val KEY_FIREBASE_REFRESH_TOKEN = "firebase_refresh_token"
@@ -367,7 +366,7 @@ object SecureStore {
         plainPrefs(ctx).edit().putBoolean(KEY_AUTO_AA_WAS_UNFROZE, was).apply()
     }
 
-    // ── Watchdog de Shizuku ligado al tile de Android Auto ───────────────
+    // ── Android Auto tile state ──────────────────────────────────────────
 
     /** True mientras el tile de Android Auto esté encendido (AA activo). */
     fun isAndroidAutoTileOn(ctx: Context): Boolean =
@@ -375,14 +374,6 @@ object SecureStore {
 
     fun setAndroidAutoTileOn(ctx: Context, on: Boolean) {
         plainPrefs(ctx).edit().putBoolean(KEY_AA_TILE_ON, on).apply()
-    }
-
-    /** Token shown by the Shizuku fork's View intents screen; keep it encrypted. */
-    fun getShizukuStartAuthToken(ctx: Context): String =
-        securePrefs(ctx).getString(KEY_SHIZUKU_START_AUTH_TOKEN, "").orEmpty()
-
-    fun setShizukuStartAuthToken(ctx: Context, token: String) {
-        securePrefs(ctx).edit().putString(KEY_SHIZUKU_START_AUTH_TOKEN, token.trim()).apply()
     }
 
     fun syncFromPrefs(ctx: Context, publicPrefs: SharedPreferences) {

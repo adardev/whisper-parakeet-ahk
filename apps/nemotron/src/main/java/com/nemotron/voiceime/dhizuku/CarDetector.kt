@@ -30,22 +30,22 @@ object CarDetector {
 
     /** True si el coche está conectado según cualquier señal disponible. */
     fun isCarConnected(): Boolean =
-        carConnected || ShizukuManager.isAndroidAutoActive()
+        carConnected || RootShellManager.isAndroidAutoActive()
 
     fun setCarConnected(connected: Boolean) {
         carConnected = connected
         Log.d(TAG, "car state = $connected")
     }
 
-    /** Re-deriva el estado al arrancar el proceso o al volver Shizuku. */
+    /** Re-deriva el estado al arrancar el proceso o al volver KernelSU. */
     fun refresh(ctx: Context) {
-        val hasPermission = ShizukuManager.hasPermission()
+        val hasPermission = RootShellManager.hasPermission()
         val now = SystemClock.elapsedRealtime()
         synchronized(refreshLock) {
             if (refreshInFlight) return
             // onCreate, binderReceived and the delayed recovery callback can
             // all request this refresh during one startup. Re-query at most
-            // every 30 s, but allow a fresh query when Shizuku becomes ready.
+            // every 30 s, but allow a fresh query when KernelSU becomes ready.
             if (now - lastRefreshAt < REFRESH_COOLDOWN_MS &&
                 (lastRefreshHadPermission || !hasPermission)) return
             refreshInFlight = true
@@ -59,7 +59,7 @@ object CarDetector {
                 connected = um?.accessoryList?.isNotEmpty() == true
             } catch (_: Throwable) {}
             try {
-                if (!connected && hasPermission) connected = ShizukuManager.isAndroidAutoActive()
+                if (!connected && hasPermission) connected = RootShellManager.isAndroidAutoActive()
                 carConnected = connected
                 Log.d(TAG, "refreshed car state = $carConnected")
             } finally {

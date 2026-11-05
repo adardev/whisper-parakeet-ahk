@@ -21,17 +21,17 @@ object DnsEnforcer {
     private var lastEnforceAt = 0L
 
     fun enforce(context: Context): Boolean {
-        if (!SecureStore.isDnsEnforcerEnabled(context) || !ShizukuManager.hasPermission()) return false
+        if (!SecureStore.isDnsEnforcerEnabled(context) || !RootShellManager.hasPermission()) return false
         val hostname = SecureStore.getDnsHostname(context)
         if (!HOSTNAME.matches(hostname)) {
             Log.w(TAG, "DNS hostname rejected: $hostname")
             return false
         }
-        val mode = ShizukuManager.execShellCapture("settings get global private_dns_mode").orEmpty()
-        val current = ShizukuManager.execShellCapture("settings get global private_dns_specifier").orEmpty()
+        val mode = RootShellManager.execShellCapture("settings get global private_dns_mode").orEmpty()
+        val current = RootShellManager.execShellCapture("settings get global private_dns_specifier").orEmpty()
         if (mode.trim() == "hostname" && current.trim() == hostname) return true
 
-        val result = ShizukuManager.execShellCapture(
+        val result = RootShellManager.execShellCapture(
             "settings put global private_dns_mode hostname; " +
                 "settings put global private_dns_specifier '$hostname'; " +
                 "settings get global private_dns_mode; " +
@@ -40,7 +40,7 @@ object DnsEnforcer {
         val changed = result.takeLast(2) == listOf("hostname", hostname)
         if (changed) {
             Log.i(TAG, "Private DNS restaurado a $hostname")
-            ShizukuManager.stopApp(SETTINGS_PACKAGE)
+            RootShellManager.stopApp(SETTINGS_PACKAGE)
         } else {
             Log.w(TAG, "No se pudo confirmar el DNS protegido: $result")
         }

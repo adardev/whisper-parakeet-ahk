@@ -34,7 +34,7 @@ object AirplaneModeSchedule {
         scheduleDaily(context, 23, 0, true, REQUEST_ENABLE, "activación")
     }
 
-    /** One bounded retry handles a transient Shizuku or BLE failure. */
+    /** One bounded retry handles a transient KernelSU or BLE failure. */
     fun scheduleRetry(context: Context, enabled: Boolean) {
         val alarmManager = context.getSystemService(AlarmManager::class.java) ?: return
         if (!enabled) {
@@ -94,9 +94,9 @@ object AirplaneModeSchedule {
 
     private fun scheduleAlarm(alarmManager: AlarmManager, context: Context, at: Long, alarm: PendingIntent) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-            !alarmManager.canScheduleExactAlarms() && ShizukuManager.hasPermission()) {
-            // Shizuku shell can grant the alarm app-op without sending the user through Settings.
-            ShizukuManager.execShellFresh(
+            !alarmManager.canScheduleExactAlarms() && RootShellManager.hasPermission()) {
+            // KernelSU shell can grant the alarm app-op without sending the user through Settings.
+            RootShellManager.execShellFresh(
                 arrayOf("cmd", "appops", "set", context.packageName, "SCHEDULE_EXACT_ALARM", "allow")
             )
         }

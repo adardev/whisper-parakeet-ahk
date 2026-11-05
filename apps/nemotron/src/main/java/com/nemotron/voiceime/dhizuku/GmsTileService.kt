@@ -9,14 +9,14 @@ class GmsTileService : AppFreezeTileService() {
     override val tileIconRes: Int = R.drawable.ic_dolby_tile
 
     override fun onAfterFreeze() {
-        ShizukuManager.setAccessibilityServiceEnabled(guardService(this), enabled = true)
-        ShizukuManager.unhideApp(INSTAGRAM_PACKAGE)
+        RootShellManager.setAccessibilityServiceEnabled(guardService(this), enabled = true)
+        RootShellManager.unhideApp(INSTAGRAM_PACKAGE)
     }
 
     override fun onAfterUnfreeze() {
-        ShizukuManager.setAccessibilityServiceEnabled(guardService(this), enabled = false)
-        ShizukuManager.hideApp(INSTAGRAM_PACKAGE)
-        ShizukuManager.stopApp(INSTAGRAM_PACKAGE)
+        RootShellManager.setAccessibilityServiceEnabled(guardService(this), enabled = false)
+        RootShellManager.hideApp(INSTAGRAM_PACKAGE)
+        RootShellManager.stopApp(INSTAGRAM_PACKAGE)
     }
 
     companion object {

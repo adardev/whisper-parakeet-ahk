@@ -16,14 +16,14 @@ class WatchManagerTileService : AppFreezeTileService() {
     /** Clear Package Manager's force-stop bit and turn Bluetooth on for reconnect. */
     override fun onAfterUnfreeze() {
         val pkg = targetPackage
-        if (!ShizukuManager.unstopApp(pkg)) {
+        if (!RootShellManager.unstopApp(pkg)) {
             android.util.Log.e("WatchManagerTile", "No se pudo quitar force-stop de $pkg")
         }
-        val bluetooth = ShizukuManager.execShellFresh(
+        val bluetooth = RootShellManager.execShellFresh(
             arrayOf("settings", "get", "global", "bluetooth_on"), timeoutMs = 2_000L
         )?.trim()
         if (bluetooth == "0") {
-            ShizukuManager.execShellFresh(
+            RootShellManager.execShellFresh(
                 arrayOf("cmd", "bluetooth_manager", "enable"), timeoutMs = 3_000L
             )
         }

@@ -86,7 +86,7 @@ class AppPickerActivity : AppCompatActivity() {
 
         Thread {
             val installed = if (mode == MODE_STOP_SERVICES) {
-                val running = ShizukuManager.getRunningServices()
+                val running = RootShellManager.getRunningServices()
                 val serviceComponents = (running.map { it.component } + selectedServices).distinct()
                 serviceComponents.mapNotNull { component ->
                     val pkg = component.substringBefore('/')
@@ -152,7 +152,7 @@ class AppPickerActivity : AppCompatActivity() {
                 SecureStore.setFrozenApps(this, selectedPackages)
                 Thread {
                     for (pkg in selectedPackages) {
-                        ShizukuManager.hideApp(pkg)
+                        RootShellManager.hideApp(pkg)
                     }
                 }.start()
             }

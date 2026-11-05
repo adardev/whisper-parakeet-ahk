@@ -17,23 +17,23 @@ internal object SamsungFit3Handoff {
 
     @Synchronized
     fun <T> run(context: Context, action: () -> T): T {
-        check(ShizukuManager.hasPermission()) { "Shizuku no está autorizado" }
+        check(RootShellManager.hasPermission()) { "KernelSU no está autorizado" }
         check(recoverIfNeeded(context)) { "No se pudo restaurar la conexión Samsung anterior" }
         val preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        val disabled = ShizukuManager.getDisabledPackages()
+        val hidden = RootShellManager.getHiddenPackages(listOf(ACCESSORY))
             ?: error("No se pudo consultar Samsung Accessory")
         try {
-            if (ACCESSORY !in disabled) {
+            if (ACCESSORY !in hidden) {
                 check(preferences.edit().putBoolean(RESTORE_ACCESSORY, true).commit())
-                check(ShizukuManager.hideApp(ACCESSORY)) { "No se pudo ceder la sesión SAP de Samsung" }
-                ShizukuManager.execShellFresh(arrayOf("am", "force-stop", "--user", "0", ACCESSORY))
+                check(RootShellManager.hideApp(ACCESSORY)) { "No se pudo ceder la sesión SAP de Samsung" }
+                RootShellManager.execShellFresh(arrayOf("am", "force-stop", "--user", "0", ACCESSORY))
                 // The GATT client belongs to Accessory, not Fit3 Plugin. Leave
                 // the plugin and Wearable running throughout this exchange.
                 Thread.sleep(2_000L)
             }
             if (!bluetoothEnabled(context)) {
                 check(preferences.edit().putBoolean(RESTORE_BLUETOOTH_OFF, true).commit())
-                ShizukuManager.execShellFresh(arrayOf("cmd", "bluetooth_manager", "enable"))
+                RootShellManager.execShellFresh(arrayOf("cmd", "bluetooth_manager", "enable"))
                 check(waitForBluetooth(context, true)) { "Bluetooth no se encendió para contactar Fit3" }
             }
             Log.i(TAG, "Sesión Samsung cedida; Fit3 Plugin no se modifica")
@@ -43,30 +43,30 @@ internal object SamsungFit3Handoff {
         }
     }
 
-    /** Also called after a process restart with Shizuku ready. No periodic work. */
+    /** Also called after a process restart with KernelSU ready. No periodic work. */
     @Synchronized
     fun recoverIfNeeded(context: Context): Boolean {
         val preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val accessoryPending = preferences.getBoolean(RESTORE_ACCESSORY, false)
         val bluetoothPending = preferences.getBoolean(RESTORE_BLUETOOTH_OFF, false)
         if (!accessoryPending && !bluetoothPending) return true
-        if (!ShizukuManager.hasPermission()) return false
+        if (!RootShellManager.hasPermission()) return false
         var restored = true
         if (bluetoothPending) {
             // Restore an originally off adapter, unless another peripheral
             // connected during this brief exchange.
             val keepBluetooth = hasOtherConnectedDevices(context)
             if (!keepBluetooth && bluetoothEnabled(context)) {
-                ShizukuManager.execShellFresh(arrayOf("cmd", "bluetooth_manager", "disable"))
+                RootShellManager.execShellFresh(arrayOf("cmd", "bluetooth_manager", "disable"))
             }
             if (keepBluetooth || !bluetoothEnabled(context) || waitForBluetooth(context, false)) {
                 preferences.edit().remove(RESTORE_BLUETOOTH_OFF).commit()
             } else restored = false
         }
         if (accessoryPending) {
-            val enabled = ShizukuManager.unhideApp(ACCESSORY) && ShizukuManager.unstopApp(ACCESSORY)
+            val enabled = RootShellManager.unhideApp(ACCESSORY) && RootShellManager.unstopApp(ACCESSORY)
             if (enabled) {
-                val result = ShizukuManager.execShellFresh(arrayOf(
+                val result = RootShellManager.execShellFresh(arrayOf(
                     "am", "startservice", "--user", "0", "-n",
                     "$ACCESSORY/.services.SAFrameworkService", "-a",
                     "com.samsung.accessory.api.ISAGenFrameworkManager"

@@ -15,11 +15,11 @@ class TelegramTileService : AppFreezeTileService() {
 
     private val mainHandler = Handler(Looper.getMainLooper())
 
-    /** Open Termux and type the SSH command through Shizuku's shell input events. */
+    /** Open Termux and type the SSH command through KernelSU's shell input events. */
     override fun onAfterUnfreeze() {
         // Quick Settings can stay above the launched activity when the tile is
         // tapped. Collapse it first so input events go to Termux, not the shade.
-        ShizukuManager.execShellFresh(arrayOf("cmd", "statusbar", "collapse"))
+        RootShellManager.execShellFresh(arrayOf("cmd", "statusbar", "collapse"))
         try {
             Thread.sleep(300L)
         } catch (error: InterruptedException) {
@@ -28,7 +28,7 @@ class TelegramTileService : AppFreezeTileService() {
             return
         }
 
-        val launch = ShizukuManager.execShellFresh(
+        val launch = RootShellManager.execShellFresh(
             arrayOf("am", "start", "-W", "-n", "$TERMUX_PACKAGE/$TERMUX_ACTIVITY")
         )
         if (launch == null || launch.contains("Error", ignoreCase = true)) {
@@ -41,7 +41,7 @@ class TelegramTileService : AppFreezeTileService() {
             // Wait for both the activity focus and Termux's terminal input view.
             var focused = false
             for (attempt in 0 until 12) {
-                val currentFocus = ShizukuManager.execShellFresh(
+                val currentFocus = RootShellManager.execShellFresh(
                     arrayOf("sh", "-c", "dumpsys window | grep -m 1 mCurrentFocus")
                 ).orEmpty()
                 if (currentFocus.contains("com.termux", ignoreCase = true)) {
@@ -57,7 +57,7 @@ class TelegramTileService : AppFreezeTileService() {
             }
             Thread.sleep(1_000L)
 
-            val typed = ShizukuManager.execShellFresh(
+            val typed = RootShellManager.execShellFresh(
                 arrayOf("input", "text", SSH_COMMAND_FOR_INPUT)
             )
             if (typed == null || typed.contains("Error", ignoreCase = true)) {
@@ -67,7 +67,7 @@ class TelegramTileService : AppFreezeTileService() {
             }
 
             Thread.sleep(1_250L)
-            val entered = ShizukuManager.execShellFresh(arrayOf("input", "keyevent", "66"))
+            val entered = RootShellManager.execShellFresh(arrayOf("input", "keyevent", "66"))
             if (entered == null) {
                 Log.e(TAG, "No se pudo pulsar Enter en Termux")
                 showError("No se pudo ejecutar el comando en Termux")

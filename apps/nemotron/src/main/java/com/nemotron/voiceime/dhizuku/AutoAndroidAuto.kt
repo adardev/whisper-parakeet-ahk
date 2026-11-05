@@ -21,17 +21,17 @@ object AutoAndroidAuto {
     fun onCarConnected(ctx: Context) {
         if (!SecureStore.isAutoAndroidAutoEnabled(ctx)) return
         Thread {
-            if (!ShizukuManager.hasPermission()) {
-                Log.w(TAG, "coche conectado pero Shizuku no disponible; se reintentará al volver")
+            if (!RootShellManager.hasPermission()) {
+                Log.w(TAG, "coche conectado pero KernelSU no disponible; se reintentará al volver")
                 return@Thread
             }
-            ShizukuManager.setDoubleTapToWake(true)
-            ShizukuManager.setDoubleTapToSleep(true)
-            if (!ShizukuManager.isAppHidden(AA_PACKAGE)) {
+            RootShellManager.setDoubleTapToWake(true)
+            RootShellManager.setDoubleTapToSleep(true)
+            if (!RootShellManager.isAppHidden(AA_PACKAGE)) {
                 Log.d(TAG, "coche conectado, Android Auto ya activo")
                 return@Thread
             }
-            if (ShizukuManager.unhideApp(AA_PACKAGE)) {
+            if (RootShellManager.unhideApp(AA_PACKAGE)) {
                 SecureStore.setAutoAndroidAutoWasUnfroze(ctx, true)
                 Log.i(TAG, "coche conectado → Android Auto descongelado")
             } else {
@@ -44,30 +44,30 @@ object AutoAndroidAuto {
         if (!SecureStore.isAutoAndroidAutoEnabled(ctx)) return
         val wasUnfroze = SecureStore.wasAutoAndroidAutoUnfroze(ctx)
         Thread {
-            if (!ShizukuManager.hasPermission()) return@Thread
-            ShizukuManager.setDoubleTapToWake(false)
-            ShizukuManager.setDoubleTapToSleep(false)
+            if (!RootShellManager.hasPermission()) return@Thread
+            RootShellManager.setDoubleTapToWake(false)
+            RootShellManager.setDoubleTapToSleep(false)
             if (wasUnfroze) {
-                ShizukuManager.hideApp(AA_PACKAGE)
-                ShizukuManager.stopApp(AA_PACKAGE)
+                RootShellManager.hideApp(AA_PACKAGE)
+                RootShellManager.stopApp(AA_PACKAGE)
                 SecureStore.setAutoAndroidAutoWasUnfroze(ctx, false)
                 Log.i(TAG, "coche desconectado → Android Auto congelado de nuevo")
             }
         }.start()
     }
 
-    /** Reconciliar al arrancar/volver Shizuku: si el coche está conectado y
-     *  Android Auto quedó congelado (p.ej. Shizuku murió en el momento exacto
+    /** Reconciliar al arrancar/volver KernelSU: si el coche está conectado y
+     *  Android Auto quedó congelado (p.ej. KernelSU murió en el momento exacto
      *  de conectar), descongelarlo. */
     fun reconcile(ctx: Context) {
         if (!SecureStore.isAutoAndroidAutoEnabled(ctx)) return
         if (!CarDetector.isCarConnected()) return
         Thread {
-            if (!ShizukuManager.hasPermission()) return@Thread
-            ShizukuManager.setDoubleTapToWake(true)
-            ShizukuManager.setDoubleTapToSleep(true)
-            if (ShizukuManager.isAppHidden(AA_PACKAGE)) {
-                if (ShizukuManager.unhideApp(AA_PACKAGE)) {
+            if (!RootShellManager.hasPermission()) return@Thread
+            RootShellManager.setDoubleTapToWake(true)
+            RootShellManager.setDoubleTapToSleep(true)
+            if (RootShellManager.isAppHidden(AA_PACKAGE)) {
+                if (RootShellManager.unhideApp(AA_PACKAGE)) {
                     SecureStore.setAutoAndroidAutoWasUnfroze(ctx, true)
                     Log.i(TAG, "reconcile: coche conectado → Android Auto descongelado")
                 }

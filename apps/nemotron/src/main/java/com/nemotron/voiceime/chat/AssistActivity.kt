@@ -41,8 +41,7 @@ import android.widget.TextView
 import android.widget.ImageView
 import java.io.ByteArrayOutputStream
 import com.nemotron.voiceime.R
-import com.nemotron.voiceime.dhizuku.ShizukuManager
-import rikka.shizuku.Shizuku
+import com.nemotron.voiceime.dhizuku.RootShellManager
 
 class AssistActivity : Activity() {
     private lateinit var panel: View
@@ -295,24 +294,9 @@ class AssistActivity : Activity() {
     }
 
     private fun requestScreenCapture() {
-        if (!ShizukuManager.isAvailable()) {
+        if (!RootShellManager.isAvailable()) {
             status.visibility = View.VISIBLE
-            status.text = "Start Shizuku to capture without screen sharing"
-            return
-        }
-        if (!ShizukuManager.hasPermission()) {
-            status.visibility = View.VISIBLE
-            status.text = "Authorize capture in Shizuku..."
-            lateinit var listener: Shizuku.OnRequestPermissionResultListener
-            listener = Shizuku.OnRequestPermissionResultListener { _, result ->
-                Shizuku.removeRequestPermissionResultListener(listener)
-                runOnUiThread {
-                    if (result == PackageManager.PERMISSION_GRANTED) requestScreenCapture()
-                    else status.text = "Capture permission denied"
-                }
-            }
-            Shizuku.addRequestPermissionResultListener(listener)
-            ShizukuManager.requestPermission()
+            status.text = "Grant KernelSU root access to Nemotron in Setup to capture without screen sharing"
             return
         }
         status.visibility = View.VISIBLE
@@ -323,7 +307,7 @@ class AssistActivity : Activity() {
                 file.delete()
                 // Un proceso nuevo evita que una cola vieja del shell
                 // persistente deje la captura sin escribir.
-                ShizukuManager.execShellFresh(
+                RootShellManager.execShellFresh(
                     arrayOf("screencap", "-p", file.absolutePath),
                     10000L
                 )
@@ -345,7 +329,7 @@ class AssistActivity : Activity() {
                     screenshotPill.visibility = View.GONE
                 }
             } catch (e: Exception) {
-                runOnUiThread { status.text = "Capture failed: ${e.message ?: "Shizuku permission"}" }
+                runOnUiThread { status.text = "Capture failed: ${e.message ?: "KernelSU root access"}" }
             } finally {
                 file.delete()
             }

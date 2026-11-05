@@ -31,8 +31,8 @@ class AssistantSwitchTileService : TileService() {
 
     override fun onClick() {
         super.onClick()
-        if (!ShizukuManager.hasPermission()) {
-            Toast.makeText(this, "Activa Shizuku para alternar el asistente", Toast.LENGTH_LONG).show()
+        if (!RootShellManager.hasPermission()) {
+            Toast.makeText(this, "Autoriza KernelSU root para alternar el asistente", Toast.LENGTH_LONG).show()
             openDefaultAssistantSettings()
             return
         }
@@ -40,9 +40,9 @@ class AssistantSwitchTileService : TileService() {
         qsTile?.state = Tile.STATE_UNAVAILABLE
         qsTile?.updateTile()
         Thread {
-            val current = ShizukuManager.getDefaultAssistantPackage()
+            val current = RootShellManager.getDefaultAssistantPackage()
             val next = if (current == TOOTSIE_PACKAGE) GEMINI_PACKAGE else TOOTSIE_PACKAGE
-            val changed = ShizukuManager.setDefaultAssistantPackage(next)
+            val changed = RootShellManager.setDefaultAssistantPackage(next)
             handler.post {
                 refreshTile()
                 if (!changed) {
@@ -60,7 +60,7 @@ class AssistantSwitchTileService : TileService() {
     @SuppressLint("MissingPermission")
     private fun refreshTile() {
         val tile = qsTile ?: return
-        val current = ShizukuManager.getDefaultAssistantPackage()
+        val current = RootShellManager.getDefaultAssistantPackage()
         tile.label = "Gemini"
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) tile.subtitle = null
         tile.icon = Icon.createWithResource(this, R.drawable.ic_assistant_switch_tile)

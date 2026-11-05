@@ -8,7 +8,7 @@ import android.os.PowerManager
 import android.util.Log
 import com.nemotron.voiceime.data.SecureStore
 import com.nemotron.voiceime.dhizuku.CarDetector
-import com.nemotron.voiceime.dhizuku.ShizukuManager
+import com.nemotron.voiceime.dhizuku.RootShellManager
 
 /**
  * Bloquea la pantalla cuando se activa el modo No Molestar.
@@ -70,15 +70,15 @@ class DndLockReceiver : BroadcastReceiver() {
 
     private fun lockScreenWithRetry() {
         for (attempt in 1..RETRIES) {
-            if (ShizukuManager.hasPermission()) {
-                if (ShizukuManager.lockScreen()) {
+            if (RootShellManager.hasPermission()) {
+                if (RootShellManager.lockScreen()) {
                     Log.i(TAG, "Pantalla bloqueada por No Molestar")
                     disableDnd()
                     return
                 }
                 Log.w(TAG, "lockScreen devolvió false (intento $attempt)")
             } else {
-                Log.w(TAG, "Shizuku no disponible (intento $attempt), reintentando")
+                Log.w(TAG, "KernelSU root no disponible (intento $attempt), reintentando")
             }
             try {
                 Thread.sleep(RETRY_DELAY_MS)
@@ -89,7 +89,7 @@ class DndLockReceiver : BroadcastReceiver() {
     }
 
     private fun disableDnd() {
-        if (ShizukuManager.disableDnd()) {
+        if (RootShellManager.disableDnd()) {
             Log.i(TAG, "No Molestar desactivado tras bloquear")
         } else {
             Log.w(TAG, "No se pudo desactivar No Molestar")

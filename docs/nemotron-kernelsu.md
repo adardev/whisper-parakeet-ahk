@@ -6,10 +6,14 @@ manager. In Setup, the **Request KernelSU root access** button executes only
 does not silently grant itself root. The button reports success only after the
 result identifies UID 0.
 
-The `RootAccessManager` also exposes an argv-based command helper for future
-root-backed Core operations. It quotes each argument before calling
-`/system/bin/su -c`, merges output, and enforces a timeout. It does not change
-existing Shizuku operations or make them run as root automatically.
+After the user grants root, all privileged Nemotron Core operations use
+KernelSU root exclusively. There is no Shizuku provider, binder, permission
+path, or fallback. Fresh commands use an argv-based helper that quotes
+arguments before calling `/system/bin/su -c`, merges output, and enforces a
+timeout. Long file/state operations use a persistent root shell. Quick
+Settings package tiles use `pm hide` and `pm unhide`, then force-stop the
+selected package where appropriate. They do not use `pm disable-user` or
+`pm enable`, so the package's enabled state and grants remain intact.
 
 This is a runtime grant for the Core package only. Nemotron Keyboard and
 Nemotron UI are separate packages and do not receive root from this setting.
@@ -24,3 +28,10 @@ partitions, or DFRoot's boot behavior.
   enabled for this request.
 - The Setup check returned `uid=0(root)` in context `u:r:ksu:s0`.
 - Core debug build completed and was installed through ADB for the check.
+- Device `pm help` exposes `hide` and `unhide`; a direct KernelSU check changed
+  `com.nemotron.keyboard` from `hidden=false` to `hidden=true` and back, while
+  `enabled=1` remained unchanged.
+- An instrumented temporary Quick Settings tile used the app's root backend to
+  hide and unhide the Nemotron Keyboard package. Logs confirmed both
+  `pm hide` (`hidden=true`) and `pm unhide` (`hidden=false`), and both dumps
+  confirmed `enabled=1`. The temporary tile was removed from the release APK.

@@ -31,8 +31,8 @@ object SleepModeController {
 
     private fun applyEnabled(context: Context, enabled: Boolean): Result {
         val wasEnabled = isEnabled(context)
-        if (!ShizukuManager.hasPermission()) {
-            return Result(false, wasEnabled, "Shizuku no está disponible")
+        if (!RootShellManager.hasPermission()) {
+            return Result(false, wasEnabled, "KernelSU no está disponible")
         }
 
         // Restore connectivity before sending the manual daytime watch settings.
@@ -57,9 +57,9 @@ object SleepModeController {
     }
 
     private fun setAirplaneMode(enabled: Boolean): Boolean {
-        val current = ShizukuManager.isAirplaneModeOn() ?: return false
+        val current = RootShellManager.isAirplaneModeOn() ?: return false
         return current == enabled ||
-            (ShizukuManager.setAirplaneMode(enabled) && ShizukuManager.isAirplaneModeOn() == enabled)
+            (RootShellManager.setAirplaneMode(enabled) && RootShellManager.isAirplaneModeOn() == enabled)
     }
 
     data class Result(val success: Boolean, val enabled: Boolean, val message: String)

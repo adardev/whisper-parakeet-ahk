@@ -38,7 +38,7 @@ object HealthWorkoutPowerSaver {
 
     /** Saves the user's preference; notification access is granted only while Fit3 is connected. */
     fun setEnabled(context: Context, enabled: Boolean): Boolean {
-        if (!ShizukuManager.hasPermission()) return false
+        if (!RootShellManager.hasPermission()) return false
         val previous = isEnabled(context)
         if (!enabled) {
             finishWorkout(context, forceRestore = true)
@@ -53,7 +53,7 @@ object HealthWorkoutPowerSaver {
     /** Start the listener only for an opted-in user with a live Fit3 connection. */
     @Synchronized
     fun syncForFit3State(context: Context, fit3Connected: Boolean? = null): Boolean {
-        if (!ShizukuManager.hasPermission()) return false
+        if (!RootShellManager.hasPermission()) return false
         val connected = fit3Connected ?: DndKeepAliveService.isFit3Connected(context)
         val shouldListen = isEnabled(context) && connected
         if (!shouldListen) {
@@ -75,7 +75,7 @@ object HealthWorkoutPowerSaver {
         if (allowedBefore == shouldListen) return true
 
         val command = if (shouldListen) "allow_listener" else "disallow_listener"
-        ShizukuManager.execShellFresh(arrayOf("cmd", "notification", command, flattened))
+        RootShellManager.execShellFresh(arrayOf("cmd", "notification", command, flattened))
         val allowed = if (android.os.Build.VERSION.SDK_INT >= 27) {
             nm.isNotificationListenerAccessGranted(component)
         } else true
@@ -194,7 +194,7 @@ object HealthWorkoutPowerSaver {
         if (restore) {
             val current = readSaverEnabled(context)
             if (current == false && !setSaverEnabled(context, true)) {
-                Log.e(TAG, "Entrenamiento terminó, pero Shizuku no pudo restaurar Ahorro")
+                Log.e(TAG, "Entrenamiento terminó, pero KernelSU no pudo restaurar Ahorro")
                 return
             }
             Log.i(TAG, "Entrenamiento terminado; Ahorro de energía restaurado")
@@ -205,8 +205,8 @@ object HealthWorkoutPowerSaver {
     }
 
     private fun readSaverEnabled(context: Context): Boolean? {
-        if (!ShizukuManager.hasPermission()) return null
-        return when (ShizukuManager.execShellFresh(arrayOf("settings", "get", "global", "low_power"))?.trim()) {
+        if (!RootShellManager.hasPermission()) return null
+        return when (RootShellManager.execShellFresh(arrayOf("settings", "get", "global", "low_power"))?.trim()) {
             "1" -> true
             "0" -> false
             else -> null
@@ -214,9 +214,9 @@ object HealthWorkoutPowerSaver {
     }
 
     private fun setSaverEnabled(context: Context, enabled: Boolean): Boolean {
-        if (!ShizukuManager.hasPermission()) return false
+        if (!RootShellManager.hasPermission()) return false
         val mode = if (enabled) "1" else "0"
-        ShizukuManager.execShellFresh(arrayOf("settings", "put", "global", "low_power", mode))
+        RootShellManager.execShellFresh(arrayOf("settings", "put", "global", "low_power", mode))
         return readSaverEnabled(context) == enabled
     }
 }
