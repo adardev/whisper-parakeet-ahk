@@ -17,7 +17,7 @@ import com.nemotron.voiceime.R
 import com.nemotron.voiceime.guard.DndKeepAliveService
 import java.util.concurrent.atomic.AtomicBoolean
 
-/** Sync Health, disconnect Fit3, then pause only its plugin (keep Health enabled for Health Connect). */
+/** Sync Health, disconnect Fit3, then hide and stop its background packages without disabling grants. */
 class Fit3TileService : AppFreezeTileService() {
     override val targetPackage: String = SAMSUNG_HEALTH_PACKAGE
     override val tileLabel: String = "Fit3"
@@ -175,12 +175,12 @@ class Fit3TileService : AppFreezeTileService() {
                     } else {
                         Log.i(TAG, "Había otro dispositivo Bluetooth conectado; Bluetooth permanece encendido")
                     }
-                    // Keep Samsung Health visible: hiding it revokes neither
-                    // its enabled state nor its Health Connect grants.
-                    // Force-stop limits background work
-                    // while the Fit3 plugin and Accessory are paused.
+                    // Hide Samsung Health without disabling it; pm hide keeps
+                    // the enabled state and Health Connect grants intact.
+                    // Force-stop also prevents its background process from
+                    // consuming battery while Fit3 is paused.
                     val healthStopped = RootShellManager.stopApp(targetPackage)
-                    Log.i(TAG, "Samsung Health permanece habilitado para conservar Health Connect; force-stop=$healthStopped")
+                    Log.i(TAG, "Samsung Health force-stopped before hide=$healthStopped")
                     if (!RootShellManager.hideApp(SAMSUNG_WEARABLE_PLUGIN)) {
                         // Keep the tile usable if the plugin could not be
                         // hidden; restore Health's process and leave its package
@@ -206,14 +206,29 @@ class Fit3TileService : AppFreezeTileService() {
                         val sapStopped = RootShellManager.stopService(SAMSUNG_ACCESSORY_SERVICE)
                         Log.i(TAG, "Fit3 apagada con otro periférico activo: stop SAP solicitado=$sapStopped; paquete conservado")
                     }
+                    if (!RootShellManager.hideApp(targetPackage)) {
+                        // Do not leave a partial off state. Restore the pieces
+                        // already paused so the tile remains usable.
+                        RootShellManager.unhideApp(SAMSUNG_WEARABLE_PLUGIN)
+                        RootShellManager.unstopApp(SAMSUNG_WEARABLE_PLUGIN)
+                        if (!hasConnectedBluetoothPeripherals()) {
+                            RootShellManager.unhideApp(SAMSUNG_ACCESSORY_PACKAGE)
+                            RootShellManager.unstopApp(SAMSUNG_ACCESSORY_PACKAGE)
+                        }
+                        RootShellManager.unstopApp(targetPackage)
+                        Log.e(TAG, "No se pudo ocultar Samsung Health; se revirtieron los cambios parciales")
+                        showMessage("No se pudo ocultar Samsung Health; Fit3 quedó sin pausar")
+                        return@Thread
+                    }
+                    RootShellManager.stopApp(targetPackage)
                     val frozen = RootShellManager.getHiddenPackages(
                         listOf(targetPackage, SAMSUNG_WEARABLE_PLUGIN, SAMSUNG_ACCESSORY_PACKAGE)
                     ).orEmpty()
-                    check(targetPackage !in frozen && SAMSUNG_WEARABLE_PLUGIN in frozen &&
+                    check(targetPackage in frozen && SAMSUNG_WEARABLE_PLUGIN in frozen &&
                         (hasConnectedBluetoothPeripherals() || SAMSUNG_ACCESSORY_PACKAGE in frozen)) {
-                        "No se confirmó la pausa de Fit3 Plugin y Samsung Accessory con Samsung Health habilitado"
+                        "No se confirmó que Samsung Health y el plugin Fit3 quedaran ocultos"
                     }
-                    Log.i(TAG, "Apagado completado: subidaConfirmada=$uploaded, Fit3 desconectada; Health habilitado y SAP pausado cuando no hay otros periféricos")
+                    Log.i(TAG, "Apagado completado: subidaConfirmada=$uploaded, Fit3 desconectada; Samsung Health oculto sin deshabilitar sus permisos y SAP pausado cuando no hay otros periféricos")
                 } else {
                     // Restore packages before waking Samsung's background
                     // health receiver, which initializes its own HostManager.

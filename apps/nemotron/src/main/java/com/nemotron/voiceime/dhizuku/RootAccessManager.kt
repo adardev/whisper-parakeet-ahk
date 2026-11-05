@@ -9,10 +9,16 @@ object RootAccessManager {
     private const val TAG = "NemotronRoot"
     private const val PREFS = "nemotron_root_access"
     private const val KEY_GRANTED = "kernelsu_granted"
+    private const val IME_STATE_PREFIX = "hidden_ime_state_"
     @Volatile private var appContext: Context? = null
     @Volatile private var cachedRootAccess = false
 
     data class Result(val success: Boolean, val detail: String)
+    data class HiddenImeState(
+        val enabledComponents: Set<String>,
+        val defaultBeforeHide: String,
+        val defaultAfterHide: String
+    )
 
     fun initialize(context: Context) {
         val app = context.applicationContext
@@ -37,6 +43,31 @@ object RootAccessManager {
 
     /** Cached authorization state; never starts a slow SU request from a tile callback. */
     fun hasRootAccess(): Boolean = cachedRootAccess
+
+    fun saveHiddenImeState(packageName: String, state: HiddenImeState) {
+        appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)?.edit()
+            ?.putStringSet(IME_STATE_PREFIX + packageName, state.enabledComponents)
+            ?.putString(IME_STATE_PREFIX + packageName + "_default_before", state.defaultBeforeHide)
+            ?.putString(IME_STATE_PREFIX + packageName + "_default_after", state.defaultAfterHide)
+            ?.apply()
+    }
+
+    fun getHiddenImeState(packageName: String): HiddenImeState? {
+        val prefs = appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE) ?: return null
+        val key = IME_STATE_PREFIX + packageName
+        val components = prefs.getStringSet(key, null)?.toSet()?.takeIf { it.isNotEmpty() } ?: return null
+        return HiddenImeState(
+            components,
+            prefs.getString(key + "_default_before", "").orEmpty(),
+            prefs.getString(key + "_default_after", "").orEmpty()
+        )
+    }
+
+    fun clearHiddenImeState(packageName: String) {
+        val prefs = appContext?.getSharedPreferences(PREFS, Context.MODE_PRIVATE) ?: return
+        val key = IME_STATE_PREFIX + packageName
+        prefs.edit().remove(key).remove(key + "_default_before").remove(key + "_default_after").apply()
+    }
 
     /** Execute argv as root with each argument safely single-quoted for su -c. */
     fun runRoot(args: Array<String>, timeoutMs: Long = 10_000L): Result {

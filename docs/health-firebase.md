@@ -65,17 +65,21 @@ The tile controls Samsung Health and Fit3 Plugin together, even when the watch
 temporarily loses its Bluetooth connection. A disconnected watch must not change
 an intended off tap into another reconnect attempt.
 
-- On: enable and unstop `com.samsung.wearable.fit3plugin` first, then
-  `com.sec.android.app.shealth`; enable Bluetooth when needed and send the
+- On: unhide and unstop Samsung Accessory, `com.samsung.wearable.fit3plugin`,
+  and `com.sec.android.app.shealth`; repair missing Health Connect grants,
+  enable Bluetooth when needed, and send the
   SDK's `REQUEST_MANAGER_CAPABILITY` to the plugin's exported
   `MobileConnectionReceiver`. Its main-process Application initializes
   Samsung's HostManager. No Activity is launched and Quick Settings stays as-is.
   Confirm the Fit3 GATT connection within 25 seconds; otherwise report that
   the watch is still disconnected.
 - Off: wait for the Health SDK read and confirmed Firebase upload, request Fit3
-  disconnection, then disable and stop Samsung Health and Fit3 Plugin. If Fit3
-  was the only connected device, turn Bluetooth off and verify the link went
-  down. Preserve Bluetooth when another device is connected.
+  disconnection, then `pm hide` and force-stop Samsung Health and Fit3 Plugin.
+  If no other Bluetooth peripheral is connected, also hide and stop Samsung
+  Accessory so its SAP service cannot restart. These are hide operations, not
+  package disables; the enabled state and Health Connect grants are retained.
+  If Fit3 was the only connected device, turn Bluetooth off and verify the link
+  went down. Preserve Bluetooth when another device is connected.
 - Galaxy Wearable remains controlled by its separate tile. Sleep Mode uses a
   bounded direct BLE exchange and leaves plugin state as the Fit3 tile set it.
 - The pre-disconnect sync wait is bounded at 60 seconds. An unsuccessful upload
@@ -83,9 +87,9 @@ an intended off tap into another reconnect attempt.
 - The busy guard is shared between tile service instances to prevent overlapping
   taps from starting multiple transfers or opposing connection requests.
 
-Package toggles now use fresh Shizuku commands with an explicit user (`0`) and
-check the disabled-package list after enable/disable. Group tiles based on
-`AppFreezeTileService` inspect every target package when refreshing their state.
+Package toggles use fresh KernelSU root commands with an explicit user (`0`).
+`pm hide`/`pm unhide` state is verified through `dumpsys package`; grouped tiles
+query only their target packages. No Shizuku fallback is used.
 
 A54 verification with the installed Core APK on 20 Oct 2026:
 

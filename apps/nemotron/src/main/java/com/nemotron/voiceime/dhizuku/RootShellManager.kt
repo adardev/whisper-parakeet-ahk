@@ -221,8 +221,15 @@ object RootShellManager {
     fun hideApp(packageName: String): Boolean {
         if (!hasTilePermission()) return false
         if (!PACKAGE_NAME.matches(packageName)) return false
+        val imeState = rememberEnabledInputMethods(packageName)
         val out = execTileCommand(arrayOf("pm", "hide", "--user", "0", packageName)) ?: return false
         val hidden = out.contains("new hidden state: true", ignoreCase = true) && isAppHidden(packageName)
+        if (hidden && imeState != null) {
+            Thread.sleep(250L)
+            val fallback = execShellFresh(arrayOf("settings", "get", "secure", "default_input_method"))
+                ?.trim().orEmpty()
+            RootAccessManager.saveHiddenImeState(packageName, imeState.copy(defaultAfterHide = fallback))
+        }
         Log.d(TAG, "pm hide $packageName → $out (confirmed=$hidden)")
         return hidden
     }
@@ -233,7 +240,55 @@ object RootShellManager {
         val out = execTileCommand(arrayOf("pm", "unhide", "--user", "0", packageName)) ?: return false
         val unhidden = out.contains("new hidden state: false", ignoreCase = true) && !isAppHidden(packageName)
         Log.d(TAG, "pm unhide $packageName → $out (confirmed=$unhidden)")
-        return unhidden
+        return unhidden && restoreInputMethodState(packageName)
+    }
+
+    /** Save enabled keyboard components before package hide can remove them from IME Manager. */
+    private fun rememberEnabledInputMethods(packageName: String): RootAccessManager.HiddenImeState? {
+        val available = execShellFresh(arrayOf(
+            "cmd", "package", "query-services", "--brief", "--components", "-a", "android.view.InputMethod"
+        )) ?: return null
+        val enabled = execShellFresh(arrayOf("ime", "list", "-s")) ?: return null
+        val components = available.lineSequence().map { it.trim().removeSuffix(":") }
+            .filter { it.substringBefore('/') == packageName && COMPONENT_NAME.matches(it) }
+            .filter { component -> enabled.lineSequence().any { it.trim().removeSuffix(":") == component } }
+            .toSet()
+        if (components.isEmpty()) return null
+        val currentDefault = execShellFresh(arrayOf("settings", "get", "secure", "default_input_method"))
+            ?.trim().orEmpty()
+        val state = RootAccessManager.HiddenImeState(components, currentDefault, "")
+        RootAccessManager.saveHiddenImeState(packageName, state)
+        return state
+    }
+
+    /** Re-enable a keyboard hidden with its app, preserving the user's prior default choice. */
+    private fun restoreInputMethodState(packageName: String): Boolean {
+        val state = RootAccessManager.getHiddenImeState(packageName) ?: return true
+        for (component in state.enabledComponents) {
+            if (execShellFresh(arrayOf("ime", "enable", "--user", "0", component)) == null) {
+                Log.e(TAG, "Could not re-enable keyboard input method $component")
+                return false
+            }
+        }
+        val enabled = execShellFresh(arrayOf("ime", "list", "-s")) ?: return false
+        if (state.enabledComponents.any { component ->
+                enabled.lineSequence().none { it.trim().removeSuffix(":") == component }
+            }) return false
+
+        val currentDefault = execShellFresh(arrayOf("settings", "get", "secure", "default_input_method"))
+            ?.trim().orEmpty()
+        if (state.defaultBeforeHide in state.enabledComponents &&
+            currentDefault == state.defaultAfterHide) {
+            if (execShellFresh(arrayOf("ime", "set", "--user", "0", state.defaultBeforeHide)) == null) {
+                Log.e(TAG, "Could not restore default keyboard ${state.defaultBeforeHide}")
+                return false
+            }
+            val restoredDefault = execShellFresh(arrayOf("settings", "get", "secure", "default_input_method"))
+                ?.trim()
+            if (restoredDefault != state.defaultBeforeHide) return false
+        }
+        RootAccessManager.clearHiddenImeState(packageName)
+        return true
     }
 
     /** Clears ActivityManager's force-stop bit so system broadcasts can wake a package again. */
@@ -368,6 +423,7 @@ object RootShellManager {
     }
 
     private val PACKAGE_NAME = Regex("[A-Za-z0-9_]+(?:\\.[A-Za-z0-9_]+)+")
+    private val COMPONENT_NAME = Regex("[A-Za-z0-9_]+(?:\\.[A-Za-z0-9_]+)+/[A-Za-z0-9_.$]+")
 
     fun stopApp(packageName: String): Boolean {
         if (!hasPermission()) return false

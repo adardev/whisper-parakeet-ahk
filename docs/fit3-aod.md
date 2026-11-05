@@ -6,9 +6,9 @@ El único horario automático vigente es la activación a las 23:00. El apagado 
 
 El historial identifica la regresión: `8a467cd` implementó `SamsungFit3Handoff`, que liberaba la sesión SAP de Samsung antes del intercambio BLE. `6a6616e`, al separar los paquetes, eliminó esa cesión y el encendido temporal de Bluetooth, conservando el codec. El reloj no contestaba otra negociación SAP mientras Samsung Accessory mantenía la suya.
 
-La cesión se recupera pausando solamente `com.samsung.accessory` durante el envío. Un `finally` habilita, desbloquea y vuelve a iniciar Accessory. Una marca persistida antes de la pausa permite recuperar su estado en el siguiente arranque con Shizuku si el proceso murió durante el intercambio. No se añade sondeo periódico. El tile Fit3 puede pausar el plugin y Accessory, pero Samsung Health permanece habilitado: deshabilitar su paquete revoca sus permisos de Health Connect y Android no los restaura al volver a habilitarlo. Samsung Health se limita con force-stop cuando el tile queda apagado.
+La cesión se recupera pausando solamente `com.samsung.accessory` durante el envío. Un `finally` vuelve a mostrar, desbloquear y reiniciar Accessory. Una marca persistida antes de la pausa permite recuperar su estado en el siguiente arranque con KernelSU si el proceso murió durante el intercambio. No se añade sondeo periódico. Cuando el tile Fit3 queda apagado, oculta (`pm hide`) y force-stopea Samsung Health, Fit3 Plugin y, si no hay otro periférico Bluetooth, Samsung Accessory. `pm hide` mantiene el paquete habilitado y conserva los permisos de Health Connect; al encender el tile se muestran de nuevo los paquetes y se reparan únicamente los permisos que falten.
 
-Al encender o apagar el tile y al preparar una conexión desde la automatización, Nemotron consulta con `dumpsys package` los permisos `android.permission.health.*` declarados por Samsung Health. Shizuku ejecuta `pm grant` solo para los permisos que falten y verifica el estado final, sin abrir Health Connect ni mostrar una pantalla. Si el panel de permisos de Health Connect ya quedó al frente, Nemotron lo cierra únicamente después de verificar todas las concesiones. Esto restaura el estado “Allow all” (lectura y escritura de los tipos declarados) si el sistema lo perdió; mantener Samsung Health habilitado evita que el ciclo normal del tile los revoque.
+Al encender o apagar el tile y al preparar una conexión desde la automatización, Nemotron consulta con `dumpsys package` los permisos `android.permission.health.*` declarados por Samsung Health. KernelSU ejecuta `pm grant` solo para los permisos que falten y verifica el estado final, sin abrir Health Connect ni mostrar una pantalla. Si el panel de permisos de Health Connect ya quedó al frente, Nemotron lo cierra únicamente después de verificar todas las concesiones. El ocultamiento del paquete conserva el estado de permisos sin abrir una pantalla.
 
 Si Bluetooth estaba apagado, se enciende para enviar y se restaura al terminar, conservándolo si se conectó otro periférico. Se mantienen las dos lecturas de confirmación; una escritura BLE no cuenta como éxito.
 
@@ -40,7 +40,7 @@ The next screen-off sends both settings off again before restoring airplane
 mode, even if airplane mode was already enabled manually. Watch actions from
 these broadcasts run in order, so a quick lock cannot leave an older daytime
 request running after the night request. Failed night restoration remains
-pending for the existing Shizuku-available retry, without polling.
+pending for the existing KernelSU-available retry, without polling.
 Between 05:00 and 08:00, disabling airplane mode still means the user is awake
 for the day: both watch settings remain enabled after locking the phone.
 

@@ -103,7 +103,7 @@ physical device serial explicitly.
 
 Sleep Mode ignores a delayed or duplicated night activation after a daytime
 wake, until the next 23:00 boundary. Turning it off remains authoritative even
-if the Fit3 handoff or Shizuku operation fails.
+if the Fit3 handoff or KernelSU operation fails.
 
 The Fit3 tile owns both Samsung Health (`com.sec.android.app.shealth`) and its
 plugin (`com.samsung.wearable.fit3plugin`). When turned off, it syncs Health,
@@ -123,8 +123,9 @@ tile still controls only `com.samsung.android.app.watchmanager`.
 Sleep Mode's AOD exchange uses Nemotron's bounded direct BLE session; it does
 not need to leave the Fit3 plugin running after the Fit3 tile is turned off.
 Samsung Accessory is restored after that exchange as before. Plugin state is
-therefore tied to the Fit3 tile, and the tile's off state now requires both
-Health and the plugin to be disabled while the watch is disconnected.
+therefore tied to the Fit3 tile, and the tile's off state hides and force-stops
+both Health and the plugin while the watch is disconnected. The packages stay
+enabled so Health Connect permissions remain granted.
 
 ## Current validation status
 
@@ -138,8 +139,9 @@ for measurements, reproducible tools, and the limits of the checks performed.
 
 The selected IME is
 `com.nemotron.keyboard/com.samsung.android.honeyboard.service.HoneyBoardService`.
-The Fit3 plugin's enabled state now follows the Fit3 Quick Settings tile; it is
-disabled and force-stopped while the tile is off, then enabled before a
-connection request. The existing Home/provider permission compatibility fixes
-are retained. A separate unplugged screen-off sample is still required to
-compare background battery use between these UIDs.
+The Fit3 plugin's hidden state now follows the Fit3 Quick Settings tile; it is
+hidden and force-stopped while the tile is off, then unhidden and unstopped
+before a connection request. Samsung Health follows the same hide/unhide cycle
+without revoking Health Connect permissions. The existing Home/provider
+permission compatibility fixes are retained. A separate unplugged screen-off
+sample is still required to compare background battery use between these UIDs.
