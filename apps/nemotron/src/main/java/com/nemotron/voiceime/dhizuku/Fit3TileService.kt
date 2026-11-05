@@ -237,6 +237,10 @@ class Fit3TileService : AppFreezeTileService() {
                             Log.e(TAG, "No se pudo habilitar $pkg para conectar Fit3")
                             return@Thread
                         }
+                        if (!RootShellManager.ensurePackageEnabled(pkg)) {
+                            Log.e(TAG, "No se pudo dejar habilitado $pkg para conectar Fit3")
+                            return@Thread
+                        }
                         if (!RootShellManager.unstopApp(pkg)) {
                             Log.e(TAG, "No se pudo quitar force-stop de $pkg")
                             return@Thread

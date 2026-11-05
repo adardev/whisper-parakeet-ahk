@@ -66,7 +66,9 @@ temporarily loses its Bluetooth connection. A disconnected watch must not change
 an intended off tap into another reconnect attempt.
 
 - On: unhide and unstop Samsung Accessory, `com.samsung.wearable.fit3plugin`,
-  and `com.sec.android.app.shealth`; repair missing Health Connect grants,
+  and `com.sec.android.app.shealth`; ensure they are enabled (including
+  migration from older builds that disabled the plugin/accessory), repair
+  missing Health Connect grants,
   enable Bluetooth when needed, and send the
   SDK's `REQUEST_MANAGER_CAPABILITY` to the plugin's exported
   `MobileConnectionReceiver`. Its main-process Application initializes

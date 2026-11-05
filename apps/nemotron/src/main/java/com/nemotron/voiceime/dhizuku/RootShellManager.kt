@@ -243,6 +243,18 @@ object RootShellManager {
         return unhidden && restoreInputMethodState(packageName)
     }
 
+    /** Ensure a Fit3 dependency left disabled by an older build is usable on the tile's on path. */
+    fun ensurePackageEnabled(packageName: String): Boolean {
+        if (!hasPermission() || !PACKAGE_NAME.matches(packageName)) return false
+        val output = execShellFresh(arrayOf("pm", "enable", "--user", "0", packageName)) ?: return false
+        val dump = execShellFresh(arrayOf("dumpsys", "package", packageName), timeoutMs = 8_000L)
+            ?: return false
+        val userState = Regex("(?m)^\\s*User 0:.*$").find(dump)?.value.orEmpty()
+        val enabled = userState.contains("enabled=1") || userState.contains("enabled=0")
+        Log.i(TAG, "pm enable $packageName → $output (confirmed=$enabled)")
+        return enabled
+    }
+
     /** Save enabled keyboard components before package hide can remove them from IME Manager. */
     private fun rememberEnabledInputMethods(packageName: String): RootAccessManager.HiddenImeState? {
         val available = execShellFresh(arrayOf(
