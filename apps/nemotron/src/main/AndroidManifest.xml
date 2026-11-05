@@ -396,6 +396,11 @@
         <!-- Samsung Health Data SDK: transferencia remota a Firebase.       -->
         <!-- ============================================================== -->
         <service
+            android:name=".health.HealthSnapshotJobService"
+            android:permission="android.permission.BIND_JOB_SERVICE"
+            android:exported="true" />
+
+        <service
             android:name=".health.HealthTransferService"
             android:exported="false"
             android:foregroundServiceType="specialUse">

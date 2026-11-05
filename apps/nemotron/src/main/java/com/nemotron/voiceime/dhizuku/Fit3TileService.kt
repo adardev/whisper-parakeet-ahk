@@ -23,6 +23,15 @@ class Fit3TileService : AppFreezeTileService() {
     override val tileLabel: String = "Fit3"
     override val tileIconRes: Int = R.drawable.ic_fit3_tile
 
+    override fun onTileState(granted: Boolean, hidden: Boolean) {
+        if (!granted) return
+        if (hidden) {
+            com.nemotron.voiceime.health.HealthSyncScheduler.disable(applicationContext)
+        } else {
+            com.nemotron.voiceime.health.HealthSyncScheduler.enable(applicationContext)
+        }
+    }
+
     private val mainHandler = Handler(Looper.getMainLooper())
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {

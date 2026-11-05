@@ -19,6 +19,11 @@ class HealthBootReceiver : BroadcastReceiver() {
             Log.d("HealthBootReceiver", "App reemplazada, deteniendo servicio residual")
             try { HealthTransferService.stop(context) } catch (_: Throwable) {}
         }
-        // BOOT_COMPLETED / QUICKBOOT: no hacer nada — el tile Fit3 controla el servicio
+        // JobScheduler conserva el trabajo al reiniciar; volver a validar el estado del tile.
+        if (intent.action == Intent.ACTION_BOOT_COMPLETED ||
+            intent.action == "android.intent.action.QUICKBOOT_POWERON" ||
+            intent.action == Intent.ACTION_MY_PACKAGE_REPLACED) {
+            HealthSyncScheduler.schedule(context)
+        }
     }
 }
