@@ -13,9 +13,9 @@ if (-not $Serial) {
     $Serial = ($online[0].Line -split '\s+')[0]
 }
 if (-not ($online | Where-Object { $_.Line -match "^$([regex]::Escape($Serial))\s+device$" })) { throw "Device $Serial is not online and authorized." }
-function ADB([string[]]$Args) {
-    $result = @(& $Adb -s $Serial @Args 2>&1)
-    if ($LASTEXITCODE -ne 0) { throw "ADB failed ($($Args -join ' ')): $($result -join ' ')" }
+function ADB([string[]]$CommandArgs) {
+    $result = @(& $Adb -s $Serial @CommandArgs 2>&1)
+    if ($LASTEXITCODE -ne 0) { throw "ADB failed ($($CommandArgs -join ' ')): $($result -join ' ')" }
     return $result
 }
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'

@@ -91,8 +91,21 @@ object AutoAndroidAuto {
         }
         val listenerReady = isListenerEnabled()
         Log.i(TAG, "Android Auto media listener habilitado=$listenerReady")
+        setCarMediaBridgeEnabled(ctx, true)
         // A media-listener permission issue must be visible in logs but should
         // not undo the package unhide/unstop needed to start the car session.
         return true
+    }
+
+    /** Enables the Salt session proxy only while the Android Auto tile is enabled. */
+    fun setCarMediaBridgeEnabled(ctx: Context, enabled: Boolean) {
+        if (!RootShellManager.hasPermission()) return
+        val component = "${ctx.packageName}/com.nemotron.voiceime.car.CarMediaSessionListener"
+        val command = if (enabled) "allow_listener" else "disallow_listener"
+        RootShellManager.execShellFresh(arrayOf("cmd", "notification", command, component, "0"))
+        val registered = RootShellManager.execShellFresh(
+            arrayOf("settings", "get", "secure", "enabled_notification_listeners")
+        )?.split(':')?.any { it.trim().equals(component, ignoreCase = true) } == true
+        Log.i(TAG, "Salt media bridge enabled=${enabled && registered}")
     }
 }

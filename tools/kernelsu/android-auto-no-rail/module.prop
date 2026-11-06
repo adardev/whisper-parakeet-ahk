@@ -1,0 +1,6 @@
+id=nemotron-android-auto-no-rail
+name=Nemotron Android Auto No Rail (experimental)
+version=0.3
+versionCode=3
+author=Nemotron
+description=Systemless resource overlay to set Android Auto horizontal navigation rail height to zero.

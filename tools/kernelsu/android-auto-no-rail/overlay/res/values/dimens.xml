@@ -1,0 +1,4 @@
+<resources>
+    <dimen name="car_rail_height">0.0dip</dimen>
+    <dimen name="cielo_rail_height">0.0dip</dimen>
+</resources>

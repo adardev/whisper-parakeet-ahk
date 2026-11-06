@@ -1,0 +1,3 @@
+<resources>
+    <string name="config_recentsComponentName" translatable="false">com.nemotron.voiceime2/com.android.quickstep.RecentsActivity</string>
+</resources>

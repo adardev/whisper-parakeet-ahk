@@ -1,0 +1,12 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.nemotron.androidauto.norail"
+    android:versionCode="3"
+    android:versionName="0.3">
+    <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="36" />
+    <overlay
+        android:targetPackage="com.google.android.projection.gearhead"
+        android:isStatic="true"
+        android:priority="999"
+        android:resourcesMap="@xml/overlays" />
+    <application android:hasCode="false" android:label="Nemotron Android Auto No Rail" />
+</manifest>

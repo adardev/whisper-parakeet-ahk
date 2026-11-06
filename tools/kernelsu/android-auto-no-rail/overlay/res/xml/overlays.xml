@@ -1,0 +1,4 @@
+<overlay xmlns:android="http://schemas.android.com/apk/res/android">
+    <item target="dimen/car_rail_height" value="@dimen/car_rail_height" />
+    <item target="dimen/cielo_rail_height" value="@dimen/cielo_rail_height" />
+</overlay>
