@@ -515,8 +515,8 @@ class Fit3TileService : AppFreezeTileService() {
 
     private fun publishSyncingState() = mainHandler.post {
         qsTile?.let { tile ->
-            tile.label = "Sincronizando…"
-            tile.subtitle = "Conectando Galaxy Fit3"
+            tile.label = "Sincronizando"
+            tile.subtitle = null
             tile.state = Tile.STATE_INACTIVE
             tile.updateTile()
         }
