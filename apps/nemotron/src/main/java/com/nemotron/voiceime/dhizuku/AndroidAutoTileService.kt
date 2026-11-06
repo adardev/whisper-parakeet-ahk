@@ -27,7 +27,8 @@ class AndroidAutoTileService : AppFreezeTileService() {
     override fun onAfterFreeze() {
         SecureStore.setAndroidAutoTileOn(this, false)
         Thread {
-            setLocation(false)
+            // Keep the system-wide location preference unchanged. Turning this
+            // tile off must not break Maps, banking apps, or other GPS clients.
             setBluetooth(false)
             setMobileData(false)
             RootShellManager.setDoubleTapToWake(false)
@@ -61,12 +62,13 @@ class AndroidAutoTileService : AppFreezeTileService() {
         RootShellManager.execShellFresh(arrayOf("cmd", "notification", "allow_listener", component))
     }
 
-    /** Activa/desactiva la ubicación según el estado de Android Auto.
-     *  3 = alta precisión (on), 0 = off. */
+    /** Enables location for navigation when Android Auto is enabled.
+     *  Turning the tile off preserves the user's system-wide location choice. */
     private fun setLocation(enabled: Boolean) {
         if (!RootShellManager.hasPermission()) return
-        val mode = if (enabled) "3" else "0"
-        RootShellManager.execShellFresh(arrayOf("settings", "put", "secure", "location_mode", mode))
+        if (enabled) {
+            RootShellManager.execShellFresh(arrayOf("cmd", "location", "set-location-enabled", "true"))
+        }
     }
 
     /** Enciende/apaga Bluetooth según el estado de Android Auto. */

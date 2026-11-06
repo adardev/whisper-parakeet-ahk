@@ -88,6 +88,57 @@ Google's Play Store APK.
   package installation alone as proof of full Google-account or Play Integrity
   compatibility.
 
+## A54 follow-up: location and Google Wallet (2026-11-05)
+
+### GPS disappearing when the Android Auto tile is off
+
+After a reboot, Android reported the master location switch as disabled even
+though Maps and BBVA both still had precise and coarse location permissions.
+microG Services was not suspended and remained on Android's Doze allowlist;
+Battery Saver itself was still on. This isolated the problem to the device-wide
+location switch rather than an app permission or microG battery restriction.
+
+The Android Auto tile implementation was forcing that global switch off in
+`onAfterFreeze()`. That breaks every location client, including Maps and banking
+apps, whenever the tile is turned off. The tile now enables location when
+Android Auto is enabled for navigation, but leaves the user's location setting
+unchanged when the tile is turned off. The user can still control Location
+normally from Quick Settings or Android Settings.
+
+At diagnosis time, `cmd location is-location-enabled` returned `false`; Maps
+and BBVA both had `ACCESS_FINE_LOCATION` and `ACCESS_COARSE_LOCATION` granted.
+The updated Nemotron debug APK built successfully and installed on the A54. The
+location master switch was re-enabled with Android's location service command
+and verified `true`; global Battery Saver remained enabled. The code change was
+installed, but a full end-to-end Maps fix and a live Auto-tile transition were
+not exercised during this session.
+
+### Google Wallet add-payment-method limitation
+
+The phone displayed this microG response while the payment flow tried to add a
+payment method:
+
+```
+Not yet supported: com.google.android.gms.pay.homescreen.additem.ADD_PAYMENT_METHOD
+```
+
+This is an unimplemented Google Play Services/Wallet action in the installed
+microG stack. It is separate from GPS, location permissions, Battery Saver, and
+KernelSU. Root access cannot implement the missing Wallet API. Adding a card
+through a bank app's own supported card-entry flow may still work, but the
+Google Wallet handoff shown here does not. No card was added and no payment was
+made during diagnosis.
+
+### DFRoot boot-start verification
+
+DFRoot 4.7 already had **Start at Boot** enabled and its boot receiver permission
+granted. After a full reboot, `run-as com.nemotron.core
+/system/bin/su -c id` returned UID 0 with KernelSU context (`u:r:ksu:s0`). This
+confirms temporary root was automatically reloaded by DFRoot; it does not make
+root permanent or modify the boot image. After reboot, microG remained
+`suspended=false`, was still on the Doze allowlist, and Battery Saver remained
+enabled.
+
 ## Recovery
 
 Noogle is a systemless overlay; the stock Google APK files were not modified.
