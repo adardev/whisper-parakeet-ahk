@@ -13,6 +13,10 @@ object RootShellManager {
     data class PackageState(val hidden: Boolean, val disabled: Boolean)
 
     private const val TAG = "RootShellManager"
+    // Capture waits run only for explicit root operations. Backing off here
+    // avoids waking the Core worker 100 times a second while dumpsys/Package
+    // Manager is still producing output.
+    private const val SHELL_CAPTURE_POLL_MS = 50L
     private var shellProc: Process? = null
     private var shellIn: PrintWriter? = null
     private var shellOut: BufferedReader? = null
@@ -108,7 +112,7 @@ object RootShellManager {
                 var completed = false
                 while (System.currentTimeMillis() < deadline) {
                     if (!out.ready()) {
-                        Thread.sleep(10)
+                        Thread.sleep(SHELL_CAPTURE_POLL_MS)
                         continue
                     }
                     val line = out.readLine() ?: break
@@ -592,7 +596,7 @@ object RootShellManager {
         val deadline = System.currentTimeMillis() + 3_000L
         while (System.currentTimeMillis() < deadline) {
             if (isNfcEnabled() == enabled) return true
-            Thread.sleep(100L)
+            Thread.sleep(250L)
         }
         return isNfcEnabled() == enabled
     }

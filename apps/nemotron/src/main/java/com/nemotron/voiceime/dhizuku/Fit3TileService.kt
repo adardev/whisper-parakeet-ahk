@@ -415,7 +415,7 @@ class Fit3TileService : AppFreezeTileService() {
         val deadline = System.currentTimeMillis() + timeoutMs
         while (System.currentTimeMillis() < deadline) {
             if (isFit3Connected(address) == connected) return true
-            Thread.sleep(350L)
+            Thread.sleep(500L)
         }
         return isFit3Connected(address) == connected
     }
@@ -424,7 +424,7 @@ class Fit3TileService : AppFreezeTileService() {
         val deadline = System.currentTimeMillis() + timeoutMs
         while (System.currentTimeMillis() < deadline) {
             if (isBluetoothEnabled() == enabled) return true
-            Thread.sleep(250L)
+            Thread.sleep(500L)
         }
         return isBluetoothEnabled() == enabled
     }

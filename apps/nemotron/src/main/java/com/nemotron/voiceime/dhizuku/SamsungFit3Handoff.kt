@@ -91,7 +91,7 @@ internal object SamsungFit3Handoff {
         val deadline = SystemClock.elapsedRealtime() + 6_000L
         while (SystemClock.elapsedRealtime() < deadline) {
             if (bluetoothEnabled(context) == enabled) return true
-            Thread.sleep(200L)
+            Thread.sleep(500L)
         }
         return bluetoothEnabled(context) == enabled
     }
