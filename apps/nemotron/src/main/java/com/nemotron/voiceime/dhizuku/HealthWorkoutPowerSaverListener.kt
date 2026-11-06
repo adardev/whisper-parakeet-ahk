@@ -30,6 +30,9 @@ class HealthWorkoutPowerSaverListener : NotificationListenerService() {
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification, rankingMap: RankingMap) {
+        // Android delivers all apps' notifications to this listener. Filter
+        // before ranking lookup, extras access, preferences or Bluetooth IPC.
+        if (sbn.packageName != HEALTH_PACKAGE || !sbn.isOngoing) return
         val ranking = Ranking()
         val channelName = if (rankingMap.getRanking(sbn.key, ranking)) ranking.channel?.name else null
         val workoutTitle = sbn.notification.extras
@@ -48,6 +51,7 @@ class HealthWorkoutPowerSaverListener : NotificationListenerService() {
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification, rankingMap: RankingMap) {
+        if (sbn.packageName != HEALTH_PACKAGE) return
         if (!HealthWorkoutPowerSaver.isTrackedNotification(this, sbn.key)) return
         worker.execute {
             HealthWorkoutPowerSaver.notificationRemoved(this, sbn.key)
@@ -55,6 +59,7 @@ class HealthWorkoutPowerSaverListener : NotificationListenerService() {
     }
 
     private fun isWorkoutNotification(sbn: StatusBarNotification): Boolean {
+        if (sbn.packageName != HEALTH_PACKAGE || !sbn.isOngoing) return false
         val ranking = Ranking()
         if (!currentRanking.getRanking(sbn.key, ranking)) return false
         val workoutTitle = sbn.notification.extras
@@ -70,6 +75,7 @@ class HealthWorkoutPowerSaverListener : NotificationListenerService() {
     }
 
     companion object {
+        private const val HEALTH_PACKAGE = "com.sec.android.app.shealth"
         private const val TAG = "HealthWorkoutListener"
     }
 }

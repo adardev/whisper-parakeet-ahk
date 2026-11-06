@@ -7,6 +7,7 @@ import android.content.IntentFilter
 import android.database.ContentObserver
 import android.net.wifi.WifiManager
 import android.os.Handler
+import android.os.HandlerThread
 import android.os.Looper
 import android.provider.Settings
 import android.util.Log
@@ -33,15 +34,25 @@ object ConnectionExclusionManager {
 
     private var wifiReceiver: BroadcastReceiver? = null
     private var mobileObserver: ContentObserver? = null
+    private var workerThread: HandlerThread? = null
+    private var worker: Handler? = null
+    private var pendingCheck: Runnable? = null
 
     fun start(ctx: Context) {
         if (started) return
         started = true
         val appCtx = ctx.applicationContext
+        workerThread = HandlerThread("Nemotron-radio-policy").also { it.start() }
+        worker = Handler(workerThread!!.looper)
+        pendingCheck = Runnable { if (started) checkState(appCtx) }
 
         // WiFi: broadcast (llega de forma fiable)
         wifiReceiver = object : BroadcastReceiver() {
             override fun onReceive(c: Context, i: Intent) {
+                if (i.action == WifiManager.WIFI_STATE_CHANGED_ACTION) {
+                    val state = i.getIntExtra(WifiManager.EXTRA_WIFI_STATE, WifiManager.WIFI_STATE_UNKNOWN)
+                    if (state != WifiManager.WIFI_STATE_ENABLED && state != WifiManager.WIFI_STATE_DISABLED) return
+                }
                 check(c)
             }
         }.also { r ->
@@ -77,6 +88,11 @@ object ConnectionExclusionManager {
     fun stop(ctx: Context) {
         if (!started) return
         started = false
+        worker?.removeCallbacksAndMessages(null)
+        workerThread?.quitSafely()
+        worker = null
+        workerThread = null
+        pendingCheck = null
         wifiReceiver?.let { r ->
             try { ctx.applicationContext.unregisterReceiver(r) } catch (_: Throwable) {}
         }
@@ -89,6 +105,23 @@ object ConnectionExclusionManager {
     }
 
     fun check(ctx: Context) {
+        // A radio transition can emit several broadcasts and settings changes.
+        // Coalesce that burst and keep su/process waits off the main thread.
+        val task = pendingCheck ?: return
+        worker?.let { handler ->
+            handler.removeCallbacks(task)
+            handler.postDelayed(task, 150L)
+        }
+    }
+
+    private fun checkState(ctx: Context) {
+        // A mobile-data callback can arrive while Wi-Fi is still transitioning.
+        // Its final Wi-Fi broadcast will reconcile the policy without fighting
+        // an enable/disable command that Android is already processing.
+        val wifiState = runCatching {
+            (ctx.getSystemService(Context.WIFI_SERVICE) as? WifiManager)?.wifiState
+        }.getOrNull()
+        if (wifiState == WifiManager.WIFI_STATE_ENABLING || wifiState == WifiManager.WIFI_STATE_DISABLING) return
         // Si el modo avión está activo, forzar WiFi y datos OFF
         if (isAirplaneModeOn(ctx)) {
             if (isWifiOn(ctx)) exec("svc", "wifi", "disable")

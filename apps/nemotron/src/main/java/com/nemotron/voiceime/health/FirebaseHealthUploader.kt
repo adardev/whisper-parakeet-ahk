@@ -23,14 +23,15 @@ class FirebaseHealthUploader(private val context: Context) {
         private const val AUTH_URL = "https://identitytoolkit.googleapis.com/v1/accounts:signUp"
         private const val TOKEN_URL = "https://securetoken.googleapis.com/v1/token"
         private const val FIRESTORE = "https://firestore.googleapis.com/v1/projects"
+        // OkHttp is thread-safe. Reuse connections across job/tile uploader
+        // instances instead of creating an idle pool and TLS sessions for each.
+        private val client = OkHttpClient.Builder()
+            .connectTimeout(Duration.ofSeconds(5))
+            .readTimeout(Duration.ofSeconds(10))
+            .writeTimeout(Duration.ofSeconds(10))
+            .callTimeout(Duration.ofSeconds(12))
+            .build()
     }
-
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(Duration.ofSeconds(5))
-        .readTimeout(Duration.ofSeconds(10))
-        .writeTimeout(Duration.ofSeconds(10))
-        .callTimeout(Duration.ofSeconds(12))
-        .build()
 
     suspend fun upload(date: String, snapshot: JSONObject) = withContext(Dispatchers.IO) {
         val apiKey = SecureStore.getFirebaseApiKey(context)
