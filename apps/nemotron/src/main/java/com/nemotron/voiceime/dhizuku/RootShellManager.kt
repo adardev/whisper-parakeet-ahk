@@ -10,6 +10,7 @@ import java.io.PrintWriter
 object RootShellManager {
 
     data class RunningService(val component: String, val packageName: String, val bound: Boolean)
+    data class PackageState(val hidden: Boolean, val disabled: Boolean)
 
     private const val TAG = "RootShellManager"
     private var shellProc: Process? = null
@@ -425,6 +426,30 @@ object RootShellManager {
         val out = execTileCommand(arrayOf("sh", "-c", script), timeoutMs = 12_000L) ?: return null
         return out.lineSequence().map { it.trim() }
             .filter { it.isNotEmpty() && PACKAGE_NAME.matches(it) }.toSet()
+    }
+
+    /** Reads hidden and enabled state together so tiles need only one package query per app. */
+    fun getPackageStates(packages: Collection<String>): Map<String, PackageState>? {
+        if (!hasTilePermission()) return null
+        if (packages.any { !PACKAGE_NAME.matches(it) }) return null
+        if (packages.isEmpty()) return emptyMap()
+        val script = buildString {
+            append("for p in")
+            packages.distinct().forEach { append(" '").append(it).append("'") }
+            append("; do state=\$(dumpsys package \"\$p\" | grep -m 1 '^[[:space:]]*User 0:'); [ -n \"\$state\" ] && printf '%s|%s\\n' \"\$p\" \"\$state\"; done; exit 0")
+        }
+        val out = execTileCommand(arrayOf("sh", "-c", script), timeoutMs = 12_000L) ?: return null
+        val enabledState = Regex("\\benabled=([0-9]+)\\b")
+        return out.lineSequence().mapNotNull { line ->
+            val packageName = line.substringBefore('|').trim()
+            if (!PACKAGE_NAME.matches(packageName) || '|' !in line) return@mapNotNull null
+            val state = line.substringAfter('|')
+            packageName to PackageState(
+                hidden = Regex("\\bhidden=true\\b").containsMatchIn(state),
+                disabled = enabledState.find(state)?.groupValues?.getOrNull(1)
+                    ?.toIntOrNull()?.let { it in 2..4 } == true
+            )
+        }.toMap()
     }
 
     /** Returns which of [packages] are still hidden after a hide/unhide action. */

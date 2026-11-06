@@ -49,17 +49,26 @@ class WorkTileService : TileService() {
 
         Thread {
             try {
-                val hidden = RootShellManager.getHiddenPackages(targetPackages)
-                if (hidden == null) {
-                    Log.w(TAG, "Could not query hidden package state")
+                val states = RootShellManager.getPackageStates(targetPackages)
+                if (states == null) {
+                    Log.w(TAG, "Could not query Work package state")
                     return@Thread
                 }
-                val frozen = targetPackages.any { it in hidden }
-                Log.d(TAG, "Currently hidden: $hidden")
-                targetPackages.forEach { pkg ->
-                    if (frozen && pkg in hidden) {
-                        RootShellManager.unhideApp(pkg)
-                    } else if (!frozen && pkg !in hidden) {
+                val frozen = states.values.any { it.hidden || it.disabled }
+                Log.d(TAG, "Work state: $states")
+                if (frozen) {
+                    // Older Work tile builds disabled packages. Restore both
+                    // hidden and disabled states so the apps are actually usable.
+                    targetPackages.forEach { pkg ->
+                        val state = states[pkg] ?: return@forEach
+                        val unhidden = !state.hidden || RootShellManager.unhideApp(pkg)
+                        val enabled = !state.disabled || RootShellManager.ensurePackageEnabled(pkg)
+                        if (!unhidden || !enabled) {
+                            Log.w(TAG, "Could not enable Work app $pkg")
+                        }
+                    }
+                } else {
+                    targetPackages.forEach { pkg ->
                         RootShellManager.hideApp(pkg)
                         RootShellManager.stopApp(pkg)
                     }
@@ -75,15 +84,15 @@ class WorkTileService : TileService() {
         val tile = qsTile ?: return
         tile.label = "Work"
         tile.icon = Icon.createWithResource(this, R.drawable.ic_work_tile)
-        tile.state = Tile.STATE_UNAVAILABLE
-        tile.updateTile()
+        // Keep the last rendered state while the root query runs. Marking the
+        // tile unavailable on every panel open causes a visible gray flash.
         Thread {
-            val hidden = RootShellManager.getHiddenPackages(targetPackages)
+            val states = RootShellManager.getPackageStates(targetPackages)
             handler.post {
                 val current = qsTile ?: return@post
                 current.state = when {
-                    hidden == null -> Tile.STATE_UNAVAILABLE
-                    targetPackages.any { it in hidden } -> Tile.STATE_INACTIVE
+                    states == null -> Tile.STATE_UNAVAILABLE
+                    states.values.any { it.hidden || it.disabled } -> Tile.STATE_INACTIVE
                     else -> Tile.STATE_ACTIVE
                 }
                 current.updateTile()
