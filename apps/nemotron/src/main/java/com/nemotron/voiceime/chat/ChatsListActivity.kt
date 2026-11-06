@@ -30,8 +30,18 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 class ChatsListActivity : Activity() {
+    private companion object {
+        // Keep the open conversation list fresh without polling the server every second.
+        private const val REFRESH_INTERVAL_MS = 10_000L
+    }
+
     private val refreshHandler = Handler(Looper.getMainLooper())
-    private val refreshLoop = object : Runnable { override fun run() { refresh(); refreshHandler.postDelayed(this, 1000) } }
+    private val refreshLoop = object : Runnable {
+        override fun run() {
+            refresh()
+            refreshHandler.postDelayed(this, REFRESH_INTERVAL_MS)
+        }
+    }
 
     private val list = mutableListOf<Conversation>()
     private lateinit var adapter: ChatListAdapter
@@ -105,7 +115,8 @@ class ChatsListActivity : Activity() {
     override fun onResume() {
         super.onResume()
         refresh()
-        refreshHandler.postDelayed(refreshLoop, 2000)
+        refreshHandler.removeCallbacks(refreshLoop)
+        refreshHandler.postDelayed(refreshLoop, REFRESH_INTERVAL_MS)
     }
 
     override fun onPause() {
