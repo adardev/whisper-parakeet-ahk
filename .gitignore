@@ -15,3 +15,5 @@ desktop/node_modules/
 desktop/dist/
 desktop/src-tauri/target/
 __pycache__/
+
+tools/new-phone/runs/

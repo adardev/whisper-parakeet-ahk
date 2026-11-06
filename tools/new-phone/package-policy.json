@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "device": { "model": "SM-A546E", "androidMajor": 16 },
+  "remove": [],
+  "review": "Populate only after comparing a fresh Inventory.ps1 run. Empty by design: no package is authorized for removal yet.",
+  "protected": [
+    "com.android.systemui",
+    "com.android.settings",
+    "com.sec.android.app.launcher",
+    "com.google.android.gms",
+    "com.google.android.gsf",
+    "com.android.vending",
+    "com.nemotron.core",
+    "com.nemotron.keyboard",
+    "com.nemotron.voiceime2"
+  ]
+}
