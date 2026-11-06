@@ -3,6 +3,8 @@ package com.nemotron.voiceime.dhizuku
 import android.util.Log
 import android.content.Context
 import java.io.ByteArrayOutputStream
+import java.io.IOException
+import java.util.concurrent.atomic.AtomicReference
 
 /** KernelSU/Magisk-style su access. The SU manager remains responsible for consent. */
 object RootAccessManager {
@@ -78,7 +80,17 @@ object RootAccessManager {
                 .redirectErrorStream(true)
                 .start()
             val outputBytes = ByteArrayOutputStream()
-            val reader = Thread({ process.inputStream.use { it.copyTo(outputBytes) } }, "Nemotron-root-output")
+            val readFailure = AtomicReference<IOException?>(null)
+            val reader = Thread({
+                try {
+                    process.inputStream.use { it.copyTo(outputBytes) }
+                } catch (error: IOException) {
+                    // Killing/timing out su can close this pipe while copyTo
+                    // is reading. An uncaught worker exception kills the app.
+                    readFailure.set(error)
+                    Log.d(TAG, "Root output pipe closed", error)
+                }
+            }, "Nemotron-root-output")
             reader.isDaemon = true
             reader.start()
             val finished = process.waitFor(timeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS)
@@ -89,8 +101,15 @@ object RootAccessManager {
             }
             reader.join(1_000L)
             val output = outputBytes.toString(Charsets.UTF_8.name()).trim()
-            val ok = process.exitValue() == 0
-            Result(ok, output.ifBlank { "su exit ${process.exitValue()}" })
+            val failure = readFailure.get()
+            val ok = process.exitValue() == 0 && failure == null && !reader.isAlive
+            Result(ok, output.ifBlank {
+                when {
+                    failure != null -> "Root output read failed: ${failure.message}"
+                    reader.isAlive -> "Root output reader did not finish"
+                    else -> "su exit ${process.exitValue()}"
+                }
+            })
         } catch (t: Throwable) {
             Log.w(TAG, "Root request failed", t)
             Result(false, t.message ?: t.javaClass.simpleName)

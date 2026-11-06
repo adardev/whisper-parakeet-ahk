@@ -96,7 +96,16 @@ class DndKeepAliveService : Service() {
 
         fun start(ctx: Context) {
             val intent = Intent(ctx, DndKeepAliveService::class.java)
-            ctx.startForegroundService(intent)
+            try {
+                ctx.startForegroundService(intent)
+            } catch (error: IllegalStateException) {
+                // A background package start/update is not necessarily an
+                // allowed FGS launch on Android 12+. Keep Core available and
+                // let the next eligible user/connection event reevaluate it.
+                Log.w(TAG, "DND keep-alive start deferred by Android", error)
+            } catch (error: SecurityException) {
+                Log.w(TAG, "DND keep-alive start denied by Android", error)
+            }
         }
 
         fun stop(ctx: Context) {
