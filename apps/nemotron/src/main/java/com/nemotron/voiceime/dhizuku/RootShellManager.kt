@@ -584,7 +584,17 @@ object RootShellManager {
     /** Enciende/apaga el NFC. */
     fun setNfcEnabled(enabled: Boolean): Boolean {
         if (!hasPermission()) return false
-        return execShell(if (enabled) "cmd nfc enable-nfc" else "cmd nfc disable-nfc")
+        // Samsung's cmd nfc supports a persistent disable mode. Without it,
+        // NFC can come back enabled at the next boot even though the user
+        // explicitly switched the Wallet tile off.
+        val command = if (enabled) "cmd nfc enable-nfc" else "cmd nfc disable-nfc '[persist]'"
+        if (!execShell(command)) return false
+        val deadline = System.currentTimeMillis() + 3_000L
+        while (System.currentTimeMillis() < deadline) {
+            if (isNfcEnabled() == enabled) return true
+            Thread.sleep(100L)
+        }
+        return isNfcEnabled() == enabled
     }
 
     /** Verifica si la app tiene un proceso corriendo. */

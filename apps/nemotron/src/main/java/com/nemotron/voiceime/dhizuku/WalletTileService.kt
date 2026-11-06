@@ -42,8 +42,8 @@ class WalletTileService : TileService() {
         Log.d(TAG, "NFC currently: $enabled")
 
         Thread {
-            RootShellManager.setNfcEnabled(!enabled)
-            Thread.sleep(300)
+            val changed = RootShellManager.setNfcEnabled(!enabled)
+            if (!changed) Log.e(TAG, "Could not change NFC to ${!enabled}")
             handler.post { try { updateTileState() } catch (_: Throwable) {} }
         }.start()
     }
