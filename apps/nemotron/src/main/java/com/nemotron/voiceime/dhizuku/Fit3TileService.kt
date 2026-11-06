@@ -14,7 +14,6 @@ import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.core.app.NotificationCompat
 import com.nemotron.voiceime.R
-import com.nemotron.voiceime.guard.DndKeepAliveService
 import java.util.concurrent.atomic.AtomicBoolean
 
 /** Sync Health, disconnect Fit3, then hide and stop its background packages without disabling grants. */
@@ -73,6 +72,7 @@ class Fit3TileService : AppFreezeTileService() {
             return
         }
         if (!operationInProgress.compareAndSet(false, true)) return
+        publishSyncingState()
         try {
             // A bound QS service can still be frozen while its worker waits
             // for Bluetooth. Keep it foreground only for this one action.
@@ -332,7 +332,6 @@ class Fit3TileService : AppFreezeTileService() {
                 operationInProgress.set(false)
                 try {
                     HealthWorkoutPowerSaver.syncForFit3State(applicationContext)
-                    DndKeepAliveService.update(applicationContext)
                     refreshState()
                 } finally {
                     mainHandler.post {
@@ -511,6 +510,15 @@ class Fit3TileService : AppFreezeTileService() {
                 }
                 tile.updateTile()
             }
+        }
+    }
+
+    private fun publishSyncingState() = mainHandler.post {
+        qsTile?.let { tile ->
+            tile.label = "Sincronizando…"
+            tile.subtitle = "Conectando Galaxy Fit3"
+            tile.state = Tile.STATE_INACTIVE
+            tile.updateTile()
         }
     }
 

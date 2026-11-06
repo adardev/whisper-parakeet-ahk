@@ -23,10 +23,12 @@ class NemotronApp : android.app.Application() {
     override fun onCreate() {
         super.onCreate()
         instance = this
+        val notificationManager = getSystemService(android.app.NotificationManager::class.java)
+        notificationManager.deleteNotificationChannel("dnd_keep_alive")
+        notificationManager.deleteNotificationChannel("dnd_keep_alive_quiet")
         RootAccessManager.initialize(this)
         registerDndReceiver()
         CarDetector.refresh(this)
-        com.nemotron.voiceime.guard.DndKeepAliveService.update(this)
         com.nemotron.voiceime.dhizuku.ConnectionExclusionManager.start(this)
 
         // Check KernelSU away from the main thread so startup and Quick Settings

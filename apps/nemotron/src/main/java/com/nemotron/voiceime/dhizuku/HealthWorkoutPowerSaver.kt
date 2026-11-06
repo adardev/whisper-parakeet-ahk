@@ -9,7 +9,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.util.Log
 import androidx.core.content.ContextCompat
-import com.nemotron.voiceime.guard.DndKeepAliveService
+import com.nemotron.voiceime.data.SecureStore
 import java.text.Normalizer
 
 /** Temporarily disables Battery Saver only while Samsung Health reports an active workout. */
@@ -50,12 +50,16 @@ object HealthWorkoutPowerSaver {
         return synced
     }
 
-    /** Start the listener only for an opted-in user with a live Fit3 connection. */
+    /** Bind the system listener only while Fit3 is live and a dependent feature needs it. */
     @Synchronized
     fun syncForFit3State(context: Context, fit3Connected: Boolean? = null): Boolean {
         if (!RootShellManager.hasPermission()) return false
-        val connected = fit3Connected ?: DndKeepAliveService.isFit3Connected(context)
-        val shouldListen = isEnabled(context) && connected
+        val connected = fit3Connected ?: Fit3ConnectionState.isConnected(context)
+        // Reuse the system-bound listener for DND change callbacks while the
+        // Fit3 is connected; this avoids a persistent foreground-service
+        // notification just to keep a dynamic receiver alive.
+        val shouldListen = connected && !SecureStore.isAddictionGuardEnabled(context) &&
+            (isEnabled(context) || SecureStore.isDndLockEnabled(context))
         if (!shouldListen) {
             val p = prefs(context)
             val hasWorkout = p.getStringSet(KEY_ACTIVE_KEYS, emptySet()).orEmpty().isNotEmpty() ||
@@ -83,7 +87,7 @@ object HealthWorkoutPowerSaver {
             Log.e(TAG, "Android no confirmó acceso a notificaciones=$shouldListen para $flattened")
             return false
         }
-        Log.i(TAG, "Listener de entrenamientos activo=$shouldListen; Fit3 conectada=$connected; preferencia=${isEnabled(context)}")
+        Log.i(TAG, "Listener de notificaciones activo=$shouldListen; Fit3 conectada=$connected; ahorroEntreno=${isEnabled(context)}; bloqueoDnd=${SecureStore.isDndLockEnabled(context)}")
         return true
     }
 
@@ -114,7 +118,7 @@ object HealthWorkoutPowerSaver {
             .replace(Regex("\\p{Mn}+"), "")
             .trim()
             .lowercase()
-        return normalizedTitle in ROUTE_WORKOUT_TITLES && DndKeepAliveService.isFit3Connected(context)
+        return normalizedTitle in ROUTE_WORKOUT_TITLES && Fit3ConnectionState.isConnected(context)
     }
 
     fun isWorkoutFinished(notification: Notification): Boolean {

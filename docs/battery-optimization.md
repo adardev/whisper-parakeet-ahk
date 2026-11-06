@@ -317,20 +317,17 @@ Bluetooth shutdown. The Fit3 tile reevaluates it after each connection toggle.
 This keeps the DND receiver available only while the connected watch makes that
 Nemotron feature relevant. The existing DND lock remains enabled in app settings.
 
-### Hide the DND keep-alive notification — 6 November 2026
+### Remove the persistent DND notification — 6 November 2026
 
-The A54 showed a persistent “Nemotron Guard” notification while the Fit3-linked
-DND listener was active. Android requires a foreground service to provide a
-notification, so the listener remains a foreground service, but it now uses a
-dedicated `IMPORTANCE_NONE` channel (`dnd_keep_alive_quiet`) with badges disabled.
-The channel ID changed because Android does not allow the app to lower the
-importance of an already-created channel. One UI still rendered the foreground
-notification despite the blocked channel, so `POST_NOTIFICATIONS` was revoked
-for `com.nemotron.core` on the A54. Verification showed the permission denied,
-no Nemotron notification record, the DND service running, and the Fit3 GATT link
-connected. This suppresses all Nemotron notifications on that device until the
-permission is granted again; Android may still list the foreground service under
-its system foreground-app controls.
+The A54 showed a persistent “Nemotron Guard” notification while Fit3 was
+connected. Hiding its channel did not work reliably on One UI, which continued
+to surface the foreground-service notification. The persistent service has
+therefore been removed. The existing system-bound Health workout notification
+listener now also handles DND filter changes while Fit3 is connected, so the
+screen-lock behavior no longer needs its own foreground service or notification.
+The app's `POST_NOTIFICATIONS` permission remains granted; no app-wide
+notification permission is revoked. The Fit3 tile displays “Sincronizando…”
+while its explicit connection action runs.
 
 After installing the Core update twice on the A54, Bluetooth reported no GATT
 connections and `dumpsys activity services com.nemotron.core` no longer listed

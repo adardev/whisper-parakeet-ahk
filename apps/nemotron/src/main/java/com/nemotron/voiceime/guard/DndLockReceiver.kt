@@ -21,27 +21,50 @@ class DndLockReceiver : BroadcastReceiver() {
 
     override fun onReceive(ctx: Context, intent: Intent) {
         if (intent.action != NotificationManager.ACTION_INTERRUPTION_FILTER_CHANGED) return
-        if (!SecureStore.isDndLockEnabled(ctx)) return
-
-        val now = System.currentTimeMillis()
-        if (now - lastLockAt < LOCK_COOLDOWN_MS) return
-
         val filter = try {
             val nm = ctx.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             nm.currentInterruptionFilter
         } catch (t: Throwable) {
             intent.getIntExtra(EXTRA_INTERRUPTION_FILTER, INTERRUPTION_FILTER_UNKNOWN)
         }
+        handleInterruptionFilterChanged(ctx, filter, goAsync())
+    }
+
+    companion object {
+        /** Shared by the in-process receiver and system-bound notification listener. */
+        fun handleInterruptionFilterChanged(
+            ctx: Context,
+            filter: Int,
+            pendingResult: BroadcastReceiver.PendingResult? = null
+        ) {
+        if (!SecureStore.isDndLockEnabled(ctx)) {
+            pendingResult?.finish()
+            return
+        }
+
+        val now = System.currentTimeMillis()
+        if (now - lastLockAt < LOCK_COOLDOWN_MS) {
+            pendingResult?.finish()
+            return
+        }
+
         if (filter == NotificationManager.INTERRUPTION_FILTER_ALL ||
-            filter == INTERRUPTION_FILTER_UNKNOWN) return
+            filter == INTERRUPTION_FILTER_UNKNOWN) {
+            pendingResult?.finish()
+            return
+        }
 
         val pm = ctx.getSystemService(Context.POWER_SERVICE) as? PowerManager
-        if (pm?.isInteractive == false) return
+        if (pm?.isInteractive == false) {
+            pendingResult?.finish()
+            return
+        }
 
+        // Claim this event before starting async work so the listener callback
+        // and in-process broadcast cannot schedule duplicate lock attempts.
+        lastLockAt = now
         Log.i(TAG, "No Molestar activado (filter=$filter) → double-check en 1s...")
-        val now2 = System.currentTimeMillis()
-        Log.d(TAG, "lastLockAt=$lastLockAt, now=$now2, diff=${now2 - lastLockAt}ms")
-        val pendingResult = goAsync()
+        Log.d(TAG, "lastLockAt=$lastLockAt")
         Thread {
             try {
                 if (CarDetector.isCarConnected()) {
@@ -58,17 +81,16 @@ class DndLockReceiver : BroadcastReceiver() {
                     Log.i(TAG, "DND ya no está activo tras double-check → no bloquear")
                     return@Thread
                 }
-                lastLockAt = System.currentTimeMillis()
                 lockScreenWithRetry()
             } catch (t: Throwable) {
                 Log.w(TAG, "Error en double-check", t)
             } finally {
-                pendingResult.finish()
+                pendingResult?.finish()
             }
         }.start()
-    }
+        }
 
-    private fun lockScreenWithRetry() {
+        private fun lockScreenWithRetry() {
         for (attempt in 1..RETRIES) {
             if (RootShellManager.hasPermission()) {
                 if (RootShellManager.lockScreen()) {
@@ -88,7 +110,7 @@ class DndLockReceiver : BroadcastReceiver() {
         }
     }
 
-    private fun disableDnd() {
+        private fun disableDnd() {
         if (RootShellManager.disableDnd()) {
             Log.i(TAG, "No Molestar desactivado tras bloquear")
         } else {
@@ -96,7 +118,6 @@ class DndLockReceiver : BroadcastReceiver() {
         }
     }
 
-    companion object {
         private const val TAG = "DndLock"
         private const val RETRIES = 6
         private const val RETRY_DELAY_MS = 1_500L

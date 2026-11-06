@@ -4,7 +4,7 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.service.notification.NotificationListenerService.Ranking
 import android.util.Log
-import com.nemotron.voiceime.guard.DndKeepAliveService
+import com.nemotron.voiceime.guard.DndLockReceiver
 import java.util.concurrent.Executors
 
 /** Watches Samsung Health's dedicated ongoing workout notification channel. */
@@ -16,7 +16,7 @@ class HealthWorkoutPowerSaverListener : NotificationListenerService() {
     override fun onListenerConnected() {
         super.onListenerConnected()
         worker.execute {
-            if (!DndKeepAliveService.isFit3Connected(this)) {
+            if (!Fit3ConnectionState.isConnected(this)) {
                 HealthWorkoutPowerSaver.syncForFit3State(this, fit3Connected = false)
                 return@execute
             }
@@ -27,6 +27,11 @@ class HealthWorkoutPowerSaverListener : NotificationListenerService() {
             Log.i(TAG, "Listener conectado; entrenamientos activos=${live.size}")
             HealthWorkoutPowerSaver.reconcile(this, live)
         }
+    }
+
+    override fun onInterruptionFilterChanged(interruptionFilter: Int) {
+        super.onInterruptionFilterChanged(interruptionFilter)
+        DndLockReceiver.handleInterruptionFilterChanged(this, interruptionFilter)
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification, rankingMap: RankingMap) {

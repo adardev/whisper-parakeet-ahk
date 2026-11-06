@@ -115,11 +115,6 @@
             </intent-filter>
         </activity>
 
-        <service
-            android:name=".guard.DndKeepAliveService"
-            android:exported="false"
-            android:foregroundServiceType="specialUse" />
-
         <!-- Foreground service de grabación de voz -->
         <service
             android:name=".record.VoiceRecordService"
