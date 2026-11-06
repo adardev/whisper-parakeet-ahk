@@ -1,18 +1,11 @@
 package com.nemotron.voiceime.ui
 
-import android.Manifest
-import android.app.Activity
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.graphics.Color
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.widget.Toast
-import android.speech.RecognitionListener
-import android.speech.RecognizerIntent
-import android.speech.SpeechRecognizer
-import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -26,10 +19,6 @@ import com.nemotron.voiceime.databinding.ActivityMainBinding
 class SetupActivity : AppCompatActivity() {
 
     private lateinit var b: ActivityMainBinding
-
-    private val micPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted -> refreshStatus() }
 
     private val autoFreezePickerLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -88,20 +77,9 @@ class SetupActivity : AppCompatActivity() {
     }
 
     private fun setUpButtons() {
-        b.btnPermissions.setOnClickListener {
-            if (hasMic()) refreshStatus()
-            else micPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-        }
-
-        b.btnHoneyBoardKeyboard.setOnClickListener {
-            startActivity(Intent(android.provider.Settings.ACTION_INPUT_METHOD_SETTINGS))
-        }
-
         b.btnSettings.setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
         }
-
-        b.btnTest.setOnClickListener { testVoice() }
 
         b.btnEscolomos.setOnClickListener { launchAppShortcut() }
 
@@ -206,91 +184,8 @@ class SetupActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        refreshStatus()
         refreshAutoFreezeStatus()
         refreshRootStatus()
-    }
-
-    private fun refreshStatus() {
-        val ok = hasMic()
-
-        setStepIcon(b.tvStep1Icon, ok, "Permission")
-
-        val global = StringBuilder()
-        when {
-            ok -> global.append("✓ Ready. Double-tap the keyboard spacebar to start or stop dictation.")
-            else -> global.append("✗ Missing steps: microphone permission is required.")
-        }
-        b.tvGlobalStatus.text = global.toString()
-        b.tvGlobalStatus.setTextColor(
-            if (ok) Color.parseColor("#2E7D32")
-            else Color.parseColor("#C62828")
-        )
-    }
-
-    private fun setStepIcon(tv: TextView, ok: Boolean, doneLabel: String) {
-        tv.text = if (ok) "✓" else "✗"
-        tv.setBackgroundColor(
-            ContextCompat.getColor(this, if (ok) R.color.status_ok else R.color.status_bad)
-        )
-        tv.setTextColor(Color.WHITE)
-    }
-
-    private fun testVoice() {
-        if (!hasMic()) {
-            b.tvResult.text = "Grant microphone permission first (step 1)."
-            return
-        }
-        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
-            b.tvResult.text = "Speech recognition is not available on this device."
-            return
-        }
-
-        b.tvResult.text = "Listening… (speak now)"
-        b.btnTest.isEnabled = false
-
-        val sr = SpeechRecognizer.createSpeechRecognizer(this)
-        sr.setRecognitionListener(object : RecognitionListener {
-            override fun onReadyForSpeech(p: Bundle?) {}
-            override fun onBeginningOfSpeech() { b.tvResult.text = "Listening…" }
-            override fun onRmsChanged(v: Float) {}
-            override fun onBufferReceived(ba: ByteArray?) {}
-            override fun onEndOfSpeech() { b.tvResult.text = "Processing…" }
-
-            override fun onError(errorCode: Int) {
-                try { sr.destroy() } catch (_: Throwable) {}
-                b.tvResult.text = "Error #$errorCode. Did you speak? Try again."
-                b.btnTest.isEnabled = true
-            }
-
-            override fun onPartialResults(p: Bundle?) {}
-            override fun onResults(results: Bundle?) {
-                val raw = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                    ?.firstOrNull().orEmpty()
-                try { sr.destroy() } catch (_: Throwable) {}
-                if (raw.isBlank()) {
-                    b.tvResult.text = "I could not hear you. Try again."
-                    b.btnTest.isEnabled = true
-                    return
-                }
-                b.tvResult.text = "Result:\n\n$raw"
-                b.btnTest.isEnabled = true
-            }
-
-            override fun onEvent(p0: Int, p1: Bundle?) {}
-        })
-
-        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            val loc = SecureStore.getLocale(this@SetupActivity)
-            try {
-                val parts = loc.split("_")
-                val l = java.util.Locale(parts.getOrNull(0) ?: "es", parts.getOrNull(1) ?: "")
-                putExtra(RecognizerIntent.EXTRA_LANGUAGE, l.toLanguageTag())
-            } catch (_: Throwable) {}
-            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-        }
-        sr.startListening(intent)
     }
 
     private fun requestAppShortcuts() {
@@ -374,7 +269,4 @@ class SetupActivity : AppCompatActivity() {
         }
     }
 
-    private fun hasMic(): Boolean =
-        ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
-            PackageManager.PERMISSION_GRANTED
 }
