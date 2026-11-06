@@ -13,6 +13,9 @@ Las nuevas instalaciones y reactivaciones no crean iconos automáticamente. Inst
 **Batería y compatibilidad bancaria:** el 18 de octubre se redujeron los eventos y lecturas de interfaz del servicio anti-scroll. Tras confirmar que BBVA bloqueaba el acceso con el servicio de Accesibilidad activo, el guard quedó como opción manual apagada por defecto y el monitor DNS se desacopló de Accesibilidad. La APK integrada se reconstruyó e instaló en el A54; Nemotron sigue como Inicio y teclado. Véase [el registro de optimización](docs/battery-optimization.md).
 
 - [Documentación, compilación y estado de pruebas](docs/oneui-home-integration.md)
+- [Bitácora completa del 5 de noviembre de 2026](docs/bitacora-2026-11-05.md)
+- [Instalación y estado de microG en A54](docs/microg-noogle-kernelsu-setup.md)
+- [Backend root de Nemotron Core con KernelSU](docs/nemotron-kernelsu.md)
 - [Limpieza de intermediarios y archivos conservados](docs/oneui-home-cleanup.md)
 - [Código fuente de Nemotron Core](apps/nemotron)
 - [Integración y compatibilidad de Nemotron UI](apps/nemotron-ui/build)
