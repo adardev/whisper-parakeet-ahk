@@ -182,3 +182,45 @@ overlay is not mounted and the original system APKs are used.
 - [Noogle README: variants, Companion, KernelSU notes, and troubleshooting](https://github.com/SelfRef/noogle-magisk#readme)
 - [KernelSU App Profile: per-app module unmount behavior](https://github.com/tiann/KernelSU/blob/main/website/docs/guide/app-profile.md)
 - [KernelSU metamodule guide](https://github.com/tiann/KernelSU/blob/main/website/docs/guide/metamodule.md)
+
+## Incidente del 5 de noviembre de 2026: YouTube Music y ubicación
+
+Después de reinstalar YouTube Music 9.43.51 desde los APK extraídos de la instalación
+existente (base, inglés y xxhdpi), el cierre continuó. Los registros de Android
+mostraron que YouTube Music se cerraba al consultar microG:
+
+```
+SQLiteException: Can't downgrade database from version 4 to 3
+```
+
+La causa fue una incompatibilidad en la base privada de GServices de microG, no el
+APK de YouTube Music. Antes de corregirla se verificó que
+`/sdcard/Download/gservices.db.backup` existiera y que coincidiera byte por byte
+con la base activa (245760 bytes). Se detuvo microG y se movió únicamente
+`gservices.db` a `gservices.db.incompatible-v4`; no se borraron datos de cuenta.
+microG generó una base nueva de 45056 bytes. Luego YouTube Music abrió y permaneció
+en la pantalla de bienvenida/inicio de sesión sin repetir el error. No se probó
+iniciar sesión ni reproducir audio.
+
+La primera ejecución del módulo de reparación falló porque el `action.sh` empaquetado
+contenía finales de línea CRCRLF y el shell informó `unexpected end of file`. El
+script se normalizó a LF, se validó con `sh -n` y se ejecutó directamente mediante
+KernelSU con capacidades efectivas completas. Se dejó marcado para desinstalar el
+módulo temporal `nemotron-ytm-gservices-fix`; verificar que desaparezca al siguiente
+inicio de KernelSU. El respaldo y la base apartada se conservan en el dispositivo.
+
+### Verificación de ubicación
+
+Se comprobó que el modo de ubicación estaba activado y que microG tenía concedidos
+los permisos de ubicación fina, aproximada y en segundo plano. Maps sí recibió una
+posición GPS, con 19 satélites y precisión reportada de 17 m; la pantalla de Maps
+mostró el punto azul sobre Guadalajara. Esto confirma GPS funcional durante la
+prueba. Las fuentes de ubicación por red de microG estaban desactivadas. Al probar
+el proveedor Positon seleccionado en microG, su endpoint devolvió HTTP 404, así que
+la ubicación por Wi-Fi/red no quedó verificada ni corregida. Maps mostró el punto
+por GPS.
+
+El teléfono permaneció accesible por ADB durante la verificación y llevaba doce
+minutos encendido. No se hizo otro reinicio para probar el próximo arranque; el
+reinicio suave iniciado previamente ya había concluido. No interpretar esta prueba
+como garantía de arranque en frío con KernelSU LKM temporal.

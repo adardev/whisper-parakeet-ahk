@@ -40,3 +40,12 @@ capability set, so it could not read or rename that app-private database. The
 database repair remains pending until a root session with filesystem access is
 available. Do not clear all microG data as a workaround: that can remove
 microG's stored account state.
+
+### Estado tras la reparación del 5 de noviembre de 2026
+
+Consulta el apartado **Incidente del 5 de noviembre de 2026: YouTube Music y
+ubicación** en `microg-noogle-kernelsu-setup.md`. La base GServices incompatible
+fue apartada tras confirmar un respaldo idéntico; YouTube Music abrió sin el crash
+de SQLite. Maps mostró la ubicación GPS. El proveedor Positon respondió HTTP 404,
+por lo que ubicación de red sigue pendiente. No se hizo reinicio adicional para
+probar arranque en frío.
