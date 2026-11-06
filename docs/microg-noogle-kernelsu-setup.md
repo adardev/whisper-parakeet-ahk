@@ -74,10 +74,6 @@ Google's Play Store APK.
   sign-in was completed as part of this work.
 - At the user's request, `dev.degoogle` and `inc.whew.android.fakegapps` were
   removed for user 0. FakeGApps is not required by this Catfish variant.
-  KernelSU, ReZygisk, LSPosed, meta-overlayfs, and Noogle were not removed.
-- Samsung displayed **“App paused by Maximum power saving”** for microG
-  Services. Maximum power saving was not disabled or changed. Background
-  operation while Samsung keeps the app paused has not been verified.
 - The Noogle installer warned that KernelSU's per-app **Umount modules**
   setting should be disabled for microG Services, Companion, and Services
   Framework Proxy. The KernelSU global/default app profile was left unchanged;
@@ -87,6 +83,39 @@ Google's Play Store APK.
   third-party app compatibility have not all been validated. Do not interpret
   package installation alone as proof of full Google-account or Play Integrity
   compatibility.
+
+## Maximum power saving and module cleanup (2026-11-05)
+
+Samsung Device Care had suspended microG Services because it was not included
+in **Maximum power saving → Essential apps**. KernelSU showed the system dialog
+“App paused by Maximum power saving”; its app switch was already enabled in
+that allowlist, but microG Services was not. Adding microG Services to the same
+allowlist immediately changed Android's package state from `suspended=true`
+to `suspended=false`. Maximum power saving itself remained enabled.
+
+After a KernelSU **Soft restart**, Package Manager registered the active Noogle
+packages from the product overlay again:
+
+| Package | Active APK path | Verified state |
+| --- | --- | --- |
+| `com.google.android.gms` | `/product/priv-app/GmsCoreMG/GmsCoreMG.apk` | microG Services `0.3.17.252432`, enabled, not suspended |
+| `com.google.android.gsf` | `/product/priv-app/GoogleServicesFrameworkMG/GoogleServicesFrameworkMG.apk` | Services Framework Proxy |
+| `com.android.vending` | `/product/priv-app/PhoneskyMG/PhoneskyMG.apk` | microG Companion |
+
+The microG Settings activity and launcher activity were then found and opened.
+`RUN_IN_BACKGROUND` reported `allow`, and Android's device-idle allowlist
+contained `com.google.android.gms`. This confirms package registration and the
+Samsung suspension fix. On Self-Check, signature support, installed packages,
+package signatures, and foreground location permission checks showed passing
+checkmarks. Account sign-in, push messaging, background location, Play
+Integrity, and all third-party apps have not been validated.
+
+The two Zygisk modules were removed from KernelSU after checking the installed
+module set: **Zygisk - LSPosed** and **ReZygisk**. No LSPosed manager or
+additional LSPosed modules were installed, and Noogle's Catfish variant does
+not require signature spoofing. KernelSU's **meta-overlayfs** and **Noogle
+microG Catfish** remain enabled; KernelSU reported `Working [Jailbreak mode]`
+after the Soft restart. No partition or boot image was modified.
 
 ## A54 follow-up: location and Google Wallet (2026-11-05)
 

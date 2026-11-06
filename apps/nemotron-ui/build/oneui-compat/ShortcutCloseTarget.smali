@@ -88,13 +88,31 @@
     const-string v1, "shortcut_"
     invoke-virtual {v0, v1}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
     move-result v1
-    if-eqz v1, :none
+    if-eqz v1, :nemotron_app_id
     const/16 v1, 0x9
     invoke-virtual {v0, v1}, Ljava/lang/String;->substring(I)Ljava/lang/String;
     move-result-object v0
     const-string v1, "_[0-9]+$"
     const-string v2, ""
     invoke-virtual {v0, v1, v2}, Ljava/lang/String;->replaceFirst(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;
+    move-result-object v0
+    return-object v0
+
+    # Launcher-pinned app shortcuts use IDs in the form
+    # nemotron_app_<package>_<timestamp> and point at SetupAliasV2. Resolve
+    # their real app package so Samsung Recents can match the returning task
+    # to the icon view on Nemotron's home screen.
+    :nemotron_app_id
+    const-string v1, "nemotron_app_"
+    invoke-virtual {v0, v1}, Ljava/lang/String;->startsWith(Ljava/lang/String;)Z
+    move-result v1
+    if-eqz v1, :none
+    const/16 v1, 0xd
+    const/16 v3, 0x5f
+    invoke-virtual {v0, v3}, Ljava/lang/String;->lastIndexOf(I)I
+    move-result v2
+    if-le v2, v1, :none
+    invoke-virtual {v0, v1, v2}, Ljava/lang/String;->substring(II)Ljava/lang/String;
     move-result-object v0
     return-object v0
     :none

@@ -37,8 +37,7 @@ class AssistantSwitchTileService : TileService() {
             return
         }
 
-        qsTile?.state = Tile.STATE_UNAVAILABLE
-        qsTile?.updateTile()
+        // Keep the last state visible while the root role change is in flight.
         Thread {
             val current = RootShellManager.getDefaultAssistantPackage()
             val next = if (current == TOOTSIE_PACKAGE) GEMINI_PACKAGE else TOOTSIE_PACKAGE

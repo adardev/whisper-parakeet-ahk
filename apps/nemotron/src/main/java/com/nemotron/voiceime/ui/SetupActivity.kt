@@ -53,16 +53,7 @@ class SetupActivity : AppCompatActivity() {
             b.btnKernelSUPermission.isEnabled = false
             b.tvKernelSUStatus.text = "Waiting for KernelSU approval…"
             Thread {
-                val result = RootAccessManager.requestAccess()
-                runOnUiThread {
-                    b.btnKernelSUPermission.isEnabled = true
-                    b.tvKernelSUStatus.text = if (result.success) {
-                        "Root granted to Nemotron (${result.detail})"
-                    } else {
-                        "Root not granted: ${result.detail}. Approve Nemotron in KernelSU and try again."
-                    }
-                    b.tvKernelSUIcon.text = if (result.success) "✓" else "✗"
-                }
+                showRootResult(RootAccessManager.requestAccess())
             }.start()
         }
     }
@@ -70,18 +61,30 @@ class SetupActivity : AppCompatActivity() {
     private fun refreshRootStatus() {
         b.tvKernelSUStatus.text = "Checking KernelSU root access…"
         Thread {
-            val granted = RootAccessManager.hasRootAccess()
-            runOnUiThread {
-                b.tvKernelSUIcon.text = if (granted) "✓" else "✗"
-                b.tvKernelSUIcon.setBackgroundColor(
-                    ContextCompat.getColor(this, if (granted) R.color.status_ok else R.color.status_bad)
-                )
-                b.tvKernelSUIcon.setTextColor(Color.WHITE)
-                b.tvKernelSUStatus.text = if (granted) "KernelSU root authorized ✓" else
-                    "KernelSU root not authorized: tap Request root access"
-                b.btnKernelSUPermission.text = if (!granted) "Request KernelSU root access" else "Verify KernelSU root access"
-            }
+            showRootResult(RootAccessManager.requestAccess(timeoutMs = 5_000L))
         }.start()
+    }
+
+    private fun showRootResult(result: RootAccessManager.Result) {
+        runOnUiThread {
+            val granted = result.success
+            b.btnKernelSUPermission.isEnabled = true
+            b.tvKernelSUIcon.text = if (granted) "✓" else "✗"
+            b.tvKernelSUIcon.setBackgroundColor(
+                ContextCompat.getColor(this, if (granted) R.color.status_ok else R.color.status_bad)
+            )
+            b.tvKernelSUIcon.setTextColor(Color.WHITE)
+            b.tvKernelSUStatus.text = if (granted) {
+                "KernelSU root active ✓ (${result.detail})"
+            } else {
+                "KernelSU root unavailable: ${result.detail}"
+            }
+            b.btnKernelSUPermission.text = if (granted) {
+                "Verify KernelSU root access"
+            } else {
+                "Request KernelSU root access"
+            }
+        }
     }
 
     private fun setUpButtons() {
