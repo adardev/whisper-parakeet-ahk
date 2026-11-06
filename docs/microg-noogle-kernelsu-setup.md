@@ -223,3 +223,11 @@ El teléfono permaneció accesible por ADB durante la verificación y llevaba do
 minutos encendido. No se hizo otro reinicio para probar el próximo arranque; el
 reinicio suave iniciado previamente ya había concluido. No interpretar esta prueba
 como garantía de arranque en frío con KernelSU LKM temporal.
+
+## Reaparición del fallo — 6 de noviembre de 2026
+
+YouTube Music 9.43.51 volvió a cerrarse con el mismo `SQLiteException: Can't downgrade database from version 4 to 3`. Se confirmó que el proceso que lanza la excepción es `com.google.android.gms` y que el archivo activo afectado vuelve a ser su base privada `databases/gservices.db` (53,248 bytes). No se reinstaló ni se borraron datos de YouTube Music.
+
+Antes de apartarla se copió la base activa a `/sdcard/Download/gservices.db.before-repair-20261106` y se verificó que el SHA-256 de la copia coincidiera con el original (`db4ccab3bab79cfd978efb3b7c9b3f4c0e31209aafd3e77fcaca49f72002d0a4`). Se detuvo `com.google.android.gms` y se renombró únicamente la base a `gservices.db.incompatible-20261106-1623`. microG recreó `gservices.db`; YouTube Music volvió a abrir hasta `MusicActivity` sin repetir el error en el registro. No se verificaron inicio de sesión ni reproducción en esta ocasión.
+
+Para repetir el arreglo si aparece el mismo error: confirmar primero que el stack trace diga `Can't downgrade database from version 4 to 3` y que la base origen sea `com.google.android.gms/databases/gservices.db`; respaldar y verificar la copia; detener microG; renombrar solo esa base activa a un nombre único; iniciar YouTube Music y revisar logcat. No borrar los datos completos de microG ni de YouTube Music. Los respaldos anteriores (`gservices.db.backup`) y las bases apartadas permanecen en el dispositivo.

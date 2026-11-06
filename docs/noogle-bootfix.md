@@ -49,3 +49,7 @@ fue apartada tras confirmar un respaldo idéntico; YouTube Music abrió sin el c
 de SQLite. Maps mostró la ubicación GPS. El proveedor Positon respondió HTTP 404,
 por lo que ubicación de red sigue pendiente. No se hizo reinicio adicional para
 probar arranque en frío.
+
+### Reaparición y reparación del 6 de noviembre de 2026
+
+El error volvió en YouTube Music 9.43.51. Se repitió el mismo procedimiento documentado en `microg-noogle-kernelsu-setup.md`: respaldo SHA-256 verificado de la base activa, detención de microG, renombre de solo `gservices.db` a `gservices.db.incompatible-20261106-1623` y recreación automática al iniciar el proveedor. YouTube Music llegó a `MusicActivity` sin otro crash de downgrade. Se preservaron los datos de ambas aplicaciones.
