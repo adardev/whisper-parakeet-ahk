@@ -40,6 +40,11 @@
         android:usesCleartextTraffic="true"
         android:theme="@style/Theme.NemotronVoiceIME">
 
+        <!-- Android Auto media bridge: proxies the active Salt Player session. -->
+        <meta-data
+            android:name="com.google.android.gms.car.application"
+            android:resource="@xml/automotive_app_desc" />
+
         <!-- ============================================================== -->
         <!--  MainActivity: destino invisible del doble toque del botón lateral. -->
         <!-- ============================================================== -->
@@ -176,6 +181,26 @@
             android:name=".dhizuku.HealthWorkoutPowerSaverListener"
             android:label="Samsung Health workout battery saver"
             android:exported="true"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name=".car.CarMediaBrowserService"
+            android:exported="true"
+            android:label=" "
+            android:icon="@drawable/auto_media_transparent">
+            <intent-filter>
+                <action android:name="android.media.browse.MediaBrowserService" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name=".car.CarMediaSessionListener"
+            android:exported="true"
+            android:label="Nemotron media bridge"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService" />

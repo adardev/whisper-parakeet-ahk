@@ -15,6 +15,9 @@ class AndroidAutoTileService : AppFreezeTileService() {
         // cannot race with publishTileState's main-thread callback.
         SecureStore.setAndroidAutoTileOn(this, true)
         Thread {
+            // The patch is session-only and falls back to the original APK if
+            // the staged APK or installed Android Auto version has changed.
+            AndroidAutoRailPatch.enable(this)
             if (!AutoAndroidAuto.prepareForMedia(this)) {
                 android.util.Log.e(TAG, "Android Auto quedó visible pero no listo para media")
             }
@@ -29,6 +32,8 @@ class AndroidAutoTileService : AppFreezeTileService() {
     override fun onAfterFreeze() {
         SecureStore.setAndroidAutoTileOn(this, false)
         Thread {
+            AndroidAutoRailPatch.disable(this)
+            AutoAndroidAuto.setCarMediaBridgeEnabled(this, false)
             setLocation(false)
             setBluetooth(false)
             setMobileData(false)
