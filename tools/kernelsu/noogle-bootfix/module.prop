@@ -1,0 +1,6 @@
+id=nemotron-noogle-bootfix
+name=Nemotron Noogle Boot Repair
+version=1.0
+versionCode=1
+author=Nemotron
+description=One-shot soft restart when KernelSU late-load leaves Package Manager on the stock GMS path
