@@ -15,7 +15,9 @@ class AndroidAutoTileService : AppFreezeTileService() {
         // cannot race with publishTileState's main-thread callback.
         SecureStore.setAndroidAutoTileOn(this, true)
         Thread {
-            grantNotificationListener()
+            if (!AutoAndroidAuto.prepareForMedia(this)) {
+                android.util.Log.e(TAG, "Android Auto quedó visible pero no listo para media")
+            }
             setLocation(true)
             setBluetooth(true)
             setMobileData(true)
@@ -49,17 +51,6 @@ class AndroidAutoTileService : AppFreezeTileService() {
         val enabled = !hidden
         SecureStore.setAndroidAutoTileOn(this, enabled)
         android.util.Log.d(TAG, "Confirmed Android Auto tile state: enabled=$enabled")
-    }
-
-    /**
-     * Re-otorga el permiso de NotificationListener a Android Auto.
-     * Al mostrar de nuevo el paquete, se asegura este permiso.
-     * Usa argv directo para que el '$' del nombre del componente no se expanda.
-     */
-    private fun grantNotificationListener() {
-        if (!RootShellManager.hasPermission()) return
-        val component = "$targetPackage/com.google.android.gearhead.notifications.SharedNotificationListenerManager\$ListenerService"
-        RootShellManager.execShellFresh(arrayOf("cmd", "notification", "allow_listener", component))
     }
 
     /** Enables location for navigation when Android Auto is enabled.

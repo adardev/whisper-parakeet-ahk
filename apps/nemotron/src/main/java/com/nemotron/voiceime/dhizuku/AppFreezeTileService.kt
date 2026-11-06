@@ -68,7 +68,9 @@ abstract class AppFreezeTileService : TileService() {
                     packageStates[pkg]?.let { it.hidden || it.disabled } == true
                 }
                 if (anyFrozen || alwaysUnfreezeOnClick) {
-                    val allEnabled = installedPackages.all { pkg -> RootShellManager.unhideApp(pkg) }
+                    val allEnabled = installedPackages.all { pkg ->
+                        RootShellManager.unhideApp(pkg) && RootShellManager.unstopApp(pkg)
+                    }
                     if (allEnabled) {
                         publishTileState(granted = true, hidden = false)
                         onAfterUnfreeze()

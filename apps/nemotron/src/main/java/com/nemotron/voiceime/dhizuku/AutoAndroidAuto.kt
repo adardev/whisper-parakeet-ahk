@@ -27,15 +27,14 @@ object AutoAndroidAuto {
             }
             RootShellManager.setDoubleTapToWake(true)
             RootShellManager.setDoubleTapToSleep(true)
-            if (!RootShellManager.isAppHidden(AA_PACKAGE)) {
-                Log.d(TAG, "coche conectado, Android Auto ya activo")
-                return@Thread
-            }
-            if (RootShellManager.unhideApp(AA_PACKAGE)) {
-                SecureStore.setAutoAndroidAutoWasUnfroze(ctx, true)
-                Log.i(TAG, "coche conectado → Android Auto descongelado")
+            val hidden = RootShellManager.isAppHidden(AA_PACKAGE)
+            if (prepareForMedia(ctx)) {
+                if (hidden) {
+                    SecureStore.setAutoAndroidAutoWasUnfroze(ctx, true)
+                }
+                Log.i(TAG, "coche conectado → Android Auto visible, habilitado, sin force-stop y listener multimedia listo")
             } else {
-                Log.w(TAG, "no se pudo descongelar Android Auto")
+                Log.w(TAG, "coche conectado pero Android Auto no quedó listo para iniciar media")
             }
         }.start()
     }
@@ -66,12 +65,34 @@ object AutoAndroidAuto {
             if (!RootShellManager.hasPermission()) return@Thread
             RootShellManager.setDoubleTapToWake(true)
             RootShellManager.setDoubleTapToSleep(true)
-            if (RootShellManager.isAppHidden(AA_PACKAGE)) {
-                if (RootShellManager.unhideApp(AA_PACKAGE)) {
+            val hidden = RootShellManager.isAppHidden(AA_PACKAGE)
+            if (prepareForMedia(ctx)) {
+                if (hidden) {
                     SecureStore.setAutoAndroidAutoWasUnfroze(ctx, true)
-                    Log.i(TAG, "reconcile: coche conectado → Android Auto descongelado")
                 }
+                Log.i(TAG, "reconcile: coche conectado → Android Auto listo para media")
             }
         }.start()
+    }
+
+    /** Clear pm hide and force-stop left by the tile before the car UI/media host starts. */
+    fun prepareForMedia(ctx: Context): Boolean {
+        if (!RootShellManager.hasPermission()) return false
+        if (!RootShellManager.unhideApp(AA_PACKAGE)) return false
+        if (!RootShellManager.unstopApp(AA_PACKAGE)) return false
+
+        val component = "$AA_PACKAGE/com.google.android.gearhead.notifications.SharedNotificationListenerManager\$ListenerService"
+        fun isListenerEnabled(): Boolean = RootShellManager.execShellFresh(
+            arrayOf("settings", "get", "secure", "enabled_notification_listeners")
+        )?.split(':')?.any { it.trim().equals(component, ignoreCase = true) } == true
+
+        if (!isListenerEnabled()) {
+            RootShellManager.execShellFresh(arrayOf("cmd", "notification", "allow_listener", component))
+        }
+        val listenerReady = isListenerEnabled()
+        Log.i(TAG, "Android Auto media listener habilitado=$listenerReady")
+        // A media-listener permission issue must be visible in logs but should
+        // not undo the package unhide/unstop needed to start the car session.
+        return true
     }
 }

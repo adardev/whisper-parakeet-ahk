@@ -579,6 +579,25 @@ Auto package was frozen during this installation session, so the enabled-tile
 USB disconnect/recovery sequence was not induced; end-to-end recovery remains
 to be confirmed with the tile enabled and the car/USB connection present.
 
+### Restore Android Auto's media host after root unfreeze — 6 November 2026
+
+The A54 showed `com.google.android.projection.gearhead` hidden and force-stopped
+while the Auto tile was off. Its auto-connect path only removed `pm hide`; it
+did not clear the package's stopped state, so Android Auto could not start its
+media host on the next car connection. All app-tile unfreeze paths now also run
+`pm unstop`. The automatic car-connect/reconcile path additionally restores
+Android Auto's notification listener through the root shell before the media
+host starts. It reads the enabled-listener setting through root rather than
+querying another package through `NotificationManager` (One UI throws a
+cross-package `SecurityException` for that API).
+
+The Core APK compiled and installed. A controlled attach/detach receiver check
+confirmed Android Auto remained visible, enabled, and `stopped=false`; its
+media listener stayed enabled. YouTube Music was visible/enabled and its
+`MusicBrowserService` resolved. No car was connected during the check, and
+`dumpsys media_session` had no active sessions, so steering-wheel playback
+controls still require an in-car playback check.
+
 Follow-up device inspection found One UI had frozen the cached Core process
 (`cmd activity isfrozen com.nemotron.core` returned `true`) while the Auto tile
 was off. An app-level Shizuku binder listener is not dependable while its
