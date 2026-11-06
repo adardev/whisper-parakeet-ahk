@@ -101,7 +101,12 @@ class Fit3TileService : AppFreezeTileService() {
                     return@Thread
                 }
 
-                val controlledPackages = listOf(targetPackage, SAMSUNG_WEARABLE_PLUGIN, SAMSUNG_ACCESSORY_PACKAGE)
+                val controlledPackages = listOf(
+                    targetPackage,
+                    SAMSUNG_WEARABLE_PLUGIN,
+                    SAMSUNG_ACCESSORY_PACKAGE,
+                    SAMSUNG_WATCH_MANAGER_PACKAGE
+                )
                 val packageStates = RootShellManager.getPackageStates(controlledPackages)
                     ?: throw IllegalStateException("No se pudo consultar el estado de Samsung Health")
                 val hiddenPackages = packageStates.filterValues { it.hidden }.keys
@@ -231,18 +236,46 @@ class Fit3TileService : AppFreezeTileService() {
                         return@Thread
                     }
                     RootShellManager.stopApp(targetPackage)
+                    // Galaxy Wearable owns the saved pairing and must be
+                    // available while Fit3 is active. Restore its previous
+                    // battery-saving state together with the other packages.
+                    RootShellManager.stopApp(SAMSUNG_WATCH_MANAGER_PACKAGE)
+                    if (!RootShellManager.hideApp(SAMSUNG_WATCH_MANAGER_PACKAGE)) {
+                        RootShellManager.unhideApp(targetPackage)
+                        RootShellManager.unstopApp(targetPackage)
+                        RootShellManager.unhideApp(SAMSUNG_WEARABLE_PLUGIN)
+                        RootShellManager.unstopApp(SAMSUNG_WEARABLE_PLUGIN)
+                        if (!hasConnectedBluetoothPeripherals()) {
+                            RootShellManager.unhideApp(SAMSUNG_ACCESSORY_PACKAGE)
+                            RootShellManager.unstopApp(SAMSUNG_ACCESSORY_PACKAGE)
+                        }
+                        Log.e(TAG, "No se pudo pausar Galaxy Wearable; se restauró el stack Fit3")
+                        showMessage("No se pudo pausar Galaxy Wearable; Fit3 quedó activo")
+                        return@Thread
+                    }
                     val frozen = RootShellManager.getHiddenPackages(
-                        listOf(targetPackage, SAMSUNG_WEARABLE_PLUGIN, SAMSUNG_ACCESSORY_PACKAGE)
+                        listOf(
+                            targetPackage,
+                            SAMSUNG_WEARABLE_PLUGIN,
+                            SAMSUNG_ACCESSORY_PACKAGE,
+                            SAMSUNG_WATCH_MANAGER_PACKAGE
+                        )
                     ).orEmpty()
                     check(targetPackage in frozen && SAMSUNG_WEARABLE_PLUGIN in frozen &&
+                        SAMSUNG_WATCH_MANAGER_PACKAGE in frozen &&
                         (hasConnectedBluetoothPeripherals() || SAMSUNG_ACCESSORY_PACKAGE in frozen)) {
-                        "No se confirmó que Samsung Health y el plugin Fit3 quedaran ocultos"
+                        "No se confirmó que Samsung Health, Fit3 Plugin y Galaxy Wearable quedaran ocultos"
                     }
-                    Log.i(TAG, "Apagado completado: subidaConfirmada=$uploaded, Fit3 desconectada; Samsung Health oculto sin deshabilitar sus permisos y SAP pausado cuando no hay otros periféricos")
+                    Log.i(TAG, "Apagado completado: subidaConfirmada=$uploaded, Fit3 desconectada; Samsung Health, Fit3 Plugin y Galaxy Wearable ocultos sin deshabilitar sus permisos; SAP pausado cuando no hay otros periféricos")
                 } else {
                     // Restore packages before waking Samsung's background
                     // health receiver, which initializes its own HostManager.
-                    for (pkg in listOf(SAMSUNG_ACCESSORY_PACKAGE, SAMSUNG_WEARABLE_PLUGIN, targetPackage)) {
+                    for (pkg in listOf(
+                        SAMSUNG_WATCH_MANAGER_PACKAGE,
+                        SAMSUNG_ACCESSORY_PACKAGE,
+                        SAMSUNG_WEARABLE_PLUGIN,
+                        targetPackage
+                    )) {
                         if ((pkg in hiddenPackages || pkg in disabledPackages) && !RootShellManager.unhideApp(pkg)) {
                             Log.e(TAG, "No se pudo habilitar $pkg para conectar Fit3")
                             return@Thread
@@ -270,12 +303,27 @@ class Fit3TileService : AppFreezeTileService() {
                         }
                     }
                     if (!startFit3Connection()) {
+                        disableBluetoothWhenIdle("Samsung Fit3 capability request was rejected")
                         showMessage("No se pudo iniciar Fit3 Plugin para conectar la pulsera")
+                        return@Thread
+                    }
+                    if (!startSamsungHostManager()) {
+                        disableBluetoothWhenIdle("Samsung HostManager could not start")
+                        showMessage("No se pudo iniciar Samsung Wearable para conectar Fit3")
+                        return@Thread
+                    }
+                    if (!sendWatchRequest(CONNECT_ACTION, device.address)) {
+                        Log.e(TAG, "Samsung Wearable no aceptó la solicitud de conexión")
+                        disableBluetoothWhenIdle("Samsung rejected the Fit3 connect request")
+                        showMessage("Samsung Wearable rechazó la solicitud de conexión de Fit3")
                         return@Thread
                     }
                     val connected = waitForConnection(device.address, connected = true, timeoutMs = 25_000L)
                     Log.i(TAG, "Resultado de reconexión de Fit3: conectado=$connected")
-                    if (!connected) showMessage("Fit3 sigue sin conexión. Comprueba que la pulsera esté cerca y encendida")
+                    if (!connected) {
+                        disableBluetoothWhenIdle("Fit3 did not connect within 25 seconds")
+                        showMessage("Fit3 sigue sin conexión. Comprueba que la pulsera esté cerca y encendida")
+                    }
                 }
             } catch (t: Throwable) {
                 Log.e(TAG, "Falló el control de conexión Bluetooth de Fit3", t)
@@ -392,12 +440,9 @@ class Fit3TileService : AppFreezeTileService() {
     }
 
     private fun startFit3Connection(): Boolean {
-        // This SDK capability request is handled by an exported, permissionless
-        // receiver in the plugin's main process. HostManagerApplication.onCreate
-        // initializes NSHostManager/HMApplication under Samsung's UID, restoring
-        // its saved-device SAP connection. No Activity or foreground switch is
-        // needed. Broadcast completion is only startup acknowledgement; the
-        // caller still verifies the real watch link before reporting success.
+        // Ask Samsung's SDK receiver to initialize its Health Connect capability.
+        // This is not itself a Bluetooth connect request; HostManager must be
+        // started and ACTION_HM_REQUEST_CONNECT sent separately below.
         val output = RootShellManager.execShellFresh(arrayOf(
             "am", "broadcast", "--user", "0", "--receiver-include-background",
             "-a", HEALTH_CAPABILITY_ACTION,
@@ -408,6 +453,28 @@ class Fit3TileService : AppFreezeTileService() {
             !output.contains("Error", ignoreCase = true) &&
             !output.contains("Permission Denial", ignoreCase = true) &&
             !output.contains("SecurityException")
+    }
+
+    /** Samsung's receiver cannot start HostManager services from the background. */
+    private fun startSamsungHostManager(): Boolean {
+        val output = RootShellManager.execShellFresh(arrayOf(
+            "am", "start-foreground-service", "--user", "0",
+            "-a", HOST_MANAGER_START_ACTION,
+            "-n", "$SAMSUNG_WEARABLE_PLUGIN/$HOST_MANAGER_SERVICE"
+        ), timeoutMs = 8_000L)
+        Log.i(TAG, "Arranque temporal de Samsung HostManager: $output")
+        return output != null && !output.contains("Error", ignoreCase = true) &&
+            !output.contains("Exception", ignoreCase = true)
+    }
+
+    /** Save battery after a failed reconnect only if no other peripheral needs Bluetooth. */
+    private fun disableBluetoothWhenIdle(reason: String) {
+        if (hasConnectedBluetoothPeripherals() || !isBluetoothEnabled()) return
+        val output = RootShellManager.execShellFresh(
+            arrayOf("cmd", "bluetooth_manager", "disable"), timeoutMs = 8_000L
+        )
+        val disabled = waitForBluetooth(enabled = false, timeoutMs = 8_000L)
+        Log.i(TAG, "Bluetooth apagado tras fallo de conexión sin periféricos ($reason): confirmado=$disabled; $output")
     }
 
     private fun waitForConnection(address: String, connected: Boolean, timeoutMs: Long): Boolean {
@@ -462,7 +529,11 @@ class Fit3TileService : AppFreezeTileService() {
         private const val SAMSUNG_HEALTH_PACKAGE = "com.sec.android.app.shealth"
         private const val SAMSUNG_WEARABLE_PLUGIN = "com.samsung.wearable.fit3plugin"
         private const val SAMSUNG_ACCESSORY_PACKAGE = "com.samsung.accessory"
+        private const val SAMSUNG_WATCH_MANAGER_PACKAGE = "com.samsung.android.app.watchmanager"
+        private const val HOST_MANAGER_SERVICE = "com.samsung.wearable.hostmanager.service.HostManager"
+        private const val HOST_MANAGER_START_ACTION = "com.samsung.android.hostmanager.service.NSHostManager"
         private const val SAMSUNG_ACCESSORY_SERVICE = "com.samsung.accessory/.services.SAFrameworkService"
+        private const val CONNECT_ACTION = "com.samsung.android.watchmanager.ACTION_HM_REQUEST_CONNECT"
         private const val DISCONNECT_ACTION = "com.samsung.android.watchmanager.ACTION_HM_REQUEST_DISCONNECT"
         private const val HEALTH_CAPABILITY_ACTION =
             "com.samsung.android.sdk.healthconnectivity.REQUEST_MANAGER_CAPABILITY"

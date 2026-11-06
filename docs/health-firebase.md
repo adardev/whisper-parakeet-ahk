@@ -66,24 +66,26 @@ temporarily loses its Bluetooth connection. A disconnected watch must not change
 an intended off tap into another reconnect attempt.
 
 - On: unhide and unstop Samsung Accessory, `com.samsung.wearable.fit3plugin`,
-  and `com.sec.android.app.shealth`; ensure they are enabled (including
-  migration from older builds that disabled the plugin/accessory), repair
-  missing Health Connect grants,
-  enable Bluetooth when needed, and send the
-  SDK's `REQUEST_MANAGER_CAPABILITY` to the plugin's exported
-  `MobileConnectionReceiver`. Its main-process Application initializes
-  Samsung's HostManager. No Activity is launched and Quick Settings stays as-is.
-  Confirm the Fit3 GATT connection within 25 seconds; otherwise report that
-  the watch is still disconnected.
+  `com.samsung.android.app.watchmanager`, and `com.sec.android.app.shealth`;
+  ensure they are enabled (including migration from older builds that disabled
+  dependencies), repair missing Health Connect grants, and enable Bluetooth
+  when needed. Send the SDK's `REQUEST_MANAGER_CAPABILITY` to the plugin's
+  exported `MobileConnectionReceiver`, then send Samsung's
+  `ACTION_HM_REQUEST_CONNECT` for the saved Fit3 address to its HostManager
+  receiver. The capability request alone did not establish a Bluetooth link.
+  Confirm the Fit3 GATT connection within 25 seconds; otherwise report that the
+  watch is still disconnected.
 - Off: wait for the Health SDK read and confirmed Firebase upload, request Fit3
-  disconnection, then `pm hide` and force-stop Samsung Health and Fit3 Plugin.
-  If no other Bluetooth peripheral is connected, also hide and stop Samsung
-  Accessory so its SAP service cannot restart. These are hide operations, not
-  package disables; the enabled state and Health Connect grants are retained.
+  disconnection, then `pm hide` and force-stop Samsung Health, Fit3 Plugin, and
+  Galaxy Wearable. If no other Bluetooth peripheral is connected, also hide and
+  stop Samsung Accessory so its SAP service cannot restart. These are hide
+  operations, not package disables; Health Connect grants are retained.
   If Fit3 was the only connected device, turn Bluetooth off and verify the link
   went down. Preserve Bluetooth when another device is connected.
-- Galaxy Wearable remains controlled by its separate tile. Sleep Mode uses a
-  bounded direct BLE exchange and leaves plugin state as the Fit3 tile set it.
+- Galaxy Wearable is restored as a connection dependency while Fit3 is active
+  and hidden again when Fit3 is paused. Its separate tile remains available.
+  Sleep Mode uses a bounded direct BLE exchange and leaves plugin state as the
+  Fit3 tile set it.
 - The pre-disconnect sync wait is bounded at 60 seconds. An unsuccessful upload
   is reported and local Health data is preserved; it does not trap the tile on.
 - The busy guard is shared between tile service instances to prevent overlapping
