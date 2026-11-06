@@ -31,3 +31,9 @@ These are low compared with the leading UIDs in this window. No feature was disa
 ## Follow-up measurement
 
 To identify overnight idle drain accurately, capture a fresh interval after unplugging and using the phone normally, then read BatteryStats before charging. Compare screen-off CPU, mobile-radio, GNSS, and partial-wakelock attribution separately. Do not reset BatteryStats before preserving the current baseline.
+
+## Fit3 tile check (10:30–10:35)
+
+The Core app's `POST_NOTIFICATION` app-op was `ignore`, which suppressed the tile's ongoing connection notification. It was restored to `allow` and the runtime notification permission was granted. The connection notification no longer uses deferred foreground-service display, so the progress indicator can appear as soon as a tile action begins.
+
+A status-bar tile click restored Samsung Health, Fit3 Plugin, and Samsung Accessory to visible/enabled state. The tile's 25-second connection check still ended with `conectado=false`; Bluetooth was on but the adapter reported `STATE_DISCONNECTED` and zero connected profiles. Samsung's plugin also logged background service starts denied during its receiver-based startup. Therefore the notification suppression is fixed, but this capture does not prove the band reconnected; keep the Fit3 nearby/on and verify the Bluetooth link separately.

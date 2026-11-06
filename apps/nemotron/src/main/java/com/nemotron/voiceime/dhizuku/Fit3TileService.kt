@@ -84,7 +84,6 @@ class Fit3TileService : AppFreezeTileService() {
                 .setSmallIcon(R.drawable.ic_fit3_tile)
                 .setContentTitle("Fit3")
                 .setContentText("Actualizando conexión de la pulsera…")
-                .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_DEFERRED)
                 .setOngoing(true).build())
         } catch (t: Throwable) {
             operationInProgress.set(false)
