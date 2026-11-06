@@ -127,12 +127,11 @@ microG Services was not suspended and remained on Android's Doze allowlist;
 Battery Saver itself was still on. This isolated the problem to the device-wide
 location switch rather than an app permission or microG battery restriction.
 
-The Android Auto tile implementation was forcing that global switch off in
-`onAfterFreeze()`. That breaks every location client, including Maps and banking
-apps, whenever the tile is turned off. The tile now enables location when
-Android Auto is enabled for navigation, but leaves the user's location setting
-unchanged when the tile is turned off. The user can still control Location
-normally from Quick Settings or Android Settings.
+The Android Auto tile implementation originally forced the global switch off in
+`onAfterFreeze()`, then was changed to preserve it. The user has now requested
+that Location follow the Auto tile again: enabling Auto turns Location on, and
+turning Auto off turns the device-wide Location switch off. This also affects
+Maps and banking apps until Location is re-enabled.
 
 At diagnosis time, `cmd location is-location-enabled` returned `false`; Maps
 and BBVA both had `ACCESS_FINE_LOCATION` and `ACCESS_COARSE_LOCATION` granted.
