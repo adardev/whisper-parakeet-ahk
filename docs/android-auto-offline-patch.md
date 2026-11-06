@@ -17,3 +17,8 @@ El montaje no es persistente: un reinicio o reinicio de zygote lo elimina. El ro
 Una instalación normal del APK firmado localmente falló con `INSTALL_FAILED_UPDATE_INCOMPATIBLE` porque Android Auto es una aplicación de sistema firmada por Google. Se restauró el paquete original y su acceso a notificaciones; no repetir la desinstalación para evitar ese control. No modificar `/product/overlay/config/config.xml`: el intento anterior causó fallos de arranque.
 
 Los respaldos privados de los módulos KernelSU y de los datos de Android Auto se encuentran en `Documents/NemotronPrivateBackups/`; no se suben al repositorio. Los APK originales están en `Documents/AndroidAutoOfflinePatch/original-splits/`.
+
+
+## Waze horizontal framing
+
+Waze's landscape marker position and the reversible Keep map north up adjustment are documented in [waze-android-auto-centering-2026-11-06.md](waze-android-auto-centering-2026-11-06.md). The setting was changed on-device; its physical-head-unit result remains unverified.
