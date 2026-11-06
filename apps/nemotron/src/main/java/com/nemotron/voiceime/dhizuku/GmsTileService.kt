@@ -28,7 +28,8 @@ class GmsTileService : AppFreezeTileService() {
             "com.revolut.revolut",
             "mx.bancosantander.supermovil",
             "com.nu.production",
-            "mx.com.bankaya.products.uberprocard"
+            "mx.com.bankaya.products.uberprocard",
+            "mx.openbank.modelbank"
         )
 
         const val INSTAGRAM_PACKAGE = "com.instagram.android"
