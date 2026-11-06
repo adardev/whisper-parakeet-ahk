@@ -47,12 +47,9 @@ abstract class AppFreezeTileService : TileService() {
             Log.w(TAG, "Ignorado toque duplicado mientras $tileLabel sigue procesando")
             return
         }
-        handler.post {
-            qsTile?.let { tile ->
-                tile.state = Tile.STATE_UNAVAILABLE
-                tile.updateTile()
-            }
-        }
+        // Keep the last known state visible while root changes package state.
+        // STATE_UNAVAILABLE here flashes gray on every toggle and looks like
+        // the tile is neither enabled nor disabled.
 
         Thread {
             try {
@@ -60,12 +57,18 @@ abstract class AppFreezeTileService : TileService() {
                     Log.w(TAG, "KernelSU root is not authorized")
                     return@Thread
                 }
-                val hiddenPackages = RootShellManager.getHiddenPackages(targetPackages)
+                val packageStates = RootShellManager.getPackageStates(targetPackages)
                     ?: throw IllegalStateException("No se pudo consultar el estado de $tileLabel")
-                Log.d(TAG, "Currently hidden: $hiddenPackages")
-                val anyFrozen = targetPackages.any { it in hiddenPackages }
+                Log.d(TAG, "Currently frozen states: $packageStates")
+                val installedPackages = targetPackages.filter { it in packageStates }
+                if (installedPackages.isEmpty()) {
+                    throw IllegalStateException("No hay paquetes instalados para el tile $tileLabel")
+                }
+                val anyFrozen = installedPackages.any { pkg ->
+                    packageStates[pkg]?.let { it.hidden || it.disabled } == true
+                }
                 if (anyFrozen || alwaysUnfreezeOnClick) {
-                    val allEnabled = targetPackages.all { pkg -> RootShellManager.unhideApp(pkg) }
+                    val allEnabled = installedPackages.all { pkg -> RootShellManager.unhideApp(pkg) }
                     if (allEnabled) {
                         publishTileState(granted = true, hidden = false)
                         onAfterUnfreeze()
@@ -87,7 +90,7 @@ abstract class AppFreezeTileService : TileService() {
                     }
                     if (beforeFreezeDelayMs > 0) Thread.sleep(beforeFreezeDelayMs)
                     var allHidden = true
-                    for (pkg in targetPackages) {
+                    for (pkg in installedPackages) {
                         val hidden = RootShellManager.hideApp(pkg)
                         allHidden = allHidden && hidden
                         val stopped = RootShellManager.stopApp(pkg)
@@ -129,9 +132,9 @@ abstract class AppFreezeTileService : TileService() {
 
     /** Override when a tile controls a group of packages rather than one app. */
     open fun isTileFrozen(): Boolean {
-        val hidden = RootShellManager.getHiddenPackages(targetPackages)
+        val states = RootShellManager.getPackageStates(targetPackages)
             ?: throw IllegalStateException("No se pudo consultar el estado de $tileLabel")
-        return targetPackages.any { it in hidden }
+        return targetPackages.any { pkg -> states[pkg]?.let { it.hidden || it.disabled } == true }
     }
 
     @SuppressLint("MissingPermission")

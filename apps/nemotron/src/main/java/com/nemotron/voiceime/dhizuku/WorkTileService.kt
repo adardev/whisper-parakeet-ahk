@@ -54,21 +54,25 @@ class WorkTileService : TileService() {
                     Log.w(TAG, "Could not query Work package state")
                     return@Thread
                 }
-                val frozen = states.values.any { it.hidden || it.disabled }
+                val installedPackages = targetPackages.filter { it in states }
+                if (installedPackages.isEmpty()) {
+                    Log.w(TAG, "No Work packages are installed")
+                    return@Thread
+                }
+                val frozen = installedPackages.any { pkg ->
+                    states[pkg]?.let { it.hidden || it.disabled } == true
+                }
                 Log.d(TAG, "Work state: $states")
                 if (frozen) {
                     // Older Work tile builds disabled packages. Restore both
                     // hidden and disabled states so the apps are actually usable.
-                    targetPackages.forEach { pkg ->
-                        val state = states[pkg] ?: return@forEach
-                        val unhidden = !state.hidden || RootShellManager.unhideApp(pkg)
-                        val enabled = !state.disabled || RootShellManager.ensurePackageEnabled(pkg)
-                        if (!unhidden || !enabled) {
+                    installedPackages.forEach { pkg ->
+                        if (!RootShellManager.unhideApp(pkg)) {
                             Log.w(TAG, "Could not enable Work app $pkg")
                         }
                     }
                 } else {
-                    targetPackages.forEach { pkg ->
+                    installedPackages.forEach { pkg ->
                         RootShellManager.hideApp(pkg)
                         RootShellManager.stopApp(pkg)
                     }
@@ -92,7 +96,7 @@ class WorkTileService : TileService() {
                 val current = qsTile ?: return@post
                 current.state = when {
                     states == null -> Tile.STATE_UNAVAILABLE
-                    states.values.any { it.hidden || it.disabled } -> Tile.STATE_INACTIVE
+                    targetPackages.any { pkg -> states[pkg]?.let { it.hidden || it.disabled } == true } -> Tile.STATE_INACTIVE
                     else -> Tile.STATE_ACTIVE
                 }
                 current.updateTile()

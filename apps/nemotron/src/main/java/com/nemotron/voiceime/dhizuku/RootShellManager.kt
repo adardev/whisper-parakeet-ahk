@@ -238,10 +238,21 @@ object RootShellManager {
     fun unhideApp(packageName: String): Boolean {
         if (!hasTilePermission()) return false
         if (!PACKAGE_NAME.matches(packageName)) return false
-        val out = execTileCommand(arrayOf("pm", "unhide", "--user", "0", packageName)) ?: return false
-        val unhidden = out.contains("new hidden state: false", ignoreCase = true) && !isAppHidden(packageName)
-        Log.d(TAG, "pm unhide $packageName → $out (confirmed=$unhidden)")
-        return unhidden && restoreInputMethodState(packageName)
+        val initialState = getPackageStates(listOf(packageName))?.get(packageName) ?: return false
+        val wasHidden = initialState.hidden
+        val out = if (wasHidden) {
+            execTileCommand(arrayOf("pm", "unhide", "--user", "0", packageName)) ?: return false
+        } else {
+            "already visible"
+        }
+        val unhidden = !wasHidden ||
+            (out.contains("new hidden state: false", ignoreCase = true) && !isAppHidden(packageName))
+        val enabled = unhidden && ensurePackageEnabled(packageName)
+        val enabledConfirmed = enabled && getPackageStates(listOf(packageName))
+            ?.get(packageName)?.disabled == false
+        val inputMethodRestored = enabled && restoreInputMethodState(packageName)
+        Log.d(TAG, "pm unhide $packageName → $out (visible=$unhidden enabled=$enabledConfirmed ime=$inputMethodRestored)")
+        return unhidden && enabledConfirmed && inputMethodRestored
     }
 
     /** Ensure a Fit3 dependency left disabled by an older build is usable on the tile's on path. */

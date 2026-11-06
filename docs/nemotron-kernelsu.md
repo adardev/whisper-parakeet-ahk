@@ -12,8 +12,12 @@ path, or fallback. Fresh commands use an argv-based helper that quotes
 arguments before calling `/system/bin/su -c`, merges output, and enforces a
 timeout. Long file/state operations use a persistent root shell. Quick
 Settings package tiles use `pm hide` and `pm unhide`, then force-stop the
-selected package where appropriate. They do not use `pm disable-user` or
-`pm enable`, so the package's enabled state and grants remain intact.
+selected package where appropriate. On restore, Core verifies the package is
+enabled for user 0 and runs `pm enable --user 0` to repair packages left
+disabled by older tile builds. This does not clear app data or reset granted
+permissions. Group tiles calculate their state from both `hidden` and enabled
+status, and skip target packages not installed on this device. Fit3 keeps its
+connection-aware flow while restoring Health, Fit3 Plugin, and Accessory.
 
 This is a runtime grant for the Core package only. Nemotron Keyboard and
 Nemotron UI are separate packages and do not receive root from this setting.

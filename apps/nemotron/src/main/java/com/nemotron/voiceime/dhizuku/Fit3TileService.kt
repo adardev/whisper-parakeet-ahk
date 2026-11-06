@@ -43,13 +43,21 @@ class Fit3TileService : AppFreezeTileService() {
 
     // A temporarily disconnected watch must not turn an enabled Health tile
     // into another "connect" action when the user is trying to switch it off.
-    override fun isTileFrozen(): Boolean =
-        RootShellManager.isAppHidden(SAMSUNG_WEARABLE_PLUGIN) &&
-            !isFit3Connected()
+    override fun isTileFrozen(): Boolean {
+        val states = RootShellManager.getPackageStates(
+            listOf(targetPackage, SAMSUNG_WEARABLE_PLUGIN, SAMSUNG_ACCESSORY_PACKAGE)
+        ) ?: throw IllegalStateException("No se pudo consultar el estado de Fit3")
+        val health = states[targetPackage]
+        val plugin = states[SAMSUNG_WEARABLE_PLUGIN]
+        val healthAndPluginFrozen = (health?.hidden == true || health?.disabled == true) &&
+            (plugin?.hidden == true || plugin?.disabled == true)
+        return healthAndPluginFrozen && !isFit3Connected()
+    }
 
     override fun onStartListening() {
-        if (operationInProgress.get()) setTileState(Tile.STATE_UNAVAILABLE)
-        else super.onStartListening()
+        // Don't replace the last rendered state with gray while the Bluetooth
+        // operation is running; the final state is published when it finishes.
+        if (!operationInProgress.get()) super.onStartListening()
     }
 
     override fun onClick() {
@@ -86,8 +94,6 @@ class Fit3TileService : AppFreezeTileService() {
             showMessage("No se pudo iniciar el cambio de conexión Fit3")
             return
         }
-        setTileState(Tile.STATE_UNAVAILABLE)
-
         Thread({
             try {
                 val device = findFit3Device()
@@ -96,18 +102,23 @@ class Fit3TileService : AppFreezeTileService() {
                     return@Thread
                 }
 
-                val hiddenPackages = RootShellManager.getHiddenPackages(
-                    listOf(targetPackage, SAMSUNG_WEARABLE_PLUGIN, SAMSUNG_ACCESSORY_PACKAGE)
-                )
+                val controlledPackages = listOf(targetPackage, SAMSUNG_WEARABLE_PLUGIN, SAMSUNG_ACCESSORY_PACKAGE)
+                val packageStates = RootShellManager.getPackageStates(controlledPackages)
                     ?: throw IllegalStateException("No se pudo consultar el estado de Samsung Health")
+                val hiddenPackages = packageStates.filterValues { it.hidden }.keys
+                val disabledPackages = packageStates.filterValues { it.disabled }.keys
                 val wasConnected = isFit3Connected(device.address)
                 val onlyFit3Connected = wasConnected && isFit3TheOnlyConnectedDevice(device.address)
-                val tileWasOff = SAMSUNG_WEARABLE_PLUGIN in hiddenPackages && !wasConnected
+                val healthOrPluginFrozen = listOf(targetPackage, SAMSUNG_WEARABLE_PLUGIN).any { pkg ->
+                    pkg in hiddenPackages || pkg in disabledPackages
+                }
+                val tileWasOff = healthOrPluginFrozen && !wasConnected
                 if (!tileWasOff) {
                     // If the watch is still connected but the plugin was
                     // hidden by an earlier/partial toggle, restore it long
                     // enough to deliver Samsung's disconnect request.
-                    if (wasConnected && SAMSUNG_WEARABLE_PLUGIN in hiddenPackages) {
+                    if (wasConnected && (SAMSUNG_WEARABLE_PLUGIN in hiddenPackages ||
+                            SAMSUNG_WEARABLE_PLUGIN in disabledPackages)) {
                         check(RootShellManager.unhideApp(SAMSUNG_WEARABLE_PLUGIN) &&
                             RootShellManager.unstopApp(SAMSUNG_WEARABLE_PLUGIN)) {
                             "No se pudo activar Fit3 Plugin para desconectar la pulsera"
@@ -116,7 +127,7 @@ class Fit3TileService : AppFreezeTileService() {
                     // Repair every Health Connect permission Samsung Health
                     // declares before its transfer; no permission screen is
                     // launched, and KernelSU grants only missing entries.
-                    if (targetPackage in hiddenPackages) {
+                    if (targetPackage in hiddenPackages || targetPackage in disabledPackages) {
                         check(RootShellManager.unhideApp(targetPackage)) { "No se pudo habilitar Health para sincronizar" }
                     }
                     RootShellManager.unstopApp(targetPackage)
@@ -233,7 +244,7 @@ class Fit3TileService : AppFreezeTileService() {
                     // Restore packages before waking Samsung's background
                     // health receiver, which initializes its own HostManager.
                     for (pkg in listOf(SAMSUNG_ACCESSORY_PACKAGE, SAMSUNG_WEARABLE_PLUGIN, targetPackage)) {
-                        if (pkg in hiddenPackages && !RootShellManager.unhideApp(pkg)) {
+                        if ((pkg in hiddenPackages || pkg in disabledPackages) && !RootShellManager.unhideApp(pkg)) {
                             Log.e(TAG, "No se pudo habilitar $pkg para conectar Fit3")
                             return@Thread
                         }
@@ -418,17 +429,8 @@ class Fit3TileService : AppFreezeTileService() {
         return isBluetoothEnabled() == enabled
     }
 
-    private fun setTileState(state: Int) = mainHandler.post {
-        qsTile?.let { tile ->
-            tile.label = tileLabel
-            tile.subtitle = if (state == Tile.STATE_UNAVAILABLE) "Sincronizando y cambiando conexión…" else null
-            tile.state = state
-            tile.updateTile()
-        }
-    }
-
     private fun refreshState() {
-        val hidden = RootShellManager.getHiddenPackages(listOf(targetPackage, SAMSUNG_WEARABLE_PLUGIN))
+        val states = RootShellManager.getPackageStates(listOf(targetPackage, SAMSUNG_WEARABLE_PLUGIN))
         val connected = isFit3Connected()
         mainHandler.post {
             qsTile?.let { tile ->
@@ -436,8 +438,9 @@ class Fit3TileService : AppFreezeTileService() {
                 tile.subtitle = null
                 tile.icon = createTileIcon()
                 tile.state = when {
-                    hidden == null -> Tile.STATE_UNAVAILABLE
-                    targetPackage in hidden && SAMSUNG_WEARABLE_PLUGIN in hidden && !connected -> Tile.STATE_INACTIVE
+                    states == null -> Tile.STATE_UNAVAILABLE
+                    (states[targetPackage]?.let { it.hidden || it.disabled } == true) &&
+                        (states[SAMSUNG_WEARABLE_PLUGIN]?.let { it.hidden || it.disabled } == true) && !connected -> Tile.STATE_INACTIVE
                     else -> Tile.STATE_ACTIVE
                 }
                 tile.updateTile()
