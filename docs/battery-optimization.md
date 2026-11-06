@@ -324,9 +324,13 @@ DND listener was active. Android requires a foreground service to provide a
 notification, so the listener remains a foreground service, but it now uses a
 dedicated `IMPORTANCE_NONE` channel (`dnd_keep_alive_quiet`) with badges disabled.
 The channel ID changed because Android does not allow the app to lower the
-importance of an already-created channel. On-device verification showed channel
-importance `0`, the service still running, and the Fit3 GATT link still connected.
-Android may still list the service under its system foreground-app controls.
+importance of an already-created channel. One UI still rendered the foreground
+notification despite the blocked channel, so `POST_NOTIFICATIONS` was revoked
+for `com.nemotron.core` on the A54. Verification showed the permission denied,
+no Nemotron notification record, the DND service running, and the Fit3 GATT link
+connected. This suppresses all Nemotron notifications on that device until the
+permission is granted again; Android may still list the foreground service under
+its system foreground-app controls.
 
 After installing the Core update twice on the A54, Bluetooth reported no GATT
 connections and `dumpsys activity services com.nemotron.core` no longer listed
