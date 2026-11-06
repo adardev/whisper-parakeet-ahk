@@ -80,10 +80,16 @@ class DndKeepAliveService : Service() {
 
     private fun createChannel() {
         val channel = NotificationChannel(
-            CHANNEL_ID, "Nemotron Guard",
-            NotificationManager.IMPORTANCE_LOW
+            CHANNEL_ID, "Servicio de No Molestar",
+            // A foreground service must supply a notification, but this one
+            // only keeps the DND listener alive. Keep its channel hidden so it
+            // does not occupy the notification shade. A new channel ID is
+            // intentional because Android makes existing channel importance
+            // immutable after creation.
+            NotificationManager.IMPORTANCE_NONE
         ).apply {
-            description = "Mantiene vivo el servicio de No Molestar"
+            description = "Canal técnico del servicio de No Molestar"
+            setShowBadge(false)
         }
         getSystemService(NotificationManager::class.java)
             .createNotificationChannel(channel)
@@ -91,7 +97,7 @@ class DndKeepAliveService : Service() {
 
     companion object {
         private const val TAG = "DndKeepAlive"
-        private const val CHANNEL_ID = "dnd_keep_alive"
+        private const val CHANNEL_ID = "dnd_keep_alive_quiet"
         private const val NOTIF_ID = 7777
 
         fun start(ctx: Context) {

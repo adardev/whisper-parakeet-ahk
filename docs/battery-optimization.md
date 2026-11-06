@@ -317,6 +317,17 @@ Bluetooth shutdown. The Fit3 tile reevaluates it after each connection toggle.
 This keeps the DND receiver available only while the connected watch makes that
 Nemotron feature relevant. The existing DND lock remains enabled in app settings.
 
+### Hide the DND keep-alive notification — 6 November 2026
+
+The A54 showed a persistent “Nemotron Guard” notification while the Fit3-linked
+DND listener was active. Android requires a foreground service to provide a
+notification, so the listener remains a foreground service, but it now uses a
+dedicated `IMPORTANCE_NONE` channel (`dnd_keep_alive_quiet`) with badges disabled.
+The channel ID changed because Android does not allow the app to lower the
+importance of an already-created channel. On-device verification showed channel
+importance `0`, the service still running, and the Fit3 GATT link still connected.
+Android may still list the service under its system foreground-app controls.
+
 After installing the Core update twice on the A54, Bluetooth reported no GATT
 connections and `dumpsys activity services com.nemotron.core` no longer listed
 `DndKeepAliveService`. Application startup logged that the disconnected Fit3
