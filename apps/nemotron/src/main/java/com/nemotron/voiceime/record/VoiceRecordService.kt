@@ -225,9 +225,8 @@ class VoiceRecordService : Service() {
         // dictation is explicitly lowercase by user preference, and commitText
         // bypasses the normal key path where the keyboard's caps setting lives.
         val keyboardDictation = keyboardInputConnection != null
-        val finalText = text.trim().let { recognized ->
-            if (keyboardDictation) recognized.lowercase(Locale.ROOT) else recognized
-        }
+        val recognizedText = text.trim()
+        val finalText = if (keyboardDictation) recognizedText.lowercase(Locale.ROOT) else recognizedText
         if (finalText.isBlank()) {
             cleanup()
             return
