@@ -6,6 +6,7 @@ import android.content.Intent
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
+import android.os.SystemClock
 import android.util.Log
 import com.nemotron.voiceime.data.SecureStore
 
@@ -49,7 +50,6 @@ class AutoFreezeScreenReceiver : BroadcastReceiver() {
             }
             Intent.ACTION_SCREEN_ON -> {
                 cancelPendingFreeze()
-                unforceDoze(ctx)
                 unfreeze(ctx)
             }
         }
@@ -76,12 +76,19 @@ class AutoFreezeScreenReceiver : BroadcastReceiver() {
 
     private fun runUnfreezeAttempt(ctx: Context) {
         Thread {
+            val startedAt = SystemClock.elapsedRealtime()
+            // Undo deep idle before changing package state. Both operations used
+            // to race on separate threads after SCREEN_ON.
+            if (SecureStore.isAutoFreezeDozeEnabled(ctx) && RootShellManager.hasPermission()) {
+                RootShellManager.unforceIdle()
+            }
             val apps = SecureStore.getAutoFreezeApps(ctx).toList()
             if (apps.isEmpty()) return@Thread
             val remaining = tryUnfreeze(apps)
+            Log.i(TAG, "Wake unfreeze completed in ${SystemClock.elapsedRealtime() - startedAt}ms; remaining=$remaining")
             handler.post {
                 if (remaining.isEmpty()) {
-                    Log.d(TAG, "All auto-freeze apps are active, scheduling stop in ${STOP_DELAY_MS / 1000}s")
+                    Log.d(TAG, "All auto-freeze apps are active; applying separate stop-on-unlock selections in ${STOP_DELAY_MS / 1000}s")
                     handler.postDelayed({ doStopOnUnlock(ctx) }, STOP_DELAY_MS)
                     return@post
                 }
@@ -107,19 +114,35 @@ class AutoFreezeScreenReceiver : BroadcastReceiver() {
 
     private fun tryUnfreeze(apps: List<String>): Set<String> {
         if (!RootShellManager.hasPermission()) return apps.toSet()
+        // Unhide, enable and clear PackageManager's force-stop bit for the full
+        // list in one root invocation. The old per-app path omitted `pm unstop`.
+        val batch = RootShellManager.unfreezeAutoFreezeApps(apps)
+        if (batch != null) {
+            val remaining = batch
+            Log.i(TAG, "Batched wake unfreeze confirmed for ${apps.size - remaining.size}/${apps.size} apps")
+            return remaining
+        }
+
+        Log.w(TAG, "Batched wake unfreeze unavailable; using verified per-app fallback")
         val failed = mutableSetOf<String>()
         for (pkg in apps) {
-            if (!RootShellManager.unhideApp(pkg)) failed.add(pkg)
+            if (!RootShellManager.unhideApp(pkg) || !RootShellManager.unstopApp(pkg)) failed.add(pkg)
         }
-            val still = RootShellManager.stillHidden(apps)
-        failed.addAll(still)
-        Log.d(TAG, "Unfreeze: still disabled=$still")
+        val states = RootShellManager.getPackageStates(apps)
+        for (pkg in apps) {
+            val state = states?.get(pkg)
+            if (state == null || state.hidden || state.disabled || state.stopped != false) failed.add(pkg)
+        }
+        Log.d(TAG, "Unfreeze fallback: remaining=$failed")
         return failed
     }
 
     private fun doStopOnUnlock(ctx: Context) {
         Thread {
-            val stopApps = SecureStore.getStopOnUnlockApps(ctx).toList()
+            // Apps in the auto-freeze list are already stopped on screen-off
+            // and must not be killed again shortly after they become available.
+            val autoFreezeApps = SecureStore.getAutoFreezeApps(ctx)
+            val stopApps = SecureStore.getStopOnUnlockApps(ctx).filterNot { it in autoFreezeApps }
             if (stopApps.isEmpty()) return@Thread
             for (attempt in 1..STOP_RETRIES) {
                 if (!RootShellManager.hasPermission()) {
@@ -185,14 +208,6 @@ class AutoFreezeScreenReceiver : BroadcastReceiver() {
                 return@Thread
             }
             RootShellManager.forceIdle()
-        }.start()
-    }
-
-    private fun unforceDoze(ctx: Context) {
-        if (!SecureStore.isAutoFreezeDozeEnabled(ctx)) return
-        Thread {
-            if (!RootShellManager.hasPermission()) return@Thread
-            RootShellManager.unforceIdle()
         }.start()
     }
 

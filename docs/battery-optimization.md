@@ -634,3 +634,26 @@ the tile remained off. Auto was then enabled again; final checks showed state
 `true`, Gearhead enabled, watchdog FGS active, Shizuku running, and location,
 Bluetooth, and mobile data restored to their enabled Auto-mode values. The
 working tree was clean after pushing this documentation update to `nemotron`.
+## Auto-freeze wake reliability — 14 November 2026
+
+The A54's current configuration freezes four packages after 30 seconds with the
+screen off (`Google`, Instagram, Google Play services, and WhatsApp). On
+`ACTION_SCREEN_ON`, Nemotron starts unfreezing immediately in a worker thread;
+the old implementation issued hide/enable checks one package at a time and did
+not clear PackageManager's stopped bit. It also force-stopped WhatsApp and
+Instagram again three seconds after unhide because both were in the separate
+stop-on-unlock list. That could make a quick launch fail or close an app just
+after it opened. Background battery attribution alone does not prove a frozen
+app kept running; screen-on use and the unlock race are separate.
+
+Wake now leaves deep idle first, then un-hides, enables, and `pm unstop`s the
+selected packages in one confirmed root batch. A verified per-package fallback
+does the same if the batch cannot run. Apps that are also in the auto-freeze
+list are excluded from the delayed stop-on-unlock pass; packages selected only
+for that separate behavior keep it. The wake path records elapsed time and any
+packages that remain unavailable for logcat review.
+
+After installing the fix, Nemotron's normal startup recovery exercised the
+same wake helper and confirmed all four selected packages in 1.25 s. ADB then
+reported each selected app visible, enabled, and `stopped=false`. This validates
+the package restore path; it is not a timed full lock/unlock battery test.

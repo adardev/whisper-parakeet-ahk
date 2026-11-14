@@ -54,9 +54,9 @@ class AppPickerActivity : AppCompatActivity() {
         val hint = findViewById<TextView>(R.id.tvHint)
         hint.text = when (mode) {
             MODE_AUTO_FREEZE ->
-                "Select an app to freeze when the screen turns off. Selected apps can also stop on unlock (force-stop)."
+                "Select apps to freeze when the screen turns off. When the screen wakes, Nemotron unhides, enables and unstops them together."
             MODE_STOP_ON_UNLOCK ->
-                "Apps that stop when unlocked (force-stop; they are not frozen)."
+                "Apps force-stopped on wake. Apps also selected for auto-freeze are resumed and will not be stopped again."
             MODE_DOZE_EXEMPT ->
                 "Apps excluded from deep doze: they can sound alarms and work with the screen off (doze whitelist)."
             MODE_STOP_SERVICES ->

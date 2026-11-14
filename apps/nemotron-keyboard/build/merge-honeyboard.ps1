@@ -367,6 +367,10 @@ if ($dictationHooks -gt 1) { throw "Expected at most one legacy HoneyBoard dicta
 if ($spaceCommitHooks -ne 1) { throw "Expected one HoneyBoard semantic space-key hook, found $spaceCommitHooks" }
 if ($dictationHooks -eq 0) { Write-Host 'Using HoneyBoard semantic space-commit detection for double-space dictation.' }
 
+# Keep automatic sentence capitalization subordinate to the user's keyboard
+# preference, even when an app sets EditorInfo.CAP_SENTENCES.
+& (Join-Path $PSScriptRoot 'patch-auto-caps.ps1') -DecodedApk $base
+
 # Keep HoneyBoard's coroutine ServiceLoader configuration isolated as well.
 $hbServices = Join-Path $hb 'unknown\META-INF\services'
 if (Test-Path -LiteralPath $hbServices) {

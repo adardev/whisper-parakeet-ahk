@@ -259,6 +259,53 @@ object RootShellManager {
         return unhidden && enabledConfirmed && inputMethodRestored
     }
 
+    /** Restore Auto Freeze packages on wake in one short KernelSU invocation. */
+    fun unfreezeAutoFreezeApps(packages: Collection<String>): Set<String>? {
+        val startedAt = android.os.SystemClock.elapsedRealtime()
+        val targets = packages.distinct()
+        if (!hasTilePermission() || targets.isEmpty() || targets.any { !PACKAGE_NAME.matches(it) }) return null
+
+        val disabledOutput = execTileCommand(
+            arrayOf("pm", "list", "packages", "-d", "--user", "0"), timeoutMs = 8_000L
+        ) ?: return null
+        val disabled = disabledOutput.lineSequence()
+            .mapNotNull { it.trim().removePrefix("package:").takeIf { name -> PACKAGE_NAME.matches(name) } }
+            .toSet()
+
+        val script = buildString {
+            for (pkg in targets) {
+                append("package_ok=1; ")
+                append("if pm unhide --user 0 \"").append(pkg)
+                    .append("\" 2>&1 | grep -F \"new hidden state: false\" >/dev/null; then :; else package_ok=0; fi; ")
+                if (pkg in disabled) {
+                    append("if pm enable --user 0 \"").append(pkg)
+                        .append("\" 2>&1 | grep -F \"new state: enabled\" >/dev/null; then :; else package_ok=0; fi; ")
+                }
+                append("if pm unstop --user 0 \"").append(pkg)
+                    .append("\" 2>&1 | grep -F \"new stopped state: false\" >/dev/null; then :; else package_ok=0; fi; ")
+                append("printf \"__NEMO_WAKE__").append(pkg).append("|%s\\n\" \"\$package_ok\"; ")
+            }
+        }
+        val result = RootAccessManager.runRoot(arrayOf("sh", "-c", script), timeoutMs = 15_000L)
+        if (!result.success) {
+            Log.w(TAG, "Wake package batch failed: ${result.detail.take(240)}")
+            return null
+        }
+        val confirmed = result.detail.lineSequence().mapNotNull { line ->
+            if (!line.startsWith("__NEMO_WAKE__")) return@mapNotNull null
+            val fields = line.removePrefix("__NEMO_WAKE__").split('|', limit = 2)
+            if (fields.size != 2 || !PACKAGE_NAME.matches(fields[0])) return@mapNotNull null
+            fields[0] to (fields[1] == "1")
+        }.toMap()
+        if (confirmed.isEmpty()) {
+            Log.w(TAG, "Wake package batch returned no confirmation: ${result.detail.take(240)}")
+            return null
+        }
+        val failed = targets.filterTo(mutableSetOf()) { confirmed[it] != true }
+        Log.i(TAG, "Wake package batch restored ${targets.size - failed.size}/${targets.size} apps in ${android.os.SystemClock.elapsedRealtime() - startedAt}ms; failed=$failed")
+        return failed
+    }
+
     /** Ensure a Fit3 dependency left disabled by an older build is usable on the tile's on path. */
     fun ensurePackageEnabled(packageName: String): Boolean {
         if (!hasPermission() || !PACKAGE_NAME.matches(packageName)) return false

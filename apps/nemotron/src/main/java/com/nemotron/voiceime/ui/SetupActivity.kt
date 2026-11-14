@@ -178,7 +178,7 @@ class SetupActivity : AppCompatActivity() {
         b.tvAutoFreezeStatus.text = when {
             !enabled -> "Disabled"
             apps.isEmpty() && stopApps.isEmpty() && stopServices.isEmpty() -> "Enabled, no apps or services selected"
-            else -> "Enabled: ${apps.size} apps freeze on screen off, ${stopServices.size} services stop on screen off, ${stopApps.size} apps stop when unlocked"
+            else -> "Enabled: ${apps.size} apps freeze on screen off, ${stopServices.size} services stop on screen off, ${stopApps.size} other apps stop on unlock"
         }
     }
 

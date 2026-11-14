@@ -27,3 +27,9 @@ Durante el dictado, las barras de voz blancas reemplazan el texto de idioma de l
 teclas de espacio. Usan el nivel RMS del reconocedor y recuperan las etiquetas al
 detener. El dictado del teclado solicita `es-MX` y vibra al iniciar y detener;
 la selección de idioma del teclado sigue siendo independiente.
+
+La compilación también aplica `patch-auto-caps.ps1` al HoneyBoard integrado. Si
+`SETTINGS_DEFAULT_AUTO_CAPS` está desactivado, el teclado ignora la sugerencia
+`CAP_SENTENCES` que algunas apps envían al campo de texto. La tecla Shift manual
+sigue funcionando. Esto evita que chats inicien frases o palabras con mayúscula
+por decisión del editor aunque la preferencia del teclado esté apagada.
