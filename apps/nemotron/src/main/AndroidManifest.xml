@@ -364,6 +364,18 @@
             </intent-filter>
         </service>
 
+        <!-- Persistent Nemotron entry point for Google's Song Search action. -->
+        <service
+            android:name=".dhizuku.SongSearchTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_song_search_tile"
+            android:label="Song Search"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
         <service
             android:name=".dhizuku.SleepModeTileService"
             android:exported="true"

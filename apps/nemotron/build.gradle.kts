@@ -26,8 +26,8 @@ android {
         applicationId = if (coreOnly) "com.nemotron.core" else "com.nemotron.voiceime2"
         minSdk = 29
         targetSdk = if (coreOnly) 33 else 35
-        versionCode = 10
-        versionName = "1.5"
+        versionCode = 11
+        versionName = "1.6"
     }
 
     buildTypes {
