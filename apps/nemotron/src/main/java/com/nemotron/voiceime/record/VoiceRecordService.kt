@@ -31,6 +31,7 @@ import androidx.core.app.NotificationCompat
 import com.nemotron.voiceime.R
 import com.nemotron.voiceime.data.SecureStore
 import com.nemotron.voiceime.dhizuku.RootShellManager
+import java.util.Locale
 
 class VoiceRecordService : Service() {
 
@@ -220,7 +221,13 @@ class VoiceRecordService : Service() {
     private fun deliverText(text: String) {
         if (delivered) return
         delivered = true
-        val finalText = text.trim()
+        // SpeechRecognizer adds sentence capitalization itself. Keyboard
+        // dictation is explicitly lowercase by user preference, and commitText
+        // bypasses the normal key path where the keyboard's caps setting lives.
+        val keyboardDictation = keyboardInputConnection != null
+        val finalText = text.trim().let { recognized ->
+            if (keyboardDictation) recognized.lowercase(Locale.ROOT) else recognized
+        }
         if (finalText.isBlank()) {
             cleanup()
             return

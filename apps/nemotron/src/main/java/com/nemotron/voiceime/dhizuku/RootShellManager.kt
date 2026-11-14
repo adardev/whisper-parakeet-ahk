@@ -850,6 +850,23 @@ object RootShellManager {
         return applied
     }
 
+    /** Enable Bluetooth for Galaxy Wearable in one root process, only if off. */
+    fun ensureBluetoothEnabled(): Boolean {
+        if (!hasPermission()) return false
+        val startedAt = SystemClock.elapsedRealtime()
+        val script = """
+            current=${'$'}(settings get global bluetooth_on)
+            if [ "${'$'}current" = 0 ]; then
+                cmd bluetooth_manager enable >/dev/null 2>&1 || exit 1
+            fi
+            printf '__NEMO_WEAR_BT_OK__\n'
+        """.trimIndent()
+        val result = RootAccessManager.runRoot(arrayOf("sh", "-c", script), timeoutMs = 5_000L)
+        val applied = result.success && result.detail.lineSequence().any { it == "__NEMO_WEAR_BT_OK__" }
+        Log.i(TAG, "Galaxy Wearable Bluetooth ensure applied=$applied elapsed=${SystemClock.elapsedRealtime() - startedAt}ms")
+        return applied
+    }
+
     /** Lee el estado del modo avión. */
     fun isAirplaneModeOn(): Boolean? {
         if (!hasPermission()) return null
