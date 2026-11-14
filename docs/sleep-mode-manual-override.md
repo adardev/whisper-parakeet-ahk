@@ -12,6 +12,4 @@ La entrega real de la alarma de las 23:00 y la sincronización BLE con Fit3 debe
 
 ## Orca y Termux
 
-Al tocar Orca cuando Termux está congelado, Nemotron confirma que Termux se habilitó, concede con Shizuku el permiso Android `RUN_COMMAND` y abre una Activity puente desde el tile para solicitar la conexión SSH en primer plano. Así Android no bloquea el inicio del servicio de Termux desde segundo plano. Si no se confirma el permiso o la habilitación, omite el comando y deja el motivo en Logcat. El siguiente toque congela Termux.
-
-Termux debe permitir comandos externos (`allow-external-apps=true`). Para abrir automáticamente la sesión en primer plano, Termux también necesita permiso para mostrarse sobre otras aplicaciones en Android 10 o posterior. Si falta un requisito, el servicio `OrcaTile` deja el detalle en Logcat.
+Al tocar Orca cuando Termux está congelado, Nemotron la muestra y abre la actividad de terminal con una sola llamada root. No usa Shizuku, no solicita `RUN_COMMAND` y no escribe ni envía texto. El usuario inicia la sesión desde el prompt. El siguiente toque oculta y fuerza el cierre de Termux.

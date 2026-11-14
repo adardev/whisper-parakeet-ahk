@@ -1,5 +1,6 @@
 package com.nemotron.voiceime.dhizuku
 
+import android.os.SystemClock
 import android.util.Log
 import android.content.Context
 import java.io.ByteArrayOutputStream
@@ -74,6 +75,7 @@ object RootAccessManager {
     /** Execute argv as root with each argument safely single-quoted for su -c. */
     fun runRoot(args: Array<String>, timeoutMs: Long = 10_000L): Result {
         if (args.isEmpty()) return Result(false, "No command supplied")
+        val startedAt = android.os.SystemClock.elapsedRealtime()
         return try {
             val command = "exec " + args.joinToString(" ") { "'" + it.replace("'", "'\\''") + "'" }
             val process = ProcessBuilder("/system/bin/su", "-c", command)
@@ -86,9 +88,10 @@ object RootAccessManager {
                     process.inputStream.use { it.copyTo(outputBytes) }
                 } catch (error: IOException) {
                     // Killing/timing out su can close this pipe while copyTo
-                    // is reading. An uncaught worker exception kills the app.
+                    // is reading. Some KernelSU builds also close the Java
+                    // stream as soon as a successfully exited su process is
+                    // reaped; the caller validates its own output markers.
                     readFailure.set(error)
-                    Log.d(TAG, "Root output pipe closed", error)
                 }
             }, "Nemotron-root-output")
             reader.isDaemon = true
@@ -97,17 +100,27 @@ object RootAccessManager {
             if (!finished) {
                 process.destroyForcibly()
                 reader.join(500L)
+                Log.w(TAG, "Root command timed out after ${SystemClock.elapsedRealtime() - startedAt} ms")
                 return Result(false, "Root command timed out")
             }
             reader.join(1_000L)
             val output = outputBytes.toString(Charsets.UTF_8.name()).trim()
             val failure = readFailure.get()
-            val ok = process.exitValue() == 0 && failure == null && !reader.isAlive
+            val exitCode = process.exitValue()
+            // Exit status is authoritative. A stream-close IOException after a
+            // normal exit is harmless when the reader has drained and exited;
+            // higher-level commands still validate their completion markers.
+            val ok = exitCode == 0 && !reader.isAlive
+            if (!ok) {
+                Log.w(TAG, "Root command failed: exit=$exitCode readerAlive=${reader.isAlive} readError=${failure?.message} elapsed=${SystemClock.elapsedRealtime() - startedAt}ms output=${output.take(240)}")
+            } else {
+                Log.d(TAG, "Root command completed in ${SystemClock.elapsedRealtime() - startedAt}ms (output=${output.length} chars)")
+            }
             Result(ok, output.ifBlank {
                 when {
                     failure != null -> "Root output read failed: ${failure.message}"
                     reader.isAlive -> "Root output reader did not finish"
-                    else -> "su exit ${process.exitValue()}"
+                    else -> "su exit $exitCode"
                 }
             })
         } catch (t: Throwable) {

@@ -13,11 +13,15 @@ import android.service.quicksettings.TileService
 import android.util.Log
 import android.widget.Toast
 import com.nemotron.voiceime.R
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 
 /** Quick Settings tile that switches the system assistant between Gemini and Tootsie. */
 class AssistantSwitchTileService : TileService() {
 
     private val handler = Handler(Looper.getMainLooper())
+    private val operationInProgress = AtomicBoolean(false)
+    private val refreshVersion = AtomicInteger(0)
 
     override fun onStartListening() {
         super.onStartListening()
@@ -36,30 +40,49 @@ class AssistantSwitchTileService : TileService() {
             openDefaultAssistantSettings()
             return
         }
+        if (!operationInProgress.compareAndSet(false, true)) return
+        when (qsTile?.state) {
+            Tile.STATE_ACTIVE -> publishState(TOOTSIE_PACKAGE)
+            Tile.STATE_INACTIVE -> publishState(GEMINI_PACKAGE)
+        }
 
-        // Keep the last state visible while the root role change is in flight.
         Thread {
-            val current = RootShellManager.getDefaultAssistantPackage()
-            val next = if (current == TOOTSIE_PACKAGE) GEMINI_PACKAGE else TOOTSIE_PACKAGE
-            val changed = RootShellManager.setDefaultAssistantPackage(next)
-            handler.post {
-                refreshTile()
-                if (!changed) {
-                    Log.w(TAG, "Role switch failed: current=$current, requested=$next")
-                    Toast.makeText(this, "No se pudo cambiar el asistente; abre Ajustes", Toast.LENGTH_LONG).show()
-                    openDefaultAssistantSettings()
-                } else {
-                    val name = if (next == GEMINI_PACKAGE) "Gemini" else "Tootsie"
-                    Toast.makeText(this, "Asistente predeterminado: $name", Toast.LENGTH_SHORT).show()
+            try {
+                val current = RootShellManager.getDefaultAssistantPackage()
+                val next = if (current == TOOTSIE_PACKAGE) GEMINI_PACKAGE else TOOTSIE_PACKAGE
+                val changed = RootShellManager.setDefaultAssistantPackage(next)
+                handler.post {
+                    refreshTile()
+                    if (!changed) {
+                        Log.w(TAG, "Role switch failed: current=$current, requested=$next")
+                        Toast.makeText(this, "No se pudo cambiar el asistente; abre Ajustes", Toast.LENGTH_LONG).show()
+                        openDefaultAssistantSettings()
+                    } else {
+                        val name = if (next == GEMINI_PACKAGE) "Gemini" else "Tootsie"
+                        Toast.makeText(this, "Asistente predeterminado: $name", Toast.LENGTH_SHORT).show()
+                    }
                 }
+            } finally {
+                operationInProgress.set(false)
             }
         }.start()
     }
 
     @SuppressLint("MissingPermission")
     private fun refreshTile() {
+        val version = refreshVersion.incrementAndGet()
+        Thread {
+            val current = RootShellManager.getDefaultAssistantPackage()
+            handler.post {
+                if (refreshVersion.get() != version || operationInProgress.get()) return@post
+                publishState(current)
+            }
+        }.start()
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun publishState(current: String?) {
         val tile = qsTile ?: return
-        val current = RootShellManager.getDefaultAssistantPackage()
         tile.label = "Gemini"
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) tile.subtitle = null
         tile.icon = Icon.createWithResource(this, R.drawable.ic_assistant_switch_tile)

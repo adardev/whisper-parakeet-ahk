@@ -8,6 +8,8 @@ import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import android.util.Log
 import com.nemotron.voiceime.R
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Tile para Google Wallet:
@@ -18,6 +20,8 @@ import com.nemotron.voiceime.R
 class WalletTileService : TileService() {
 
     private val handler = Handler(Looper.getMainLooper())
+    private val operationInProgress = AtomicBoolean(false)
+    private val refreshVersion = AtomicInteger(0)
 
     override fun onStartListening() {
         super.onStartListening()
@@ -38,26 +42,46 @@ class WalletTileService : TileService() {
             return
         }
 
-        val enabled = RootShellManager.isNfcEnabled()
-        Log.d(TAG, "NFC currently: $enabled")
+        if (!operationInProgress.compareAndSet(false, true)) return
+        val requestedEnabled = when (qsTile?.state) {
+            Tile.STATE_ACTIVE -> false
+            Tile.STATE_INACTIVE -> true
+            else -> null
+        }
+        requestedEnabled?.let(::publishState)
 
         Thread {
-            val changed = RootShellManager.setNfcEnabled(!enabled)
-            if (!changed) Log.e(TAG, "Could not change NFC to ${!enabled}")
-            handler.post { try { updateTileState() } catch (_: Throwable) {} }
+            try {
+                val enabled = RootShellManager.isNfcEnabled()
+                val desired = requestedEnabled ?: !enabled
+                Log.d(TAG, "NFC currently: $enabled; requested=$desired")
+                val changed = enabled == desired || RootShellManager.setNfcEnabled(desired)
+                if (!changed) Log.e(TAG, "Could not change NFC to $desired")
+            } finally {
+                operationInProgress.set(false)
+                updateTileState()
+            }
         }.start()
     }
 
     @SuppressLint("MissingPermission")
     private fun updateTileState() {
+        val version = refreshVersion.incrementAndGet()
+        Thread {
+            val enabled = RootShellManager.isNfcEnabled()
+            handler.post {
+                if (refreshVersion.get() != version || operationInProgress.get()) return@post
+                publishState(enabled)
+            }
+        }.start()
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun publishState(enabled: Boolean) {
         val tile = qsTile ?: return
         tile.label = "NFC"
         tile.icon = Icon.createWithResource(this, R.drawable.ic_wallet_tile)
-        tile.state = if (RootShellManager.isNfcEnabled()) {
-            Tile.STATE_ACTIVE
-        } else {
-            Tile.STATE_INACTIVE
-        }
+        tile.state = if (enabled) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
         tile.updateTile()
     }
 

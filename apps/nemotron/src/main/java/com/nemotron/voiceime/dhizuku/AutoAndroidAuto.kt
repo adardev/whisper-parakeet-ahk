@@ -80,21 +80,32 @@ object AutoAndroidAuto {
         if (!RootShellManager.hasPermission()) return false
         if (!RootShellManager.unhideApp(AA_PACKAGE)) return false
         if (!RootShellManager.unstopApp(AA_PACKAGE)) return false
+        return prepareTileMedia(ctx)
+    }
 
-        val component = "$AA_PACKAGE/com.google.android.gearhead.notifications.SharedNotificationListenerManager\$ListenerService"
-        fun isListenerEnabled(): Boolean = RootShellManager.execShellFresh(
-            arrayOf("settings", "get", "secure", "enabled_notification_listeners")
-        )?.split(':')?.any { it.trim().equals(component, ignoreCase = true) } == true
-
-        if (!isListenerEnabled()) {
-            RootShellManager.execShellFresh(arrayOf("cmd", "notification", "allow_listener", component))
-        }
-        val listenerReady = isListenerEnabled()
-        Log.i(TAG, "Android Auto media listener habilitado=$listenerReady")
-        setCarMediaBridgeEnabled(ctx, true)
-        // A media-listener permission issue must be visible in logs but should
-        // not undo the package unhide/unstop needed to start the car session.
-        return true
+    /** Called by the tile after its root batch has already unhidden and unstopped AA. */
+    fun prepareTileMedia(ctx: Context): Boolean {
+        if (!RootShellManager.hasPermission()) return false
+        val aaComponent = "$AA_PACKAGE/com.google.android.gearhead.notifications.SharedNotificationListenerManager\$ListenerService"
+        val bridgeComponent = "${ctx.packageName}/com.nemotron.voiceime.car.CarMediaSessionListener"
+        val startedAt = android.os.SystemClock.elapsedRealtime()
+        val script = """
+            cmd notification allow_listener '$aaComponent' >/dev/null 2>&1; aa_rc=${'$'}?
+            cmd notification allow_listener '$bridgeComponent' 0 >/dev/null 2>&1; bridge_rc=${'$'}?
+            listeners=${'$'}(settings get secure enabled_notification_listeners)
+            aa_on=0; bridge_on=0
+            case ":${'$'}listeners:" in *":$aaComponent:"*) aa_on=1;; esac
+            case ":${'$'}listeners:" in *":$bridgeComponent:"*) bridge_on=1;; esac
+            printf '__NEMO_MEDIA__%s|%s|%s|%s\n' ${'$'}aa_rc ${'$'}bridge_rc ${'$'}aa_on ${'$'}bridge_on
+        """.trimIndent()
+        val result = RootAccessManager.runRoot(arrayOf("sh", "-c", script), timeoutMs = 8_000L)
+        val marker = result.detail.lineSequence().firstOrNull { it.startsWith("__NEMO_MEDIA__") }
+        val fields = marker?.removePrefix("__NEMO_MEDIA__")?.split('|')
+        val success = result.success && fields?.size == 4
+        Log.i(TAG, "Android Auto tile media setup success=$success aaCmd=${fields?.getOrNull(0)} bridgeCmd=${fields?.getOrNull(1)} aaListener=${fields?.getOrNull(2)} bridge=${fields?.getOrNull(3)} elapsed=${android.os.SystemClock.elapsedRealtime() - startedAt}ms")
+        // Listener denial is logged, but must not undo the successful package
+        // unhide/unstop or make the tile report itself as off.
+        return success
     }
 
     /** Enables the Salt session proxy only while the Android Auto tile is enabled. */
@@ -102,10 +113,20 @@ object AutoAndroidAuto {
         if (!RootShellManager.hasPermission()) return
         val component = "${ctx.packageName}/com.nemotron.voiceime.car.CarMediaSessionListener"
         val command = if (enabled) "allow_listener" else "disallow_listener"
-        RootShellManager.execShellFresh(arrayOf("cmd", "notification", command, component, "0"))
-        val registered = RootShellManager.execShellFresh(
-            arrayOf("settings", "get", "secure", "enabled_notification_listeners")
-        )?.split(':')?.any { it.trim().equals(component, ignoreCase = true) } == true
-        Log.i(TAG, "Salt media bridge enabled=${enabled && registered}")
+        val startedAt = android.os.SystemClock.elapsedRealtime()
+        val script = """
+            cmd notification $command '$component' 0 >/dev/null 2>&1; rc=${'$'}?
+            listeners=${'$'}(settings get secure enabled_notification_listeners)
+            bridge_on=0
+            case ":${'$'}listeners:" in *":$component:"*) bridge_on=1;; esac
+            printf '__NEMO_BRIDGE__%s|%s\n' ${'$'}rc ${'$'}bridge_on
+        """.trimIndent()
+        val result = RootAccessManager.runRoot(arrayOf("sh", "-c", script), timeoutMs = 8_000L)
+        val fields = result.detail.lineSequence()
+            .firstOrNull { it.startsWith("__NEMO_BRIDGE__") }
+            ?.removePrefix("__NEMO_BRIDGE__")
+            ?.split('|')
+        val registered = fields?.getOrNull(1) == if (enabled) "1" else "0"
+        Log.i(TAG, "Salt media bridge enabled=${enabled && result.success && fields?.getOrNull(0) == "0" && registered} elapsed=${android.os.SystemClock.elapsedRealtime() - startedAt}ms")
     }
 }

@@ -1,6 +1,7 @@
 package com.nemotron.voiceime.dhizuku
 
 import android.content.Context
+import android.os.SystemClock
 import android.util.Log
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -10,7 +11,12 @@ import java.io.PrintWriter
 object RootShellManager {
 
     data class RunningService(val component: String, val packageName: String, val bound: Boolean)
-    data class PackageState(val hidden: Boolean, val disabled: Boolean)
+    data class PackageState(
+        val hidden: Boolean,
+        val disabled: Boolean,
+        val stopped: Boolean? = null
+    )
+    data class PackageToggleResult(val frozen: Boolean, val states: Map<String, PackageState>)
 
     private const val TAG = "RootShellManager"
     // Capture waits run only for explicit root operations. Backing off here
@@ -23,7 +29,6 @@ object RootShellManager {
     private var shellErr: BufferedReader? = null
     private var shellUsesRoot = false
     private val shellLock = Any()
-
     private const val ASSISTANT_ROLE = "android.app.role.ASSISTANT"
     private const val GEMINI_PACKAGE = "com.google.android.googlequicksearchbox"
     private const val TOOTSIE_PACKAGE = "com.adarbot.app"
@@ -48,7 +53,11 @@ object RootShellManager {
     fun execShellFresh(cmd: Array<String>, timeoutMs: Long = 6000L): String? {
         if (!RootAccessManager.hasRootAccess()) return null
         val result = RootAccessManager.runRoot(cmd, timeoutMs)
-        return if (result.success) result.detail else null
+        if (!result.success) {
+            Log.w(TAG, "KernelSU command ${cmd.firstOrNull()} failed: ${result.detail.take(240)}")
+            return null
+        }
+        return result.detail
     }
 
     private fun ensureShell() {
@@ -251,59 +260,15 @@ object RootShellManager {
         }
         val unhidden = !wasHidden ||
             (out.contains("new hidden state: false", ignoreCase = true) && !isAppHidden(packageName))
-        val enabled = unhidden && ensurePackageEnabled(packageName)
+        // `pm enable` can trigger Samsung package-policy work even for an
+        // already-enabled app. Only issue it when the pre-unhide snapshot says
+        // the package was disabled.
+        val enabled = unhidden && (!initialState.disabled || ensurePackageEnabled(packageName))
         val enabledConfirmed = enabled && getPackageStates(listOf(packageName))
             ?.get(packageName)?.disabled == false
         val inputMethodRestored = enabled && restoreInputMethodState(packageName)
         Log.d(TAG, "pm unhide $packageName → $out (visible=$unhidden enabled=$enabledConfirmed ime=$inputMethodRestored)")
         return unhidden && enabledConfirmed && inputMethodRestored
-    }
-
-    /** Restore Auto Freeze packages on wake in one short KernelSU invocation. */
-    fun unfreezeAutoFreezeApps(packages: Collection<String>): Set<String>? {
-        val startedAt = android.os.SystemClock.elapsedRealtime()
-        val targets = packages.distinct()
-        if (!hasTilePermission() || targets.isEmpty() || targets.any { !PACKAGE_NAME.matches(it) }) return null
-
-        val disabledOutput = execTileCommand(
-            arrayOf("pm", "list", "packages", "-d", "--user", "0"), timeoutMs = 8_000L
-        ) ?: return null
-        val disabled = disabledOutput.lineSequence()
-            .mapNotNull { it.trim().removePrefix("package:").takeIf { name -> PACKAGE_NAME.matches(name) } }
-            .toSet()
-
-        val script = buildString {
-            for (pkg in targets) {
-                append("package_ok=1; ")
-                append("if pm unhide --user 0 \"").append(pkg)
-                    .append("\" 2>&1 | grep -F \"new hidden state: false\" >/dev/null; then :; else package_ok=0; fi; ")
-                if (pkg in disabled) {
-                    append("if pm enable --user 0 \"").append(pkg)
-                        .append("\" 2>&1 | grep -F \"new state: enabled\" >/dev/null; then :; else package_ok=0; fi; ")
-                }
-                append("if pm unstop --user 0 \"").append(pkg)
-                    .append("\" 2>&1 | grep -F \"new stopped state: false\" >/dev/null; then :; else package_ok=0; fi; ")
-                append("printf \"__NEMO_WAKE__").append(pkg).append("|%s\\n\" \"\$package_ok\"; ")
-            }
-        }
-        val result = RootAccessManager.runRoot(arrayOf("sh", "-c", script), timeoutMs = 15_000L)
-        if (!result.success) {
-            Log.w(TAG, "Wake package batch failed: ${result.detail.take(240)}")
-            return null
-        }
-        val confirmed = result.detail.lineSequence().mapNotNull { line ->
-            if (!line.startsWith("__NEMO_WAKE__")) return@mapNotNull null
-            val fields = line.removePrefix("__NEMO_WAKE__").split('|', limit = 2)
-            if (fields.size != 2 || !PACKAGE_NAME.matches(fields[0])) return@mapNotNull null
-            fields[0] to (fields[1] == "1")
-        }.toMap()
-        if (confirmed.isEmpty()) {
-            Log.w(TAG, "Wake package batch returned no confirmation: ${result.detail.take(240)}")
-            return null
-        }
-        val failed = targets.filterTo(mutableSetOf()) { confirmed[it] != true }
-        Log.i(TAG, "Wake package batch restored ${targets.size - failed.size}/${targets.size} apps in ${android.os.SystemClock.elapsedRealtime() - startedAt}ms; failed=$failed")
-        return failed
     }
 
     /** Ensure a Fit3 dependency left disabled by an older build is usable on the tile's on path. */
@@ -483,7 +448,11 @@ object RootShellManager {
         val script = buildString {
             append("for p in")
             packages.distinct().forEach { append(" '").append(it).append("'") }
-            append("; do dumpsys package \"\$p\" | grep -Eq '^[[:space:]]*User 0:.*hidden=true' && echo \"\$p\"; done; exit 0")
+            // Consume the complete dumpsys stream. `grep -q` exits as soon as
+            // it finds the line and closes the pipe; Android's dumpsys then
+            // gets SIGPIPE while writing its large package report. On Samsung
+            // builds that can stall the su batch for tens of seconds.
+            append("; do state=\$(dumpsys package \"\$p\" | sed -n '/^[[:space:]]*User 0:/p'); case \"\$state\" in *hidden=true*) echo \"\$p\";; esac; done; exit 0")
         }
         val out = execTileCommand(arrayOf("sh", "-c", script), timeoutMs = 12_000L) ?: return null
         return out.lineSequence().map { it.trim() }
@@ -498,7 +467,7 @@ object RootShellManager {
         val script = buildString {
             append("for p in")
             packages.distinct().forEach { append(" '").append(it).append("'") }
-            append("; do state=\$(dumpsys package \"\$p\" | grep -m 1 '^[[:space:]]*User 0:'); [ -n \"\$state\" ] && printf '%s|%s\\n' \"\$p\" \"\$state\"; done; exit 0")
+            append("; do state=\$(dumpsys package \"\$p\" | sed -n '/^[[:space:]]*User 0:/p'); [ -n \"\$state\" ] && printf '%s|%s\\n' \"\$p\" \"\$state\"; done; exit 0")
         }
         val out = execTileCommand(arrayOf("sh", "-c", script), timeoutMs = 12_000L) ?: return null
         val enabledState = Regex("\\benabled=([0-9]+)\\b")
@@ -509,9 +478,170 @@ object RootShellManager {
             packageName to PackageState(
                 hidden = Regex("\\bhidden=true\\b").containsMatchIn(state),
                 disabled = enabledState.find(state)?.groupValues?.getOrNull(1)
-                    ?.toIntOrNull()?.let { it in 2..4 } == true
+                    ?.toIntOrNull()?.let { it in 2..4 } == true,
+                stopped = Regex("\\bstopped=(true|false)\\b").find(state)
+                    ?.groupValues?.getOrNull(1)?.toBooleanStrictOrNull()
             )
         }.toMap()
+    }
+
+    /**
+     * Toggle a tile's package group in one KernelSU process. This avoids starting
+     * a separate su process for every pm hide/unhide/enable/unstop/force-stop
+     * command. Return null for input-method packages so their special keyboard
+     * preservation path continues to use hideApp/unhideApp.
+     */
+    fun togglePackagesFast(packages: Collection<String>): PackageToggleResult? =
+        updatePackagesFast(packages, requestedFrozen = null)
+
+    /** Restore Auto Freeze packages on wake in one short KernelSU invocation. */
+    fun unfreezeAutoFreezeApps(packages: Collection<String>): Set<String>? {
+        val startedAt = SystemClock.elapsedRealtime()
+        val targets = packages.distinct()
+        if (!hasTilePermission() || targets.isEmpty() || targets.any { !PACKAGE_NAME.matches(it) }) return null
+
+        val disabledOutput = execTileCommand(
+            arrayOf("pm", "list", "packages", "-d", "--user", "0"), timeoutMs = 8_000L
+        ) ?: return null
+        val disabled = disabledOutput.lineSequence()
+            .mapNotNull { it.trim().removePrefix("package:").takeIf { name -> PACKAGE_NAME.matches(name) } }
+            .toSet()
+
+        val script = buildString {
+            for (pkg in targets) {
+                append("package_ok=1; ")
+                append("if pm unhide --user 0 \"").append(pkg)
+                    .append("\" 2>&1 | grep -F \"new hidden state: false\" >/dev/null; then :; else package_ok=0; fi; ")
+                if (pkg in disabled) {
+                    append("if pm enable --user 0 \"").append(pkg)
+                        .append("\" 2>&1 | grep -F \"new state: enabled\" >/dev/null; then :; else package_ok=0; fi; ")
+                }
+                append("if pm unstop --user 0 \"").append(pkg)
+                    .append("\" 2>&1 | grep -F \"new stopped state: false\" >/dev/null; then :; else package_ok=0; fi; ")
+                append("printf \"__NEMO_WAKE__").append(pkg).append("|%s\\n\" \"\$package_ok\"; ")
+            }
+        }
+        val result = RootAccessManager.runRoot(arrayOf("sh", "-c", script), timeoutMs = 15_000L)
+        if (!result.success) {
+            Log.w(TAG, "Wake package batch failed: ${result.detail.take(240)}")
+            return null
+        }
+        val confirmed = result.detail.lineSequence().mapNotNull { line ->
+            if (!line.startsWith("__NEMO_WAKE__")) return@mapNotNull null
+            val fields = line.removePrefix("__NEMO_WAKE__").split('|', limit = 2)
+            if (fields.size != 2 || !PACKAGE_NAME.matches(fields[0])) return@mapNotNull null
+            fields[0] to (fields[1] == "1")
+        }.toMap()
+        if (confirmed.isEmpty()) {
+            Log.w(TAG, "Wake package batch returned no confirmation: ${result.detail.take(240)}")
+            return null
+        }
+        val failed = targets.filterTo(mutableSetOf()) { confirmed[it] != true }
+        Log.i(TAG, "Wake package batch restored ${targets.size - failed.size}/${targets.size} apps in ${SystemClock.elapsedRealtime() - startedAt}ms; failed=$failed")
+        return failed
+    }
+
+    /** Apply one confirmed package-group state using one root shell process. */
+    fun setPackagesFrozenFast(
+        packages: Collection<String>,
+        frozen: Boolean
+    ): PackageToggleResult? = updatePackagesFast(packages, requestedFrozen = frozen)
+
+    private fun updatePackagesFast(
+        packages: Collection<String>,
+        requestedFrozen: Boolean?
+    ): PackageToggleResult? {
+        val startedAt = SystemClock.elapsedRealtime()
+        val targets = packages.distinct()
+        if (!hasTilePermission() || targets.isEmpty() || targets.any { !PACKAGE_NAME.matches(it) }) {
+            return null
+        }
+
+        if (requestedFrozen != true && targets.any { RootAccessManager.getHiddenImeState(it) != null }) {
+            return null
+        }
+
+        val script = buildString {
+            if (requestedFrozen != false) {
+                append("enabled_imes=\$(settings get secure enabled_input_methods); ")
+                append("for p in")
+                targets.forEach { append(" '").append(it).append("'") }
+                append("; do case \"\$enabled_imes\" in *\"\$p/\"*) printf '__NEMO_IME_SKIP__%s\\n' \"\$p\"; exit 0;; esac; done; ")
+            }
+            // A normal click freezes an entirely visible group; if any target
+            // is already frozen, it unfreezes the group (matching tile behavior).
+            // Read only target package rows. Three full `pm list packages`
+            // calls were slower and did not expose hidden=true at all.
+            append("installed=''; disabled=''; frozen=1; for p in")
+            targets.forEach { append(" '").append(it).append("'") }
+            append("; do state=\$(dumpsys package \"\$p\" | sed -n '/^[[:space:]]*User 0:/p'); case \"\$state\" in *installed=true*) installed=\"\$installed \$p\";; *) continue;; esac; ")
+            append("case \"\$state\" in *hidden=true*|*enabled=2*|*enabled=3*|*enabled=4*) frozen=0;; esac; ")
+            append("case \"\$state\" in *enabled=2*|*enabled=3*|*enabled=4*) disabled=\"\$disabled \$p\";; esac; done; ")
+            append("contains_pkg() { case \" \$1 \" in *\" \$2 \"*) return 0;; *) return 1;; esac; }; ")
+            if (requestedFrozen != null) append("frozen=${if (requestedFrozen) 1 else 0}; ")
+            append("operation_ok=1; for p in")
+            targets.forEach { append(" '").append(it).append("'") }
+            append("; do contains_pkg \"\$installed\" \"\$p\" || continue; ")
+            append("if [ \"\$frozen\" = 1 ]; then ")
+            append("result=\$(pm hide --user 0 \"\$p\" 2>&1); case \"\$result\" in *'new hidden state: true'*) ;; *) operation_ok=0;; esac; ")
+            append("am force-stop --user 0 \"\$p\" >/dev/null 2>&1; ")
+            append("else ")
+            append("result=\$(pm unhide --user 0 \"\$p\" 2>&1); case \"\$result\" in *'new hidden state: false'*) ;; *) operation_ok=0;; esac; ")
+            append("if contains_pkg \"\$disabled\" \"\$p\"; then result=\$(pm enable --user 0 \"\$p\" 2>&1); case \"\$result\" in *'new state: enabled'*) ;; *) operation_ok=0;; esac; fi; ")
+            append("result=\$(pm unstop --user 0 \"\$p\" 2>&1); case \"\$result\" in *'new stopped state: false'*) ;; *) operation_ok=0;; esac; ")
+            append("fi; done; printf '__NEMO_ACTION__%s|%s\\n' \"\$frozen\" \"\$operation_ok\"; ")
+            append("for p in")
+            targets.forEach { append(" '").append(it).append("'") }
+            append("; do contains_pkg \"\$installed\" \"\$p\" || continue; ")
+            append("hidden=0; disabled=0; stopped=false; ")
+            append("if [ \"\$frozen\" = 1 ]; then hidden=1; stopped=true; else contains_pkg \"\$disabled\" \"\$p\" && disabled=1; fi; ")
+            append("printf '__NEMO_STATE__%s|%s|%s|%s\\n' \"\$p\" \"\$hidden\" \"\$disabled\" \"\$stopped\"; done; exit 0")
+        }
+        val output = execTileCommand(arrayOf("sh", "-c", script), timeoutMs = 20_000L) ?: run {
+            Log.w(TAG, "Fast tile package update did not return output after ${SystemClock.elapsedRealtime() - startedAt} ms")
+            return null
+        }
+        output.lineSequence().firstOrNull { it.startsWith("__NEMO_IME_SKIP__") }?.let { line ->
+            Log.i(TAG, "Skipping fast freeze for active input method ${line.removePrefix("__NEMO_IME_SKIP__")}; using IME-preserving path")
+            return null
+        }
+        val actionLine = output.lineSequence().firstOrNull { it.startsWith("__NEMO_ACTION__") }
+            ?: run {
+                Log.w(TAG, "Fast package batch returned no action marker: ${output.take(240)}")
+                return null
+            }
+        val action = actionLine.removePrefix("__NEMO_ACTION__").split('|')
+        val frozen = when (action.getOrNull(0)) {
+            "1", "true" -> true
+            "0", "false" -> false
+            else -> return null
+        }
+        val operationOk = action.getOrNull(1) == "1"
+        val states = output.lineSequence().mapNotNull { line ->
+            if (!line.startsWith("__NEMO_STATE__")) return@mapNotNull null
+            val fields = line.removePrefix("__NEMO_STATE__").split('|')
+            if (fields.size != 4 || !PACKAGE_NAME.matches(fields[0])) return@mapNotNull null
+            fields[0] to PackageState(
+                hidden = fields[1] == "1",
+                disabled = fields[2] == "1",
+                stopped = fields[3].toBooleanStrictOrNull()
+            )
+        }.toMap()
+        if (states.isEmpty()) {
+            Log.w(TAG, "Fast package batch returned no per-package state markers: ${output.take(240)}")
+            return null
+        }
+        val stateConfirmed = if (frozen) {
+            states.values.all { it.hidden }
+        } else {
+            states.values.all { !it.hidden && !it.disabled && it.stopped == false }
+        }
+        if (!operationOk || !stateConfirmed) {
+            Log.w(TAG, "Fast tile package update not fully confirmed after ${SystemClock.elapsedRealtime() - startedAt} ms: frozen=$frozen ok=$operationOk states=$states")
+            return null
+        }
+        Log.i(TAG, "Fast tile package update confirmed: frozen=$frozen packages=${states.size} elapsed=${SystemClock.elapsedRealtime() - startedAt}ms")
+        return PackageToggleResult(frozen, states)
     }
 
     /** Returns which of [packages] are still hidden after a hide/unhide action. */
@@ -686,6 +816,38 @@ object RootShellManager {
         val ok = execShell("settings put system double_tap_to_sleep $value")
         Log.i(TAG, "double tap to sleep → $enabled")
         return ok
+    }
+
+    /** Apply the five system switches coupled to Android Auto in one su process. */
+    fun setAndroidAutoTileOptions(enabled: Boolean): Boolean {
+        if (!hasPermission()) return false
+        val radio = if (enabled) "enable" else "disable"
+        val location = enabled.toString()
+        val value = if (enabled) 1 else 0
+        val startedAt = SystemClock.elapsedRealtime()
+        // These independent system services can update in parallel. Capture each
+        // exit status explicitly; a trailing echo alone would mask failures.
+        val script = """
+            cmd location set-location-enabled $location >/dev/null 2>&1 & p1=${'$'}!
+            cmd bluetooth_manager $radio >/dev/null 2>&1 & p2=${'$'}!
+            svc data $radio >/dev/null 2>&1 & p3=${'$'}!
+            settings put system double_tab_to_wake_up $value >/dev/null 2>&1 & p4=${'$'}!
+            settings put system double_tap_to_sleep $value >/dev/null 2>&1 & p5=${'$'}!
+            wait ${'$'}p1; r1=${'$'}?
+            wait ${'$'}p2; r2=${'$'}?
+            wait ${'$'}p3; r3=${'$'}?
+            wait ${'$'}p4; r4=${'$'}?
+            wait ${'$'}p5; r5=${'$'}?
+            printf '__NEMO_AA_OPTIONS__%s|%s|%s|%s|%s\n' ${'$'}r1 ${'$'}r2 ${'$'}r3 ${'$'}r4 ${'$'}r5
+        """.trimIndent()
+        val result = RootAccessManager.runRoot(arrayOf("sh", "-c", script), timeoutMs = 8_000L)
+        val marker = result.detail.lineSequence().firstOrNull { it.startsWith("__NEMO_AA_OPTIONS__") }
+        val statuses = marker?.removePrefix("__NEMO_AA_OPTIONS__")?.split('|')
+        val applied = result.success && statuses?.let { values ->
+            values.size == 5 && values.all { it == "0" }
+        } == true
+        Log.i(TAG, "Android Auto options enabled=$enabled applied=$applied statuses=${statuses ?: "missing"} elapsed=${SystemClock.elapsedRealtime() - startedAt}ms")
+        return applied
     }
 
     /** Lee el estado del modo avión. */

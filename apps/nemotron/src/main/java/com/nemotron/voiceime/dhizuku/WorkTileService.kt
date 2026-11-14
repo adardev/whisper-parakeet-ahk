@@ -8,6 +8,7 @@ import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import android.util.Log
 import com.nemotron.voiceime.R
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Tile "Work" para apps de trabajo:
@@ -17,6 +18,7 @@ import com.nemotron.voiceime.R
 class WorkTileService : TileService() {
 
     private val handler = Handler(Looper.getMainLooper())
+    private val operationInProgress = AtomicBoolean(false)
     private val targetPackages = listOf(
         "com.ceti.escolomos",
         "com.ceti.ingenieriavirtual",
@@ -46,9 +48,16 @@ class WorkTileService : TileService() {
             Log.w(TAG, "KernelSU permission not granted")
             return
         }
+        if (!operationInProgress.compareAndSet(false, true)) return
+        publishOptimisticToggle()
 
         Thread {
             try {
+                val fast = RootShellManager.togglePackagesFast(targetPackages)
+                if (fast != null) {
+                    Log.i(TAG, "Work toggle completed in one root batch: frozen=${fast.frozen}, packages=${fast.states.size}")
+                    return@Thread
+                }
                 val states = RootShellManager.getPackageStates(targetPackages)
                 if (states == null) {
                     Log.w(TAG, "Could not query Work package state")
@@ -78,6 +87,7 @@ class WorkTileService : TileService() {
                     }
                 }
             } finally {
+                operationInProgress.set(false)
                 handler.post { try { updateTileState() } catch (_: Throwable) {} }
             }
         }.start()
@@ -102,6 +112,13 @@ class WorkTileService : TileService() {
                 current.updateTile()
             }
         }.start()
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun publishOptimisticToggle() {
+        val tile = qsTile ?: return
+        tile.state = if (tile.state == Tile.STATE_ACTIVE) Tile.STATE_INACTIVE else Tile.STATE_ACTIVE
+        tile.updateTile()
     }
 
     companion object {

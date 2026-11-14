@@ -12,6 +12,12 @@ require(component in setOf("core", "integrated")) {
 }
 val coreOnly = component == "core"
 
+val prepareAndroidAutoPatchResource by tasks.registering(Copy::class) {
+    from(rootProject.file("artifacts/android-auto-rail/android-auto-18.1.164344-rail-1dp.apk"))
+    into(layout.buildDirectory.dir("generated/androidAutoPatchRes/raw"))
+    rename { "android_auto_rail_candidate.apk" }
+}
+
 android {
     namespace = "com.nemotron.voiceime"
     compileSdk = 36
@@ -20,8 +26,8 @@ android {
         applicationId = if (coreOnly) "com.nemotron.core" else "com.nemotron.voiceime2"
         minSdk = 29
         targetSdk = if (coreOnly) 33 else 35
-        versionCode = 5
-        versionName = "1.0"
+        versionCode = 9
+        versionName = "1.4"
     }
 
     buildTypes {
@@ -44,9 +50,14 @@ android {
         if (coreOnly) emptyList<Any>()
         else listOf(rootProject.file("apps/nemotron-keyboard/assets"))
     )
+    sourceSets.getByName("main").res.srcDir(layout.buildDirectory.dir("generated/androidAutoPatchRes"))
     if (coreOnly) {
         sourceSets.getByName("debug").manifest.srcFile("src/core/AndroidManifest.xml")
     }
+}
+
+tasks.named("preBuild").configure {
+    dependsOn(prepareAndroidAutoPatchResource)
 }
 
 dependencies {

@@ -15,30 +15,57 @@ class AndroidAutoTileService : AppFreezeTileService() {
         // cannot race with publishTileState's main-thread callback.
         SecureStore.setAndroidAutoTileOn(this, true)
         Thread {
-            // The patch is session-only and falls back to the original APK if
-            // the staged APK or installed Android Auto version has changed.
-            AndroidAutoRailPatch.enable(this)
-            if (!AutoAndroidAuto.prepareForMedia(this)) {
+            val context = this
+            // These are independent: toggling system radios/settings does not
+            // depend on the session-only APK mount. Run both at once so all
+            // secondary work finishes sooner after the tile state changes.
+            val optionsTask = Thread({
+                if (!RootShellManager.setAndroidAutoTileOptions(enabled = true)) {
+                    android.util.Log.e(TAG, "Falló una opción agrupada; reintentando las opciones por separado")
+                    setLocation(true)
+                    setBluetooth(true)
+                    setMobileData(true)
+                    RootShellManager.setDoubleTapToWake(true)
+                    RootShellManager.setDoubleTapToSleep(true)
+                }
+            }, "Nemotron-AA-options-on")
+            val patchTask = Thread({
+                // Keep media listener setup after the patch has restarted AA.
+                // The patch remains session-only and version/hash checked.
+                if (!AndroidAutoRailPatch.enable(context)) {
+                    android.util.Log.e(TAG, "No se pudo aplicar el parche de la barra de Android Auto")
+                }
+            }, "Nemotron-AA-patch-on")
+            optionsTask.start()
+            patchTask.start()
+            patchTask.join()
+            if (!AutoAndroidAuto.prepareTileMedia(this)) {
                 android.util.Log.e(TAG, "Android Auto quedó visible pero no listo para media")
             }
-            setLocation(true)
-            setBluetooth(true)
-            setMobileData(true)
-            RootShellManager.setDoubleTapToWake(true)
-            RootShellManager.setDoubleTapToSleep(true)
+            optionsTask.join()
         }.start()
     }
 
     override fun onAfterFreeze() {
         SecureStore.setAndroidAutoTileOn(this, false)
         Thread {
-            AndroidAutoRailPatch.disable(this)
-            AutoAndroidAuto.setCarMediaBridgeEnabled(this, false)
-            setLocation(false)
-            setBluetooth(false)
-            setMobileData(false)
-            RootShellManager.setDoubleTapToWake(false)
-            RootShellManager.setDoubleTapToSleep(false)
+            // Restore the three independent side effects concurrently. Do not
+            // block publication of the inactive tile state while these run.
+            val optionsTask = Thread({
+                if (!RootShellManager.setAndroidAutoTileOptions(enabled = false)) {
+                    android.util.Log.e(TAG, "Falló una opción agrupada; reintentando las opciones por separado")
+                    setLocation(false)
+                    setBluetooth(false)
+                    setMobileData(false)
+                    RootShellManager.setDoubleTapToWake(false)
+                    RootShellManager.setDoubleTapToSleep(false)
+                }
+            }, "Nemotron-AA-options-off")
+            val patchTask = Thread({ AndroidAutoRailPatch.disable(this) }, "Nemotron-AA-patch-off")
+            val mediaTask = Thread({ AutoAndroidAuto.setCarMediaBridgeEnabled(this, false) }, "Nemotron-AA-media-off")
+            optionsTask.start()
+            patchTask.start()
+            mediaTask.start()
         }.start()
     }
 
