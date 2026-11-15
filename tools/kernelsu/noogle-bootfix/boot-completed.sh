@@ -7,14 +7,16 @@ EXPECTED=/product/priv-app/GmsCoreMG/GmsCoreMG.apk
 
 [ -n "$BOOT_ID" ] || exit 0
 [ -f "$EXPECTED" ] || exit 0
-[ "$(cat "$MARKER" 2>/dev/null)" = "$BOOT_ID" ] && exit 0
 
 sleep 8
 GMS_PATH=$(pm path com.google.android.gms 2>/dev/null)
 printf '%s boot=%s gms=%s\n' "$(date '+%F %T')" "$BOOT_ID" "$GMS_PATH" >> "$LOG"
 case "$GMS_PATH" in
-  *"$EXPECTED"*) exit 0 ;;
+  *"$EXPECTED"*) sh "$MODDIR/repair-gservices.sh"; exit $? ;;
 esac
+
+# Database recovery must run even after the one permitted soft restart.
+[ "$(cat "$MARKER" 2>/dev/null)" = "$BOOT_ID" ] && exit 0
 
 # Prevent a restart loop: this marker survives an Android userspace soft restart
 # because the Linux boot ID and KernelSU module directory remain unchanged.

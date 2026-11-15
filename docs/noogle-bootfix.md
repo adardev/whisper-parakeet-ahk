@@ -1,5 +1,10 @@
 # Noogle recovery after KernelSU late load
 
+Current recovery: see [the November 14 recurrence and verified reboot test](youtube-music-recurrence-2026-11-14.md).
+Version 1.1 adds a verified backup and automatic recovery of the known v4/v3
+GServices cache mismatch after microG is registered, including after the
+one permitted soft restart. The older pending findings below are historical.
+
 ## Problem
 
 On the Galaxy A54, DFRoot loads KernelSU as an LKM after Android has already
