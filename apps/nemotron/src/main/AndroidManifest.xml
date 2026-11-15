@@ -420,6 +420,11 @@
             android:exported="true" />
 
         <service
+            android:name=".dhizuku.UberSnapshotJobService"
+            android:permission="android.permission.BIND_JOB_SERVICE"
+            android:exported="true" />
+
+        <service
             android:name=".health.HealthTransferService"
             android:exported="false"
             android:foregroundServiceType="specialUse">

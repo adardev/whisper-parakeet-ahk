@@ -24,3 +24,10 @@ driver account must complete OAuth before a toggle can produce an earnings
 snapshot. Missing API access never counts as zero earnings and cannot trigger a
 charge. The server still records each authenticated tile event in Firebase
 with `valid=false` and no amount while the earnings source is unavailable.
+
+Each tile event is committed to a local queue before networking. If the NAS is
+unreachable, a persisted `JobScheduler` job retries only when the phone has
+network. The original event timestamp is sent on retry, so delayed delivery
+queries earnings through the time the tile actually changed. Events outside
+Uber's ten-day query window are recorded as unavailable rather than assigned a
+made-up amount.
