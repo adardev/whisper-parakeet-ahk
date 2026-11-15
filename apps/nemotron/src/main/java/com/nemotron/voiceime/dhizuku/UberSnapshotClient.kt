@@ -2,6 +2,7 @@ package com.nemotron.voiceime.dhizuku
 
 import android.content.Context
 import android.util.Log
+import com.nemotron.voiceime.health.FirebaseHealthUploader
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -28,15 +29,16 @@ internal object UberSnapshotClient {
             ?.trim()?.trimEnd('/')
             ?.takeIf { it.startsWith("https://") }
             ?: DEFAULT_SERVER
-        val payload = JSONObject()
-            .put("action", action)
-            .put("eventId", UUID.randomUUID().toString())
-            .put("deviceCapturedAt", Instant.now().toString())
-        val request = Request.Builder()
-            .url("$server/api/uber/snapshot")
-            .post(payload.toString().toRequestBody("application/json".toMediaType()))
-            .build()
         try {
+            val payload = JSONObject()
+                .put("action", action)
+                .put("eventId", UUID.randomUUID().toString())
+                .put("deviceCapturedAt", Instant.now().toString())
+            val request = Request.Builder()
+                .url("$server/api/uber/snapshot")
+                .post(payload.toString().toRequestBody("application/json".toMediaType()))
+                .header("Authorization", "Bearer ${FirebaseHealthUploader(context).freshIdToken()}")
+                .build()
             client.newCall(request).execute().use { response ->
                 val body = response.body?.string().orEmpty()
                 if (!response.isSuccessful) {

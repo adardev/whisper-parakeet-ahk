@@ -18,6 +18,11 @@ import java.time.Duration
 /** Uploads Samsung Health Data SDK snapshots to Firebase Firestore. */
 class FirebaseHealthUploader(private val context: Context) {
 
+    /** Returns a fresh Firebase ID token for another authenticated backend call.
+     * Call from an IO worker; Android tile callbacks already run on one.
+     */
+    fun freshIdToken(): String = authenticate(SecureStore.getFirebaseApiKey(context)).idToken
+
     companion object {
         private const val TAG = "FirebaseHealthUploader"
         private const val AUTH_URL = "https://identitytoolkit.googleapis.com/v1/accounts:signUp"
