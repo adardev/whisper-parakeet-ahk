@@ -22,4 +22,5 @@ The deployed endpoint currently returns HTTP 503 because Uber API access is
 disabled. Uber must approve the Driver API `partner.payments` scope and the
 driver account must complete OAuth before a toggle can produce an earnings
 snapshot. Missing API access never counts as zero earnings and cannot trigger a
-charge.
+charge. The server still records each authenticated tile event in Firebase
+with `valid=false` and no amount while the earnings source is unavailable.

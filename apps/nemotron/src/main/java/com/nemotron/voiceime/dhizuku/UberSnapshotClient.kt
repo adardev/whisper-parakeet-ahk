@@ -46,9 +46,11 @@ internal object UberSnapshotClient {
                     return
                 }
                 val result = runCatching { JSONObject(body) }.getOrNull()
-                if (result?.optBoolean("valid", false) == true &&
-                    result.optBoolean("stored", false)) {
-                    Log.i(TAG, "Snapshot $action stored for ${result.optString("date")}")
+                if (result?.optBoolean("stored", false) == true &&
+                    result.optBoolean("valid", false)) {
+                    Log.i(TAG, "Earnings snapshot $action stored for ${result.optString("date")}")
+                } else if (result?.optBoolean("stored", false) == true) {
+                    Log.i(TAG, "Tile event $action stored; earnings source unavailable")
                 } else {
                     Log.w(TAG, "Snapshot $action unavailable or not stored")
                 }
