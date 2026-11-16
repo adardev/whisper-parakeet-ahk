@@ -46,6 +46,8 @@ android {
     buildFeatures {
         viewBinding = true
     }
+    // JVM transport tests exercise HTTP/SSE, with Android Log treated as a no-op.
+    testOptions.unitTests.isReturnDefaultValues = true
     sourceSets.getByName("main").assets.setSrcDirs(
         if (coreOnly) emptyList<Any>()
         else listOf(rootProject.file("apps/nemotron-keyboard/assets"))
@@ -61,6 +63,9 @@ tasks.named("preBuild").configure {
 }
 
 dependencies {
+    testImplementation("junit:junit:4.13.2")
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
+    testImplementation("org.json:json:20240303")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.media:media:1.7.0")
     implementation("androidx.appcompat:appcompat:1.7.0")

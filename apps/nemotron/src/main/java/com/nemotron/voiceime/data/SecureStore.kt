@@ -8,6 +8,7 @@ import androidx.security.crypto.MasterKey
 import org.json.JSONArray
 
 object SecureStore {
+    @Volatile private var encryptedPreferences: SharedPreferences? = null
 
     private const val SECURE_FILE = "nemotron_secure_prefs"
     private const val PLAIN_FILE = "nemotron_prefs"
@@ -50,17 +51,25 @@ object SecureStore {
         append("No añadas texto extra ni comentaries lo que haces.")
     }
 
-    private fun securePrefs(ctx: Context): SharedPreferences = try {
-        val mk = MasterKey.Builder(ctx)
-            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-            .build()
-        EncryptedSharedPreferences.create(
-            ctx, SECURE_FILE, mk,
-            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-        )
-    } catch (_: Throwable) {
-        ctx.getSharedPreferences("${SECURE_FILE}_plain", Context.MODE_PRIVATE)
+    private fun securePrefs(ctx: Context): SharedPreferences {
+        encryptedPreferences?.let { return it }
+        return synchronized(this) {
+            encryptedPreferences?.let { return@synchronized it }
+            val appContext = ctx.applicationContext
+            try {
+                val mk = MasterKey.Builder(appContext)
+                    .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                    .build()
+                EncryptedSharedPreferences.create(
+                    appContext, SECURE_FILE, mk,
+                    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+                ).also { encryptedPreferences = it }
+            } catch (_: Throwable) {
+                // Do not cache a transient keystore failure for the process lifetime.
+                appContext.getSharedPreferences("${SECURE_FILE}_plain", Context.MODE_PRIVATE)
+            }
+        }
     }
 
     private fun plainPrefs(ctx: Context): SharedPreferences {
@@ -73,14 +82,7 @@ object SecureStore {
 
     private fun migrateFromOld(newPrefs: SharedPreferences, ctx: Context) {
         try {
-            val mk = MasterKey.Builder(ctx)
-                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-                .build()
-            val old = EncryptedSharedPreferences.create(
-                ctx, SECURE_FILE, mk,
-                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-            )
+            val old = securePrefs(ctx)
             val editor = newPrefs.edit()
             old.all?.forEach { (k, v) ->
                 when (v) {

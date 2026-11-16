@@ -9,6 +9,7 @@ import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.LruCache
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -30,6 +31,7 @@ class ShortcutPickerActivity : AppCompatActivity() {
     private lateinit var adapter: ShortcutAdapter
 
     private var apps: List<AppInfo> = emptyList()
+    private val iconStates = LruCache<String, Drawable.ConstantState>(32)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -105,9 +107,25 @@ class ShortcutPickerActivity : AppCompatActivity() {
 
     data class AppInfo(val label: String, val pkg: String, val activity: String)
 
-    private fun shortcutDrawable(app: AppInfo): android.graphics.drawable.Drawable = packageManager.getApplicationIcon(
-        if (app.pkg == INSTAGRAM_PACKAGE) packageName else app.pkg
-    )
+    private fun shortcutDrawable(app: AppInfo): Drawable {
+        val iconPackage = if (app.pkg == INSTAGRAM_PACKAGE) packageName else app.pkg
+        iconStates.get(iconPackage)?.let { return it.newDrawable(resources).mutate() }
+        val drawable = packageManager.getApplicationIcon(iconPackage)
+        drawable.constantState?.let { iconStates.put(iconPackage, it) }
+        return drawable
+    }
+
+    override fun onDestroy() {
+        iconStates.evictAll()
+        super.onDestroy()
+    }
+
+    private class Row(view: View) {
+        val icon: ImageView = view.findViewById(R.id.appIcon)
+        val label: TextView = view.findViewById(R.id.appLabel)
+        val pkg: TextView = view.findViewById(R.id.appPackage)
+        val button: Button = view.findViewById(R.id.btnAddShortcut)
+    }
 
     private fun renderToBitmap(drawable: Drawable): android.graphics.Bitmap {
         val size = (108 * resources.displayMetrics.density).toInt()
@@ -128,22 +146,19 @@ class ShortcutPickerActivity : AppCompatActivity() {
         override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
             val view = convertView ?: LayoutInflater.from(this@ShortcutPickerActivity)
                 .inflate(R.layout.item_shortcut, parent, false)
+            val row = (view.tag as? Row) ?: Row(view).also { view.tag = it }
 
             val app = getItem(position)
-            val iconView = view.findViewById<ImageView>(R.id.appIcon)
-            val labelView = view.findViewById<TextView>(R.id.appLabel)
-            val pkgView = view.findViewById<TextView>(R.id.appPackage)
-            val btn = view.findViewById<Button>(R.id.btnAddShortcut)
             val selected = getSharedPreferences("nemotron_launcher", MODE_PRIVATE)
                 .getStringSet("manual_apps", emptySet()).orEmpty().contains(app.pkg)
 
             val icon = try { shortcutDrawable(app) } catch (_: Throwable) { null }
-            if (icon != null) iconView.setImageDrawable(icon)
-            labelView.text = app.label
-            pkgView.text = app.pkg
-            btn.text = if (selected) "Actualizar" else "+"
+            row.icon.setImageDrawable(icon)
+            row.label.text = app.label
+            row.pkg.text = app.pkg
+            row.button.text = if (selected) "Actualizar" else "+"
 
-            btn.setOnClickListener {
+            row.button.setOnClickListener {
                 requestShortcut(app)
             }
 

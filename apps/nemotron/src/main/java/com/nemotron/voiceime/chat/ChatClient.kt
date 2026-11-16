@@ -1,14 +1,13 @@
 package com.nemotron.voiceime.chat
 
-import android.util.Log
+import java.io.IOException
+import okhttp3.Call
+import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
-import okhttp3.sse.EventSource
-import okhttp3.sse.EventSourceListener
-import okhttp3.sse.EventSources
 import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
@@ -18,13 +17,7 @@ class ChatClient(
     private val baseUrl: String,
     private val apiKey: String = ""
 ) {
-    private val http = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(120, TimeUnit.SECONDS)
-        .writeTimeout(30, TimeUnit.SECONDS)
-        .build()
-
-    private val current = AtomicReference<EventSource?>(null)
+    private val current = AtomicReference<Call?>(null)
     private val JSON_MT = "application/json; charset=utf-8".toMediaType()
 
     fun conversations(onComplete: (JSONArray) -> Unit, onError: (Throwable) -> Unit) {
@@ -86,19 +79,13 @@ class ChatClient(
             .post(body.toRequestBody(JSON_MT))
             .build()
 
-        Thread {
-            try {
-                http.newCall(req).execute().use { response ->
-                    val obj = JSONObject(response.body?.string() ?: "{}")
-                    if (!response.isSuccessful) throw RuntimeException(obj.optString("error", "HTTP ${response.code}"))
-                    obj.optString("conversation_id").takeIf { it.isNotBlank() }?.let(onConversationId)
-                    val answer = obj.optJSONArray("choices")?.optJSONObject(0)
-                        ?.optJSONObject("message")?.optString("content", "") ?: ""
-                    if (answer.isNotEmpty()) onToken(answer)
-                    onComplete(answer)
-                }
-            } catch (e: Exception) { onError(e) }
-        }.start()
+        executeJson(req, { obj ->
+            obj.optString("conversation_id").takeIf { it.isNotBlank() }?.let(onConversationId)
+            val answer = obj.optJSONArray("choices")?.optJSONObject(0)
+                ?.optJSONObject("message")?.optString("content", "") ?: ""
+            if (answer.isNotEmpty()) onToken(answer)
+            onComplete(answer)
+        }, onError, cancellable = true)
     }
 
     fun send(
@@ -130,20 +117,10 @@ class ChatClient(
             .post(body.toRequestBody(JSON_MT))
             .build()
 
-        Thread {
-            try {
-                val resp = http.newCall(req).execute()
-                val json = JSONObject(resp.body?.string() ?: "{}")
-                val content = json
-                    .optJSONArray("choices")
-                    ?.optJSONObject(0)
-                    ?.optJSONObject("message")
-                    ?.optString("content", "") ?: ""
-                onComplete(content)
-            } catch (e: Exception) {
-                onError(e)
-            }
-        }.start()
+        executeJson(req, { json ->
+            onComplete(json.optJSONArray("choices")?.optJSONObject(0)
+                ?.optJSONObject("message")?.optString("content", "") ?: "")
+        }, onError, cancellable = true)
     }
 
     fun cancel() {
@@ -157,14 +134,42 @@ class ChatClient(
             "DELETE" -> builder.delete()
             else -> builder.get()
         }
-        Thread {
-            try {
-                http.newCall(builder.build()).execute().use { response ->
-                    val body = JSONObject(response.body?.string() ?: "{}")
-                    if (!response.isSuccessful) throw RuntimeException(body.optString("error", "HTTP ${response.code}"))
-                    ok(body)
+        executeJson(builder.build(), ok, fail)
+    }
+
+    private fun executeJson(request: Request, ok: (JSONObject) -> Unit,
+                            fail: (Throwable) -> Unit, cancellable: Boolean = false) {
+        val call = http.newCall(request)
+        if (cancellable) current.getAndSet(call)?.cancel()
+        call.enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                current.compareAndSet(call, null)
+                if (!call.isCanceled()) fail(e)
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                try {
+                    response.use {
+                        val body = JSONObject(it.body?.string() ?: "{}")
+                        if (!it.isSuccessful) throw RuntimeException(body.optString("error", "HTTP ${it.code}"))
+                        if (!call.isCanceled()) ok(body)
+                    }
+                } catch (error: Exception) {
+                    if (!call.isCanceled()) fail(error)
+                } finally {
+                    current.compareAndSet(call, null)
                 }
-            } catch (e: Exception) { fail(e) }
-        }.start()
+            }
+        })
+    }
+
+    companion object {
+        // Screens share a dispatcher and connection pool. Individual requests
+        // still carry their own URL/body; cancellation is scoped to the client.
+        private val http = OkHttpClient.Builder()
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(120, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .build()
     }
 }

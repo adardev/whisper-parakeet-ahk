@@ -24,11 +24,14 @@ data class Conversation(
 )
 
 object ConversationStore {
-    private lateinit var ctx: Context
-    private val file by lazy { File(ctx.filesDir, "conversations.json") }
+    private lateinit var file: File
 
     fun init(context: Context) {
-        ctx = context.applicationContext
+        initializeStorage(context.applicationContext.filesDir)
+    }
+
+    internal fun initializeStorage(directory: File) {
+        file = File(directory, "conversations.json")
     }
 
     private fun load(): MutableList<Conversation> {
@@ -90,7 +93,9 @@ object ConversationStore {
     fun purgeEmpty() {
         // Solo borra borradores creados por versiones previas de la app.
         // Las conversaciones remotas se sincronizan inicialmente sin mensajes.
-        persist(load().filterNot { it.title == "New chat" && it.messages.isEmpty() && it.source.isBlank() })
+        val current = load()
+        val retained = current.filterNot { it.title == "New chat" && it.messages.isEmpty() && it.source.isBlank() }
+        if (retained.size != current.size) persist(retained)
     }
 
     fun create(): Conversation {
@@ -104,19 +109,24 @@ object ConversationStore {
     fun save(c: Conversation) {
         val l = load()
         val i = l.indexOfFirst { it.id == c.id }
+        if (i >= 0 && l[i] == c) return
         if (i >= 0) l[i] = c else l.add(0, c)
         persist(l)
     }
 
     fun delete(id: String) {
-        persist(load().filterNot { it.id == id })
+        val current = load()
+        val retained = current.filterNot { it.id == id }
+        if (retained.size != current.size) persist(retained)
     }
 
     fun replaceRemote(remote: List<Conversation>) {
-        val old = load().associateBy { it.id }
-        persist(remote.map { incoming ->
+        val current = load()
+        val old = current.associateBy { it.id }
+        val next = remote.map { incoming ->
             val previous = old[incoming.id]
             if (previous == null) incoming else incoming.copy(title = previous.title, pinned = previous.pinned, messages = previous.messages)
-        })
+        }
+        if (next != current) persist(next)
     }
 }

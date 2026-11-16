@@ -13,6 +13,8 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Cliente NVIDIA NIM (OpenAI-compatible) con streaming SSE para Nemotron 3.5.
@@ -33,14 +35,8 @@ class NemotronStreamClient(
 
     val isConfigured: Boolean get() = apiKey.isNotBlank()
 
-    private val http = OkHttpClient.Builder()
-        .connectTimeout(15, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
-        .writeTimeout(30, TimeUnit.SECONDS)
-        .build()
-
     private val current = AtomicReference<EventSource?>(null)
-    @Volatile private var completed = false
+    private val generation = AtomicInteger()
 
     /**
      * Inicia una solicitud streaming.
@@ -65,7 +61,9 @@ class NemotronStreamClient(
         }
 
         val body = buildJson(userText, model, system).toString()
-        completed = false
+        val requestGeneration = generation.incrementAndGet()
+        current.getAndSet(null)?.cancel()
+        val completed = AtomicBoolean()
         Log.d(TAG, "stream start model=$model len=${userText.length}")
 
         val req = Request.Builder()
@@ -77,19 +75,22 @@ class NemotronStreamClient(
             .build()
 
         val factory = EventSources.createFactory(http)
-        current.set(factory.newEventSource(req, object : EventSourceListener() {
+        val source = factory.newEventSource(req, object : EventSourceListener() {
             val sb = StringBuilder()
 
             override fun onOpen(eventSource: EventSource, response: Response) {}
 
             override fun onEvent(es: EventSource, id: String?, type: String?, data: String) {
+                if (generation.get() != requestGeneration) {
+                    es.cancel()
+                    return
+                }
                 if (data == "[DONE]") {
-                    if (!completed) {
-                        completed = true
+                    if (completed.compareAndSet(false, true)) {
                         onComplete(sb.toString())
                     }
                     es.cancel()
-                    current.set(null)
+                    current.compareAndSet(es, null)
                     return
                 }
                 try {
@@ -110,10 +111,12 @@ class NemotronStreamClient(
             }
 
             override fun onClosed(es: EventSource) {
-                if (current.get() === es) current.set(null)
+                current.compareAndSet(es, null)
             }
 
             override fun onFailure(es: EventSource, t: Throwable?, response: Response?) {
+                current.compareAndSet(es, null)
+                if (generation.get() != requestGeneration || !completed.compareAndSet(false, true)) return
                 val th = t ?: RuntimeException("unknown")
                 Log.e(TAG, "stream failure code=${response?.code}", th)
                 val msg = when (response?.code) {
@@ -123,12 +126,18 @@ class NemotronStreamClient(
                     else -> th.message ?: "Error desconocido"
                 }
                 onError(RuntimeException(msg, th))
-                current.set(null)
             }
-        }))
+        })
+        current.set(source)
+        // A cancellation or very short response can arrive before assignment.
+        if (generation.get() != requestGeneration || completed.get()) {
+            current.compareAndSet(source, null)
+            source.cancel()
+        }
     }
 
     fun cancel() {
+        generation.incrementAndGet()
         current.getAndSet(null)?.cancel()
     }
 
@@ -163,6 +172,11 @@ class NemotronStreamClient(
     }
 
     companion object {
+        private val http = OkHttpClient.Builder()
+            .connectTimeout(15, TimeUnit.SECONDS)
+            .readTimeout(60, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .build()
         private const val TAG = "NemotronClient"
         const val DEFAULT_BASE_URL = "https://integrate.api.nvidia.com/v1"
         private val JSON_MT = "application/json; charset=utf-8".toMediaType()

@@ -60,7 +60,13 @@ object KeyboardDictationFeedback {
     }
 
     fun setLevel(rms: Float) {
-        main.post { indicator?.setLevel(rms) }
+        // RecognitionListener already dispatches RMS callbacks on the main
+        // thread. Avoid allocating/enqueuing another message for every sample.
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            indicator?.setLevel(rms)
+        } else {
+            main.post { indicator?.setLevel(rms) }
+        }
     }
 
     fun pulse(context: Context) {
