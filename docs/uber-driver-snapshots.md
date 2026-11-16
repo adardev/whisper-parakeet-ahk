@@ -1,29 +1,36 @@
-# Uber Driver tile snapshots
+# Uber Driver wallet snapshots
 
-`UberDriverTileService` keeps its existing package freeze/unfreeze behavior and
-requests a snapshot after each confirmed state change:
+`UberDriverTileService` keeps its package freeze/unfreeze behavior and captures
+the wallet after each confirmed tile transition:
 
 - unfreeze: `enabled`
 - hide/freeze: `disabled`
 
-`UberSnapshotClient` posts the action, a unique event ID, device time, and a
-Firebase ID token for Nemotron's existing Firebase account to the NAS. The NAS
-validates that token against the configured health UID. It owns Uber OAuth
-credentials, queries the official Driver
-Payments API, calculates today's Mexico City MXN total, and stores the verified
-snapshot in Firebase. OAuth secrets and payment data do not ship in the APK.
+Uber has one exported `com.ubercab.carbon.core.CarbonActivity`; Billetera is an
+in-app screen, not a separate Android activity. The tile opens CarbonActivity,
+navigates through Uber's own menu to **Billetera**, reads the exact value next
+to **Saldo** twice, and rejects anything that does not parse as MXN. It then
+queues the tile event with that reading, attempts immediate delivery, and
+returns to Home. Enabling captures after unfreezing. Disabling captures before
+freezing, then sends the event. These are the only code paths that take a new
+reading; the network job retries delivery of an existing event only.
 
-If the NAS/API is offline or returns invalid data, the tile action still
-completes. The server evaluator treats missing data as unknown and does not
-charge. See the NAS repo's `docs/uber-driver-beeminder-automation.md` for API
-approval, OAuth setup, Firestore paths, and the separate weekday commitment.
+The phone posts the action, a unique event ID, device time, the wallet value,
+and a Firebase ID token for Nemotron's existing Firebase account to the NAS.
+The NAS validates that token against the configured health UID and stores
+verified wallet snapshots in `uber_wallet_snapshots/{yyyy-MM-dd}` plus immutable
+per-toggle events below `events/{eventId}`. OAuth secrets and payment data do
+not ship in the APK.
 
-The deployed endpoint currently returns HTTP 503 because Uber API access is
-disabled. Uber must approve the Driver API `partner.payments` scope and the
-driver account must complete OAuth before a toggle can produce an earnings
-snapshot. Missing API access never counts as zero earnings and cannot trigger a
-charge. The server still records each authenticated tile event in Firebase
-with `valid=false` and no amount while the earnings source is unavailable.
+If the NAS is offline, the tile action still completes and the persistent
+network job retries the same event. If the UI reading is invalid, the event is
+stored without an amount; missing data is unknown and never treated as zero.
+See the NAS repo's `docs/uber-driver-beeminder-automation.md` for the weekday
+balance-delta commitment and Firestore paths.
+
+The official Uber Driver API integration remains disabled. The tile uses the
+visible wallet balance instead; the wallet's daily increase is evaluated on the
+NAS. Missing daily snapshots never count as zero and cannot trigger a charge.
 
 Each tile event is committed to a local queue before networking. If the NAS is
 unreachable, a persisted `JobScheduler` job retries only when the phone has

@@ -33,12 +33,13 @@ internal object UberSnapshotClient {
         .build()
 
     /** Called after a confirmed tile state transition, from its worker thread. */
-    fun capture(context: Context, action: String) {
+    fun capture(context: Context, action: String, wallet: JSONObject? = null) {
         if (action !in setOf("enabled", "disabled")) return
         val event = JSONObject()
             .put("action", action)
             .put("eventId", UUID.randomUUID().toString())
             .put("deviceCapturedAt", Instant.now().toString())
+        wallet?.let { event.put("wallet", it) }
         val saved = synchronized(queueLock) {
             val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             val pending = readQueue(prefs)
