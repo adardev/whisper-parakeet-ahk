@@ -921,27 +921,4 @@ object RootShellManager {
         return true
     }
 
-    fun isAccessibilityServiceEnabled(serviceComponent: String): Boolean {
-        if (!hasPermission()) return false
-        val current = execShellCapture("settings get secure enabled_accessibility_services") ?: return false
-        return current.split(':').map { it.trim() }.contains(serviceComponent)
-    }
-
-    fun setAccessibilityServiceEnabled(serviceComponent: String, enabled: Boolean): Boolean {
-        if (!hasPermission()) return false
-        val current = execShellCapture("settings get secure enabled_accessibility_services") ?: return false
-        val services = current.split(':')
-            .map { it.trim() }
-            .filter { it.isNotEmpty() && it != "null" }
-            .toMutableSet()
-        val changed = if (enabled) services.add(serviceComponent) else services.remove(serviceComponent)
-        val joined = services.joinToString(":")
-        val servicesOk = !changed || execShell("settings put secure enabled_accessibility_services '$joined'")
-        if (!servicesOk) return false
-        val accessibilityEnabled = enabled || services.isNotEmpty()
-        val flagOk = execShell("settings put secure accessibility_enabled ${if (accessibilityEnabled) 1 else 0}")
-        Log.d(TAG, "a11y $serviceComponent → $enabled [$joined]")
-        return flagOk
-    }
-
 }

@@ -76,7 +76,7 @@ class NemotronApp : android.app.Application() {
                 AutoFreezeScheduler.start(this)
                 AutoFreezeScheduler.recover(this)
             }
-            com.nemotron.voiceime.guard.AddictionGuard.applyEnabled(this)
+            com.nemotron.voiceime.dhizuku.DnsEnforcer.startMonitoring(this)
             CarDetector.refresh(this)
             AutoAndroidAuto.reconcile(this)
         } catch (t: Throwable) {

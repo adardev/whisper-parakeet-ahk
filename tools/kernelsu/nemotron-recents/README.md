@@ -1,5 +1,16 @@
 # Prototipo de Recientes para Nemotron
 
+## Auditoría de estado del dispositivo (16 nov 2026)
+
+La consulta por ADB a las 12:45 no encontró `nemotron-recents` en
+`/data/adb/modules` ni en `modules_update`; las notas de instalación del 5 de
+noviembre que aparecen abajo eran históricas en ese momento. A las 13:02 se
+instaló el ZIP experimental en `modules_update` con `update=true`. El arranque
+siguiente terminó, pero `su` ya no estaba disponible porque el root DFRoot es
+temporal; Android seguía usando el componente de Recientes Samsung y SystemUI
+seguía enlazado a Samsung Quickstep. La activación y gestos con Nemotron siguen
+sin verificar. El rol HOME sí permanece en `com.nemotron.voiceime2`.
+
 Estado: instalado en KernelSU el 5 de noviembre a las 23:45, con mapeo idmap
 validado contra el framework del A54; **pendiente de activación y no validado
 en ejecución**. La animación al icono sigue pendiente.

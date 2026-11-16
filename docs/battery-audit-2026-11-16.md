@@ -102,6 +102,35 @@ service still records the outcome in Android logs, refreshes the Quick Settings
 tile and releases its temporary wakelock; an exception while starting or
 executing the action can still show the generic failure toast.
 
+### ADB follow-up (12:45 CST, 16 November)
+
+A second read-only `dumpsys batterystats --charged` capture, taken while the
+phone was connected for development, reported 36–40 percentage points of
+discharge since its last full charge, with 32 points while the screen was on
+and 8 while off. This is a charge-cycle aggregate, not an overnight interval;
+it cannot attribute the user's recurring night loss by itself.
+
+The strongest app-specific screen-off lead in this aggregate is WhatsApp's
+`com.whatsapp:backupdb` wakelock: 59.5 seconds and approximately 0.47 mAh in
+Android's model. This may include any screen-off time since the last charge,
+not only sleep hours. System UID 1000 accumulated 16m05s on
+`Prevent Sleep by AssistantDelay` (1,979 acquisitions); it is shared-system
+accounting and the total is not aligned to one overnight window. Neither item
+is proof of the cause. Nemotron Core's `Nemotron:SleepAction` remained short
+(3.8 seconds across two acquisitions); Keyboard's WorkManager wake lock was
+28ms. These readings do not support changing radio policy or disabling a
+system package.
+
+The one-charge model also charges 20.8 mAh to One UI Home (UID 10146); its UID
+was classified in Android's `fgs` process state for 17h15m. On the live service inspection, that UID
+was hosting Samsung Quickstep bound by SystemUI for gesture/Recents. This is a
+candidate for follow-up only after Recents can be replaced and gestures
+verified; killing or disabling it now would risk breaking navigation. Current
+evidence still shows Android entering deep idle and about one displayed
+percentage point over the previously measured 8h47 idle interval. Keep the
+paired bedtime/morning capture to correlate timestamps before changing system
+scheduling or services.
+
 ## Applied code changes
 
 - `HealthSnapshotJobService` passes its already-read permission set to the

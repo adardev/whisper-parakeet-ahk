@@ -126,21 +126,6 @@
             android:exported="false"
             android:foregroundServiceType="microphone" />
 
-        <!-- Guard anti-adicción: apaga la pantalla y cierra Instagram al abrir Reels o tras mucho scroll en Inicio, y WhatsApp si ves Status.
-             Event-driven (accesibilidad), sin polling ni gasto de batería -->
-        <service
-            android:name=".guard.AntiScrollAccessibilityService"
-            android:exported="false"
-            android:label="@string/guard_a11y_label"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
-            <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService" />
-            </intent-filter>
-            <meta-data
-                android:name="android.accessibilityservice.AccessibilityServiceInfo"
-                android:resource="@xml/accessibility_guard_config" />
-        </service>
-
         <!-- Temp receiver para descongelar apps desde adb -->
         <receiver
             android:name=".dhizuku.UnhideReceiver"

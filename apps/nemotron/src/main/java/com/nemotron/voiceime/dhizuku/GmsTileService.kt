@@ -9,12 +9,10 @@ class GmsTileService : AppFreezeTileService() {
     override val tileIconRes: Int = R.drawable.ic_dolby_tile
 
     override fun onAfterFreeze() {
-        RootShellManager.setAccessibilityServiceEnabled(guardService(this), enabled = true)
         RootShellManager.unhideApp(INSTAGRAM_PACKAGE)
     }
 
     override fun onAfterUnfreeze() {
-        RootShellManager.setAccessibilityServiceEnabled(guardService(this), enabled = false)
         RootShellManager.hideApp(INSTAGRAM_PACKAGE)
         RootShellManager.stopApp(INSTAGRAM_PACKAGE)
     }
@@ -31,7 +29,4 @@ class GmsTileService : AppFreezeTileService() {
         const val INSTAGRAM_PACKAGE = "com.instagram.android"
 
     }
-
-    private fun guardService(context: android.content.Context): String =
-        "${context.packageName}/com.nemotron.voiceime.guard.AntiScrollAccessibilityService"
 }

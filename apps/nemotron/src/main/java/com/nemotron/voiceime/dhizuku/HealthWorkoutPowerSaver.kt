@@ -58,7 +58,7 @@ object HealthWorkoutPowerSaver {
         // Reuse the system-bound listener for DND change callbacks while the
         // Fit3 is connected; this avoids a persistent foreground-service
         // notification just to keep a dynamic receiver alive.
-        val shouldListen = connected && !SecureStore.isAddictionGuardEnabled(context) &&
+        val shouldListen = connected &&
             (isEnabled(context) || SecureStore.isDndLockEnabled(context))
         if (!shouldListen) {
             val p = prefs(context)

@@ -322,3 +322,20 @@ En `batterystats` el 18 oct, el periodo desde la última carga duraba unos 46 mi
 El cambio de build dejó visible la distribución predeterminada (Galería, carpeta Google, Teléfono y Cámara), aunque las bases guardadas aún contenían la distribución anterior. Se restauraron en `OneUI.db` las posiciones del escritorio y dock de `HomeOnly.db`, conservando el cajón de apps y respaldando el estado previo en `NemotronBuild/launcher-layout-before-restore-20261019-173443`. La pantalla comprobada volvió a mostrar Lightroom, Obsidian, calendario, las carpetas, búsqueda, BBVA, los widgets y el dock previo; WhatsApp y Samsung Health no se añadieron.
 
 La comprobación de arranque encontró que `patch-oneui-behavior.ps1` enviaba cada línea del SQL como una sentencia distinta. El `DELETE` multilínea fallaba desde la primera continuación (`OR intent LIKE...`), y el launcher repetía excepciones SQLite al iniciar. Se unió esa sentencia y el generador ahora agrupa líneas hasta el punto y coma. La build `Nemotron-layout-fix-v10.apk` quedó instalada sobre la anterior conservando datos; la captura posterior confirma el acomodo restaurado y el logcat reciente no muestra las excepciones SQLite del filtro.
+
+### Estado actual de HOME y Quickstep (16 nov 2026, 12:45 CST)
+
+El rol HOME de Android es `com.nemotron.voiceime2`. Esto confirma que Nemotron UI es la pantalla de inicio que se abre; no confirma que One UI Home haya dejado de ejecutarse como dependencia del sistema. En el estado actual:
+
+- `android:string/config_recentsComponentName` resuelve a `com.sec.android.app.launcher/com.android.quickstep.RecentsActivity`.
+- `SystemUI` mantiene enlazado `com.sec.android.app.launcher/.globalgesture.TouchInteractionService` mediante `android.intent.action.QUICKSTEP_SERVICE`.
+- El historial de actividades contiene la `RecentsActivity` de Samsung. One UI Home también aporta el proveedor `com.sec.android.app.launcher.settings` que Ajustes de Samsung consulta al abrir opciones de navegación; pruebas anteriores registraron un fallo de Ajustes al deshabilitar el paquete.
+- KernelSU solo lista `meta-overlayfs`, `nemotron-noogle-bootfix` y `noogle-microg`. `nemotron-recents` no está instalado ni en `modules` ni en `modules_update`.
+
+Por eso One UI Home no se ha deshabilitado ni borrado: en esta configuración es el Quickstep privilegiado que sostiene gestos/Recientes, aunque Nemotron ya sea HOME. El módulo de Recientes incluido aquí apunta a Nemotron, pero requiere que el overlay de recursos se monte en el arranque. El reemplazo exige verificar en el A54 que Android acepte Nemotron como Recents, que SystemUI enlace su servicio y que Inicio/Atrás/Recientes sigan funcionando antes de deshabilitar el launcher original. No se debe presentar la instalación de Nemotron como HOME como reemplazo completo de One UI Home.
+
+#### Resultado del primer intento controlado
+
+A las 13:02 CST se instaló el ZIP experimental con `ksud module install`; KernelSU lo dejó en `/data/adb/modules_update/nemotron-recents` con `update=true`. El metainstalador de meta-overlayfs avisó `chcon: invalid context: 0644` dos veces; la inspección root confirmó después que ambos APK de la carpeta staged tenían etiqueta `u:object_r:system_file:s0`. `idmap2` acepta el overlay para `framework-res` y mapea `config_recentsComponentName`.
+
+Tras un reinicio normal, Android reportó `sys.boot_completed=1`, pero `su` ya no estaba disponible (`/system/bin/su: No such file or directory`). La lectura activa seguía siendo Samsung y SystemUI seguía enlazado a su Quickstep. Por tanto, ese arranque **no activó el reemplazo**; la causa observada es que el root temporal no está activo después del reinicio. No se deshabilitó el paquete ni sus componentes, no se borró One UI Home y no se cambió el HOME de Nemotron. El módulo quedó pendiente de volver a lanzar DFRoot/KernelSU y verificar si puede cargarse en la sesión root temporal.
