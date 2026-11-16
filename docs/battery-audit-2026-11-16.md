@@ -15,7 +15,9 @@ or a controlled before/after experiment.
 | All three | | 19.15 mAh |
 
 All three account for about 1.81% of the device's estimated drain in this
-window. The same capture attributes 306 mAh to the display, 364 to CPU, 36.9
+window under their own UIDs. Work requested through root or system services can
+be charged to UID 0 or shared system UID 1000 instead, so this percentage does
+not bound Nemotron's total indirect contribution. The same capture attributes 306 mAh to the display, 364 to CPU, 36.9
 to Wi-Fi and 6.51 to sensors. Those component estimates should not be added
 to the application totals; they describe the same energy from another view.
 
@@ -31,6 +33,34 @@ wake locks; six keyboard jobs used 66 ms total. None of these readings supports
 disabling its existing work just to lower a counter. Sensorservice listed
 grip, significant motion and step-counter sensors active; no Nemotron sensor
 connection was identified in the query.
+
+### Overnight attribution limit
+
+This capture is not a controlled overnight run: it spans 4 h 41 min and only
+1 h 41 min screen-off. It cannot identify the process responsible for the
+user's recurring night-time 1–2% drain. In this window Core's Sleep Mode
+service launched twice and accumulated 4.1 seconds of actual partial wakelock;
+Core had one scheduled Sleep Mode alarm. That is evidence against a long-running
+Nemotron Sleep Mode wakelock in this particular window, not proof about other
+nights. Android also logged system-UID motion alarms and Wi-Fi/IMS activity;
+the shared system UID and this non-night interval do not identify a specific
+package as the overnight cause. Battery percentage graphs alone cannot make
+that attribution.
+
+`tools/capture-idle-battery.ps1 -Phase bedtime` and then
+`tools/capture-idle-battery.ps1 -Phase morning` save read-only ADB snapshots in
+`%LOCALAPPDATA%\NemotronBatteryAudit`. Compare the two `batterystats`, alarm,
+sensor, power and idle records; no battery stats are reset and no setting is
+changed. The script requires exactly one authorized ADB device and does not
+run persistently. Capture at bedtime after Sleep Mode/radios have reached the
+intended state, then immediately after waking before opening apps or toggling
+radios. Until such a paired interval is available, the responsible package is
+unknown and no third-party app should be disabled based on this evidence.
+
+Sleep Mode no longer emits the result/status toast after a tile action. The
+service still records the outcome in Android logs, refreshes the Quick Settings
+tile and releases its temporary wakelock; an exception while starting or
+executing the action can still show the generic failure toast.
 
 ## Applied code changes
 

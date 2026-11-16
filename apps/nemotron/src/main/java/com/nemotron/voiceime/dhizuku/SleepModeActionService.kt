@@ -70,9 +70,6 @@ class SleepModeActionService : Service() {
                 } else if (!retry) {
                     AirplaneModeSchedule.scheduleRetry(this, enabled)
                 }
-                if (!scheduled || !result.success) mainHandler.post {
-                    Toast.makeText(applicationContext, result.message, Toast.LENGTH_LONG).show()
-                }
             } catch (e: Exception) {
                 Log.e(TAG, "Falló el cambio de Sleep Mode", e)
                 if (!retry) runCatching { AirplaneModeSchedule.scheduleRetry(this, enabled) }

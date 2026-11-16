@@ -102,12 +102,9 @@ class CarMediaSessionListener : NotificationListenerService() {
                     if (stateChanged) refreshMusicSession()
                 }
 
-                override fun onMetadataChanged(metadata: android.media.MediaMetadata?) {
-                    if (controller.playbackState?.state == PlaybackState.STATE_PLAYING ||
-                        CarMusicSessionBridge.controller()?.sessionToken == token) {
-                        refreshMusicSession()
-                    }
-                }
+                // Metadata for the selected session is already forwarded by
+                // CarMusicSessionBridge. It does not change membership or
+                // playback priority; do not requery all sessions for artwork.
             }
             runCatching {
                 controller.registerCallback(callback)

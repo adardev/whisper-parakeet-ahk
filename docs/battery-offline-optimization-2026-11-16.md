@@ -131,3 +131,70 @@ enabled flag was already false. The complete JVM suite now has **17 passing
 tests**. Mockito is a test-only dependency; it is not packaged in the APK.
 The Core build succeeds. On-device upload counts and battery impact remain
 unverified until the phone is available again.
+
+## Media callback and Health SDK resource audit
+
+`CarMediaSessionListener` previously queried all active media sessions when a
+supported player's metadata changed, even though the selected controller's
+metadata is already forwarded by `CarMusicSessionBridge`. Source membership,
+playback-state changes and notification events still reconcile player
+selection; the redundant metadata-only query was removed. Two tests execute
+the production listener/bridge with mocked media sessions: artwork updates
+reach the bridge without another `getActiveSessions` call, and playback changes
+still switch the one selected destination from Salt to YouTube Music. Real car
+controls and artwork rendering still require a device/car check.
+
+Inspection of the bundled Samsung Health Data SDK 1.1.0 bytecode found that
+each store constructor creates a four-worker executor and a device-manager
+single-worker executor. The public store interface has no close operation, and
+its constructor does not install executor shutdown on caller-scope completion.
+Merely passing an export coroutine's scope cannot establish executor cleanup.
+An initial uncommitted scope-lifetime change was therefore replaced with a
+process-wide store pool; it was not installed or published.
+
+`SamsungHealthManager` now obtains one store from `HealthStorePool`, whose
+factory receives only the application context. A process owns one SDK
+store/executor set, rather than creating a set per setup screen or export. No
+private SDK field is modified. Each read/permission request remains separate:
+the inspected SDK suspend adapters attach cancellation to the individual
+future. The periodic job and explicit foreground transfer retain their checks,
+date range, payload and upload path. Live Android binding and resource counts
+remain device checks, not JVM-test results.
+
+The review also considered coalescing the immediate and periodic Health
+exports. Joining a reading that has already queried exercise could miss a
+newly completed session that motivated the later request, so the current
+implementation preserves separate fresh reads. Removing the repeated exports
+caused by panel rendering remains the verified scheduling improvement. The
+full suite contains **21 passing JVM tests** after the two media regressions
+and two resource-pool regressions. The latter verify that 32 concurrent export
+requests construct one store using the application context and that a failed
+creation can recover on the next request. The factory seam avoids binding to
+Samsung Health or creating its real executor pools in host tests.
+
+## Sleep Mode toast and overnight drain evidence
+
+The ADB battery capture covers only 4 h 41 min, with 1 h 41 min screen-off;
+it is not an overnight baseline. Core's Sleep Mode action had two launches,
+one scheduled alarm, and about 4 seconds actual partial wakelock during that
+window. This does not account for recurring all-night drain. Android records
+include system-UID motion wakes and Wi-Fi/IMS activity, but that shared UID and
+daytime sample cannot identify a package-level night culprit. Do not change
+or disable unrelated packages based on it.
+
+Sleep Mode no longer shows its success/status toast after activation or
+deactivation. The action result remains in logcat; only a thrown action error
+may show a generic failure toast. No other notification channel or toggle was
+changed.
+
+`tools/capture-idle-battery.ps1` collects read-only bedtime/morning samples of
+BatteryStats, alarms, sensors, device idle, power and radio services. It
+requires one authorized ADB device, writes private logs outside Git under
+`%LOCALAPPDATA%\NemotronBatteryAudit`, does not reset counters, and exits after
+one capture. An uncontaminated pair is still required to identify and then
+target the overnight wake source.
+
+The Core APK compiled successfully with JDK 17. ADB briefly returned the A54
+as connected, then dropped it during installation, so this build was not
+installed and the toast change is not yet active on the device. APK SHA-256:
+`8b4a0512f009d1a7ed0e6623ab0c739918eda7a2fb20708e21471092cd0cd8d8`.

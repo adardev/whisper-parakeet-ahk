@@ -24,15 +24,15 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 
 /** Lee Samsung Health Data SDK directamente y devuelve un snapshot JSON. */
-class SamsungHealthManager(context: Context, scope: CoroutineScope) {
+class SamsungHealthManager(context: Context, @Suppress("UNUSED_PARAMETER") scope: CoroutineScope) {
     // Resolve SDK reflection metadata once per transfer, not for every point
     // in the 30-day history. Keep every field and session value unchanged.
     private val pointFields = mutableMapOf<Class<*>, List<java.lang.reflect.Field>>()
     private val sessionMethods = mutableMapOf<Class<*>, MutableMap<String, java.lang.reflect.Method>>()
-    // The SDK binds to Samsung Health when creating a store. Tie that binding
-    // to the caller so setup screens and one-shot transfers release it when
-    // they finish instead of leaving a default SDK scope bound in background.
-    private val store = HealthDataService.getStore(context.applicationContext, scope)
+    // SDK 1.1.0 allocates internal executor pools for every store and has no
+    // public close method. Reuse one process-wide store; SDK suspend requests
+    // still cancel their own future when the calling coroutine is cancelled.
+    private val store = stores.get(context)
     // Samsung Health may keep the last weight measurement for years, while
     // the other streams are intentionally limited to recent data.
     private val bodyCompositionHistorySeconds = 10L * 365L * 24L * 60L * 60L
@@ -69,6 +69,10 @@ class SamsungHealthManager(context: Context, scope: CoroutineScope) {
     private fun permissions(): Set<Permission> = readableTypes
         .map { Permission.of(it, AccessType.READ) }
         .toSet()
+
+    private companion object {
+        val stores = HealthStorePool { app, sdkScope -> HealthDataService.getStore(app, sdkScope) }
+    }
 
     fun permissionSetForSetup(): Set<Permission> = permissions()
 
