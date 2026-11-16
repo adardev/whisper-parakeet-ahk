@@ -16,6 +16,9 @@ import androidx.media.MediaBrowserServiceCompat
 class CarMediaBrowserService : MediaBrowserServiceCompat() {
     private lateinit var session: MediaSessionCompat
     private var lastBrowsePackage: String? = null
+    private var lastMetadata: MediaMetadata? = null
+    private var lastPlaybackState: PlaybackState? = null
+    private var hasMirroredSession = false
     private val refreshObserver: () -> Unit = { refreshMirroredSession() }
 
     override fun onCreate() {
@@ -83,30 +86,42 @@ class CarMediaBrowserService : MediaBrowserServiceCompat() {
         val source = CarMusicSessionBridge.controller()
         val sourceMetadata = source?.metadata
         val state = source?.playbackState
-        val metadata = sourceMetadata?.let {
-            MediaMetadataCompat.Builder(MediaMetadataCompat.fromMediaMetadata(it)).build()
-        } ?: MediaMetadataCompat.Builder()
-            .putString(MediaMetadataCompat.METADATA_KEY_TITLE, " ")
-            .build()
-        // Keep the source artwork untouched so Android Auto can render the song cover.
-        session.setMetadata(metadata)
+        val sourceChanged = source?.packageName != lastBrowsePackage
+        // Position/state callbacks often reuse the same artwork and metadata.
+        // Avoid retransmitting that artwork and rebuilding the queue to Auto
+        // and System UI unless the source or metadata actually changed.
+        val metadataChanged = !hasMirroredSession || sourceChanged || sourceMetadata !== lastMetadata
+        if (metadataChanged) {
+            val metadata = sourceMetadata?.let {
+                MediaMetadataCompat.Builder(MediaMetadataCompat.fromMediaMetadata(it)).build()
+            } ?: MediaMetadataCompat.Builder()
+                .putString(MediaMetadataCompat.METADATA_KEY_TITLE, " ")
+                .build()
+            // Keep the source artwork untouched so Android Auto can render the song cover.
+            session.setMetadata(metadata)
+            lastMetadata = sourceMetadata
+        }
 
-        val actions = state?.actions ?: (PlaybackStateCompat.ACTION_PLAY or PlaybackStateCompat.ACTION_PAUSE)
-        val compatState = state?.let(PlaybackStateCompat::fromPlaybackState)
-            ?: PlaybackStateCompat.Builder().setActions(actions)
-                .setState(PlaybackStateCompat.STATE_PAUSED, 0L, 0f).build()
-        session.setPlaybackState(compatState)
-        if (source?.packageName != lastBrowsePackage) {
+        if (!hasMirroredSession || sourceChanged || state !== lastPlaybackState) {
+            val actions = state?.actions ?: (PlaybackStateCompat.ACTION_PLAY or PlaybackStateCompat.ACTION_PAUSE)
+            val compatState = state?.let(PlaybackStateCompat::fromPlaybackState)
+                ?: PlaybackStateCompat.Builder().setActions(actions)
+                    .setState(PlaybackStateCompat.STATE_PAUSED, 0L, 0f).build()
+            session.setPlaybackState(compatState)
+            lastPlaybackState = state
+        }
+        if (sourceChanged) {
             lastBrowsePackage = source?.packageName
             notifyChildrenChanged(ROOT_ID)
         }
-        session.setQueue(listOf(MediaSessionCompat.QueueItem(
+        if (metadataChanged) session.setQueue(listOf(MediaSessionCompat.QueueItem(
             MediaDescriptionCompat.Builder()
                 .setMediaId(CURRENT_ID)
                 .setTitle(sourceMetadata?.getString(MediaMetadata.METADATA_KEY_TITLE) ?: " ")
                 .setSubtitle(sourceMetadata?.getString(MediaMetadata.METADATA_KEY_ARTIST))
                 .build(), 1L
         )))
+        hasMirroredSession = true
     }
 
     companion object {

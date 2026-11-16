@@ -30,13 +30,14 @@ class HealthSnapshotJobService : JobService() {
         transfer = scope.launch {
             try {
                 val manager = SamsungHealthManager(this@HealthSnapshotJobService, scope)
-                if (manager.grantedPermissions().isEmpty()) {
+                val granted = manager.grantedPermissions()
+                if (granted.isEmpty()) {
                     Log.w(TAG, "Sync periódico omitido: Samsung Health sin permisos")
                     return@launch
                 }
                 val end = Instant.now()
                 val start = end.minusSeconds(BACKFILL_DAYS * 24L * 60L * 60L)
-                val data = manager.readAllData(start, end)
+                val data = manager.readAllData(start, end, granted)
                 val date = LocalDate.now(ZoneId.systemDefault()).toString()
                 val snapshot = JSONObject()
                     .put("type", "health_snapshot")

@@ -17,11 +17,27 @@ class AssistGlowView @JvmOverloads constructor(
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE }
     private var pulse = 0f
     private var animator: ValueAnimator? = null
+    private val bounds = RectF()
 
     init { setLayerType(View.LAYER_TYPE_SOFTWARE, null) }
 
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
+        updateAnimation()
+    }
+
+    override fun onVisibilityAggregated(isVisible: Boolean) {
+        super.onVisibilityAggregated(isVisible)
+        if (isVisible) updateAnimation() else stopAnimation()
+    }
+
+    private fun stopAnimation() {
+        animator?.cancel()
+        animator = null
+    }
+
+    private fun updateAnimation() {
+        if (!isAttachedToWindow || !isShown || windowVisibility != VISIBLE || animator != null) return
         animator = ValueAnimator.ofFloat(0f, 1f).apply {
             duration = 1500L
             repeatCount = ValueAnimator.INFINITE
@@ -36,24 +52,23 @@ class AssistGlowView @JvmOverloads constructor(
     }
 
     override fun onDetachedFromWindow() {
-        animator?.cancel()
-        animator = null
+        stopAnimation()
         super.onDetachedFromWindow()
     }
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         val inset = 0f
-        val rect = RectF(inset, inset, width - inset, height - inset)
+        bounds.set(inset, inset, width - inset, height - inset)
         // Radio de esquinas de la pantalla, no radio de una burbuja de chat.
         paint.strokeWidth = 16f + (pulse * 5f)
         paint.color = Color.argb((30 + pulse * 28).toInt(), 47, 128, 255)
         paint.setShadowLayer(38f + (pulse * 18f), 0f, 0f, Color.argb((95 + pulse * 65).toInt(), 47, 128, 255))
         val radius = 33f * resources.displayMetrics.density
-        canvas.drawRoundRect(rect, radius, radius, paint)
+        canvas.drawRoundRect(bounds, radius, radius, paint)
         paint.clearShadowLayer()
         paint.strokeWidth = 3f + (pulse * 2f)
         paint.color = Color.argb((105 + pulse * 95).toInt(), 91, 166, 255)
-        canvas.drawRoundRect(rect, radius, radius, paint)
+        canvas.drawRoundRect(bounds, radius, radius, paint)
     }
 }

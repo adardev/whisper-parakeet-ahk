@@ -25,6 +25,10 @@ import java.time.ZoneId
 
 /** Lee Samsung Health Data SDK directamente y devuelve un snapshot JSON. */
 class SamsungHealthManager(context: Context, scope: CoroutineScope) {
+    // Resolve SDK reflection metadata once per transfer, not for every point
+    // in the 30-day history. Keep every field and session value unchanged.
+    private val pointFields = mutableMapOf<Class<*>, List<java.lang.reflect.Field>>()
+    private val sessionMethods = mutableMapOf<Class<*>, MutableMap<String, java.lang.reflect.Method>>()
     // The SDK binds to Samsung Health when creating a store. Tie that binding
     // to the caller so setup screens and one-shot transfers release it when
     // they finish instead of leaving a default SDK scope bound in background.
@@ -148,12 +152,12 @@ class SamsungHealthManager(context: Context, scope: CoroutineScope) {
         out.put("endTime", point.endTime.toString())
         out.put("dataType", type.name)
         // Los campos públicos del DataType son la forma oficial de extraer valores.
-        type.javaClass.fields
+        pointFields.getOrPut(type.javaClass) { type.javaClass.fields
             .filter { it.type == Field::class.java }
             // Samsung exposes SERIES_DATA as a Java object toString with
             // thousands of internal references. It is not useful remotely
             // and can push the Firestore document above 1 MiB.
-            .filter { it.name != "SERIES_DATA" }
+            .filter { it.name != "SERIES_DATA" } }
             .forEach { field ->
                 runCatching {
                     val sdkField = field.get(null) as Field<Any>
@@ -162,8 +166,9 @@ class SamsungHealthManager(context: Context, scope: CoroutineScope) {
                             val details = JSONArray()
                             value.forEach { session ->
                                 if (session != null) {
+                                    val methods = sessionMethods.getOrPut(session.javaClass) { mutableMapOf() }
                                     val call: (String) -> Any? = { name ->
-                                        session.javaClass.getMethod(name).invoke(session)
+                                        methods.getOrPut(name) { session.javaClass.getMethod(name) }.invoke(session)
                                     }
                                     details.put(JSONObject()
                                         .put("startTime", call("getStartTime").toString())

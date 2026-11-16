@@ -51,6 +51,7 @@ class ChatsListActivity : Activity() {
     private lateinit var chat: ChatClient
     private var renderedSignature = ""
     private var hasRemoteSnapshot = false
+    private var refreshInFlight = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -125,16 +126,20 @@ class ChatsListActivity : Activity() {
     }
 
     private fun refresh() {
+        if (!::chat.isInitialized || refreshInFlight) return
+        refreshInFlight = true
         ConversationStore.purgeEmpty()
         if (!hasRemoteSnapshot) renderChats(ConversationStore.list())
         chat.conversations({ arr ->
             val remote = parseConversations(arr).sortedWith(compareByDescending<Conversation> { it.createdAt }.thenBy { it.id })
             runOnUiThread {
+                refreshInFlight = false
+                if (isFinishing || isDestroyed) return@runOnUiThread
                 ConversationStore.replaceRemote(remote)
                 hasRemoteSnapshot = true
                 renderChats(remote)
             }
-        }, {})
+        }, { runOnUiThread { refreshInFlight = false } })
     }
 
     private fun renderChats(items: List<Conversation>) {
