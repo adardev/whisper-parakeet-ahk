@@ -16,16 +16,21 @@ object HealthSyncScheduler {
     private const val INTERVAL_MILLIS = 60L * 60L * 1000L
     private const val FLEX_MILLIS = 15L * 60L * 1000L
 
-    fun enable(context: Context) {
-        context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
-            .edit().putBoolean(ENABLED, true).commit()
+    @Synchronized fun enable(context: Context) {
+        val preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+        val wasEnabled = preferences.getBoolean(ENABLED, false)
+        if (!wasEnabled) preferences.edit().putBoolean(ENABLED, true).commit()
         schedule(context)
-        scheduleImmediate(context)
+        // onTileState is also called when the panel renders an already-active
+        // tile. A render must not start another 30-day Health export.
+        if (!wasEnabled) scheduleImmediate(context)
     }
 
-    fun disable(context: Context) {
-        context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
-            .edit().putBoolean(ENABLED, false).commit()
+    @Synchronized fun disable(context: Context) {
+        val preferences = context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
+        if (preferences.getBoolean(ENABLED, false)) {
+            preferences.edit().putBoolean(ENABLED, false).commit()
+        }
         val scheduler = context.getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler
         scheduler.cancel(JOB_ID)
         scheduler.cancel(IMMEDIATE_JOB_ID)

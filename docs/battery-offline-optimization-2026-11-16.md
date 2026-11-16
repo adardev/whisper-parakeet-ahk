@@ -108,3 +108,26 @@ metadata: **5844 non-code/non-signature entries are byte-identical** to the base
 The script's verification uses the same narrower signature exclusion for
 future builds. Both candidates still require device installation and normal-use
 verification. The local UI base/version concern above still applies.
+
+## Fit3 panel-render scheduling regression
+
+Source inspection found an avoidable source of Health work: the Fit3 tile's
+`onTileState` calls `HealthSyncScheduler.enable` when an already-active tile is
+rendered. Previously, every such call scheduled job 3404, even though enabling
+had already been persisted. Repeatedly opening Quick Settings could therefore
+request repeated 30-day exports, in addition to the intended hourly job.
+
+`enable` now records the prior enabled state under a synchronized transition.
+It schedules the immediate export only for a false-to-true transition; its
+periodic-job reconciliation still runs so a missing persisted periodic job can
+be restored. `disable` writes preferences only when needed and still cancels
+both jobs, including a stale job left by an interrupted earlier transition.
+
+Four tests execute the production scheduler against mocked Android boundaries:
+100 already-active renders schedule exactly one immediate job; a real off/on
+cycle schedules another; restoring an already-enabled configuration only
+restores the periodic job; disabling cancels stale jobs even if the stored
+enabled flag was already false. The complete JVM suite now has **17 passing
+tests**. Mockito is a test-only dependency; it is not packaged in the APK.
+The Core build succeeds. On-device upload counts and battery impact remain
+unverified until the phone is available again.
