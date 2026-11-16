@@ -1,4 +1,7 @@
-param([Parameter(Mandatory=$true)][string]$DecodedRoot)
+param(
+    [Parameter(Mandatory=$true)][string]$DecodedRoot,
+    [switch]$StockHost
+)
 $ErrorActionPreference = 'Stop'
 function Edit-Class([string]$Name, [scriptblock]$Edit) {
     $file = Get-ChildItem -LiteralPath $DecodedRoot -Recurse -File -Filter $Name | Select-Object -First 1
@@ -52,7 +55,7 @@ if (-not $manual) {
     [void]$settingsXml.DocumentElement.PrependChild($manual)
     $settingsXml.Save($settingsPath)
 }
-Edit-Class 'ShortcutPickerActivity.smali' {
+if (-not $StockHost) { Edit-Class 'ShortcutPickerActivity.smali' {
     param($text)
     $obsoleteLoad = @'
     invoke-static {p0}, Lcom/nemotron/oneui/compat/InstalledApps;->load(Landroid/content/Context;)Ljava/util/List;
@@ -146,6 +149,7 @@ Edit-Class 'ShortcutPickerActivity.smali' {
     }
     $text
 }
+}
 $pickerLayout = Join-Path $DecodedRoot 'res/layout/activity_shortcut_picker.xml'
 if (Test-Path -LiteralPath $pickerLayout) {
     $pickerText = [IO.File]::ReadAllText($pickerLayout)
@@ -236,7 +240,15 @@ if (-not $delegateCode.Contains('Lcom/nemotron/oneui/compat/HomeOnlyPolicy;->app
 }
 $compat = Get-ChildItem -LiteralPath $DecodedRoot -Recurse -File -Filter 'LauncherCompat.smali' | Select-Object -First 1
 if (-not $compat) { throw 'Launcher compatibility classes missing' }
-Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'oneui-compat/InstalledApps.smali') -Destination (Join-Path $compat.DirectoryName 'InstalledApps.smali') -Force
+$compatDir = $compat.DirectoryName
+$installedAppsSource = if ($StockHost) { Join-Path $PSScriptRoot 'oneui-compat/InstalledApps-stock.smali' } else { Join-Path $PSScriptRoot 'oneui-compat/InstalledApps.smali' }
+Copy-Item -LiteralPath $installedAppsSource -Destination (Join-Path $compatDir 'InstalledApps.smali') -Force
+if ($StockHost) {
+    foreach ($helper in @('ShortcutCloseTarget.smali', 'NoAutoAdd.smali')) {
+        Copy-Item -LiteralPath (Join-Path $PSScriptRoot "oneui-compat/$helper") -Destination (Join-Path $compatDir $helper) -Force
+    }
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'oneui-compat/AddAppsPreferenceClick-stock.smali') -Destination (Join-Path $compatDir 'AddAppsPreferenceClick.smali') -Force
+}
 $policy = @'
 .class public final Lcom/nemotron/oneui/compat/HomeOnlyPolicy;
 .super Ljava/lang/Object;
@@ -281,11 +293,11 @@ foreach ($sql in $sqlStatements) {
     $policy += "`n    const-string v0, `"$escaped`"`n    invoke-static {p0, v0}, Lcom/nemotron/oneui/shaded/androidx/sqlite/SQLite;->execSQL(Lcom/nemotron/oneui/shaded/androidx/sqlite/SQLiteConnection;Ljava/lang/String;)V`n"
 }
 $policy += "`n    goto :done`n    :close`n    invoke-interface {v0}, Lcom/nemotron/oneui/shaded/androidx/sqlite/SQLiteStatement;->close()V`n    :done`n    return-void`n.end method`n"
-[IO.File]::WriteAllText((Join-Path $compat.DirectoryName 'HomeOnlyPolicy.smali'), $policy, [Text.UTF8Encoding]::new($false))
-Edit-Class 'SearchBackupReceiver.smali' {
+[IO.File]::WriteAllText((Join-Path $compatDir 'HomeOnlyPolicy.smali'), $policy, [Text.UTF8Encoding]::new($false))
+if (-not $StockHost) { Edit-Class 'SearchBackupReceiver.smali' {
     param($text)
     $text.Replace('const-string v1, "com.sec.android.app.launcher"', 'const-string v1, "com.nemotron.voiceime2"')
-}
+} }
 Edit-Class 'WorkspaceViewModel.smali' {
     param($text)
     $text = [regex]::Replace($text, '(?ms)^\.method public final u\(Lcom/nemotron/oneui/shaded/y8/d0;Z\)V.*?^\.end method', {
@@ -412,7 +424,7 @@ Edit-Class 'PackageEventOperator.smali' {
 # keyboard usage statistics. Nemotron keeps HoneyBoard as its active IME, but
 # does not need Samsung's periodic statistics/update tasks. Cancel existing
 # jobs at startup and do not enqueue them again.
-foreach ($job in @(
+if (-not $StockHost) { foreach ($job in @(
     @{ File = 'b.smali'; Descriptor = 'Lvi/b;'; ContextGetter = 'a'; JobId = 1 },
     @{ File = 'c.smali'; Descriptor = 'Lzi/c;'; ContextGetter = 'a'; JobId = 2 }
 )) {
@@ -445,4 +457,4 @@ foreach ($job in @(
         if ($code -notmatch ':nemotron_disable_stats_jobs') { throw "Could not patch $($job.Descriptor)" }
         [IO.File]::WriteAllText($classFile.FullName, $code, [Text.UTF8Encoding]::new($false))
     }
-}
+} }

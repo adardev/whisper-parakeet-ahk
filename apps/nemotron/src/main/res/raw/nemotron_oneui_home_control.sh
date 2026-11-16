@@ -1,0 +1,102 @@
+#!/system/bin/sh
+# Session-only One UI Home patch. PackageManager and /system keep Samsung's APK.
+set -eu
+
+pkg=com.sec.android.app.launcher
+source=/data/local/tmp/nemotron-oneui-home-root-candidate.apk
+source_name=nemotron-oneui-home-root-candidate.apk
+candidate_hash=857f05b77c784fb9712bf7af6575d80556f2944e7839d7728c590b9a603cc419
+original_hash=b97823026a11786674f49ab0b763b055a539426e6f1221d5d54a8e93a18d9da1
+marker=/data/local/tmp/nemotron-oneui-home.target
+
+zyg=`pidof zygote64`
+case "$zyg" in ''|*[!0-9]*) echo no_zygote; exit 1;; esac
+
+get_path() { pm path "$1" | sed -n '1s/^package://p'; }
+valid_target() { [ "$1" = /system/priv-app/TouchWizHome_2017/TouchWizHome_2017.apk ]; }
+valid_source() { [ "$1" = "$source" ]; }
+hash_in_ns() { nsenter -t "$1" -m -- sha256sum "$target" | cut -d ' ' -f 1; }
+can_enter_ns() { nsenter -t "$1" -m -- true >/dev/null 2>&1; }
+process_hash() {
+  pid="$1"
+  case "$pid" in ''|*[!0-9]*) echo no_launcher_process; return 1;; esac
+  nsenter -t "$pid" -m -- sha256sum "$target" 2>/dev/null | cut -d ' ' -f 1
+}
+
+target=`get_path "$pkg"`
+valid_target "$target" || { echo unsupported_target; exit 1; }
+valid_source "$source" || { echo unsupported_candidate_path; exit 1; }
+
+case "${1:-}" in
+  enable)
+    can_enter_ns "$zyg" || { echo namespace_access_denied; exit 1; }
+    system_hash=`sha256sum "$target" | cut -d ' ' -f 1`
+    source_hash=`sha256sum "$source" | cut -d ' ' -f 1`
+    [ "$system_hash" = "$original_hash" ] || { echo original_changed; exit 1; }
+    [ "$source_hash" = "$candidate_hash" ] || { echo candidate_changed; exit 1; }
+    chown system:system "$source"
+    chmod 0644 "$source"
+    chcon u:object_r:apk_data_file:s0 "$source"
+    zygote_hash=`hash_in_ns "$zyg"`
+    if [ "$zygote_hash" = "$candidate_hash" ]; then
+      printf '%s\n' "$target" > "$marker"
+      echo already_active
+      exit 0
+    fi
+    [ "$zygote_hash" = "$original_hash" ] || { echo unexpected_existing_mount; exit 1; }
+    printf '%s\n' "$target" > "$marker"
+    nsenter -t "$zyg" -m -- mount --bind "$source" "$target" || { rm -f "$marker"; echo mount_failed; exit 1; }
+    [ "`hash_in_ns "$zyg"`" = "$candidate_hash" ] || {
+      nsenter -t "$zyg" -m -- umount -l "$target" || true
+      rm -f "$marker"
+      echo zygote_verification_failed
+      exit 1
+    }
+    # Restart only the launcher process so its new child inherits the private
+    # Zygote mount. SystemUI and PackageManager continue seeing the stock APK.
+    am force-stop --user 0 "$pkg" >/dev/null 2>&1 || true
+    echo active
+    ;;
+  disable)
+    can_enter_ns "$zyg" || { echo namespace_access_denied; exit 1; }
+    [ -f "$marker" ] && target=`cat "$marker"`
+    valid_target "$target" || { echo unsupported_target; exit 1; }
+    # Zygote owns the mount from which newly forked Samsung processes inherit.
+    # Remove that mount first, then detach copies already inherited by apps.
+    nsenter -t "$zyg" -m -- umount -l "$target" >/dev/null 2>&1 || true
+    # Unmount in Zygote and every already-forked app namespace that inherited it.
+    for info in `grep -l -F "$target" /proc/[0-9]*/mountinfo 2>/dev/null || true`; do
+      grep -F "$target" "$info" >/dev/null 2>&1 || continue
+      pid=${info#/proc/}; pid=${pid%/mountinfo}
+      nsenter -t "$pid" -m -- umount -l "$target" >/dev/null 2>&1 || true
+    done
+    am force-stop --user 0 "$pkg" >/dev/null 2>&1 || true
+    system_hash=`sha256sum "$target" | cut -d ' ' -f 1`
+    zygote_hash=`hash_in_ns "$zyg"`
+    [ "$system_hash" = "$original_hash" ] && [ "$zygote_hash" = "$original_hash" ] || {
+      echo restore_unverified
+      exit 1
+    }
+    rm -f "$marker"
+    echo restored
+    ;;
+  status)
+    echo "system=`sha256sum "$target" | cut -d ' ' -f 1`"
+    if can_enter_ns "$zyg"; then
+      echo "zygote=`hash_in_ns "$zyg"`"
+      echo namespace_access=available
+    else
+      echo zygote=unavailable
+      echo namespace_access=denied
+    fi
+    launcher_pid=`pidof "$pkg" || true`
+    if [ -n "$launcher_pid" ]; then
+      for pid in $launcher_pid; do echo "launcher[$pid]=`process_hash "$pid" || true`"; done
+    else
+      echo launcher=stopped
+    fi
+    echo "source=$source"
+    echo "candidate=`sha256sum "$source" | cut -d ' ' -f 1`"
+    ;;
+  *) echo 'usage: enable|disable|status'; exit 2 ;;
+esac

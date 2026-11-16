@@ -2,10 +2,10 @@ package com.nemotron.voiceime.dhizuku
 
 import android.content.Context
 
-/** Persistent WindowManager policy: hide only the status bar in every app except Nemotron UI. */
+/** Persistent WindowManager policy: hide only the status bar outside One UI Home. */
 object ImmersiveStatusBarPolicy {
     const val POLICY_CONTROL = "policy_control"
-    const val ENABLED_VALUE = "immersive.status=apps,-com.nemotron.voiceime2"
+    const val ENABLED_VALUE = "immersive.status=apps,-com.sec.android.app.launcher"
 
     private const val PREFS = "immersive_status_policy"
     private const val KEY_HAS_PREVIOUS = "has_previous_policy_control"

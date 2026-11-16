@@ -25,8 +25,8 @@
     <PreferenceCategory app:title="Display">
         <SwitchPreferenceCompat
             app:key="immersive_status_all_apps"
-            app:title="Hide status bar in all apps"
-            app:summary="Applies to current and future apps. Keeps Nemotron UI visible and leaves the navigation bar alone. No background service. Requires KernelSU root."
+            app:title="Hide status bar outside One UI Home"
+            app:summary="Applies to current and future apps. Keeps the status bar visible in One UI Home and leaves the navigation bar alone. No background service. Requires KernelSU root."
             app:defaultValue="false" />
     </PreferenceCategory>
 
