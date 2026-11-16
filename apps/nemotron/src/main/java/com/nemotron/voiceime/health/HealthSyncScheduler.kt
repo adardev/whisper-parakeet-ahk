@@ -11,21 +11,24 @@ object HealthSyncScheduler {
     const val PREFERENCES = "fit3_health_sync"
     const val ENABLED = "enabled"
     private const val JOB_ID = 3403
+    private const val IMMEDIATE_JOB_ID = 3404
     private const val TAG = "HealthSyncScheduler"
     private const val INTERVAL_MILLIS = 60L * 60L * 1000L
     private const val FLEX_MILLIS = 15L * 60L * 1000L
 
     fun enable(context: Context) {
         context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
-            .edit().putBoolean(ENABLED, true).apply()
+            .edit().putBoolean(ENABLED, true).commit()
         schedule(context)
+        scheduleImmediate(context)
     }
 
     fun disable(context: Context) {
         context.getSharedPreferences(PREFERENCES, Context.MODE_PRIVATE)
-            .edit().putBoolean(ENABLED, false).apply()
-        (context.getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler)
-            .cancel(JOB_ID)
+            .edit().putBoolean(ENABLED, false).commit()
+        val scheduler = context.getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler
+        scheduler.cancel(JOB_ID)
+        scheduler.cancel(IMMEDIATE_JOB_ID)
     }
 
     fun schedule(context: Context) {
@@ -45,6 +48,22 @@ object HealthSyncScheduler {
         val result = scheduler.schedule(job)
         if (result != JobScheduler.RESULT_SUCCESS) {
             Log.w(TAG, "No se pudo programar sync de Samsung Health")
+        }
+    }
+
+    /** Read once as soon as Fit3 is enabled; the periodic job alone can lag by an hour. */
+    private fun scheduleImmediate(context: Context) {
+        val scheduler = context.getSystemService(Context.JOB_SCHEDULER_SERVICE) as JobScheduler
+        val job = JobInfo.Builder(
+            IMMEDIATE_JOB_ID,
+            ComponentName(context, HealthSnapshotJobService::class.java)
+        )
+            .setMinimumLatency(0L)
+            .setRequiredNetworkType(JobInfo.NETWORK_TYPE_ANY)
+            .setRequiresBatteryNotLow(false)
+            .build()
+        if (scheduler.schedule(job) != JobScheduler.RESULT_SUCCESS) {
+            Log.w(TAG, "No se pudo programar la lectura inmediata de Samsung Health")
         }
     }
 }

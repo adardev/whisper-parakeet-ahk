@@ -1,7 +1,9 @@
 # Sincronización de ejercicio con Fit3 y Microsoft To Do
 
-El tile Fit3 inicia un `JobScheduler` periódico de Samsung Health mientras el tile indica que Fit3 está activo. El trabajo corre aproximadamente cada hora, requiere conectividad y batería no baja, y se cancela cuando el tile pasa a inactivo. El estado se conserva al reiniciar y se restaura mediante `HealthBootReceiver`.
+El tile Fit3 activa una lectura inmediata y un `JobScheduler` periódico de Samsung Health mientras indica que Fit3 está activo. La lectura inmediata evita esperar hasta una hora para el primer snapshot. La periódica sigue corriendo aproximadamente cada hora, requiere conectividad y batería no baja, y ambas se cancelan cuando el tile pasa a inactivo. El estado se guarda sincrónicamente antes de programar/cancelar los trabajos y se restaura mediante `HealthBootReceiver`.
 
-El servidor acepta snapshots de ejercicio de hasta dos horas de antigüedad. Un snapshot atrasado se considera desconocido: no desmarca la tarea diaria ya completada y no habilita un cobro basado en minutos incompletos. Para cada fecha, la tarea `Ejercicio` es monotónica: un snapshot parcial posterior no revierte una finalización.
+Un trabajo que arranca después de apagar el tile debe salir sin intentar abrir Samsung Health. El SDK responde `3000: Samsung Health is not installed` si el proveedor está oculto por el tile. No debe usarse ese fallo posterior al apagado como evidencia de que el trabajo anterior al apagado falló.
+
+El servidor acepta snapshots de ejercicio de hasta dos horas de antigüedad. Si un snapshot del mismo día ya demuestra que se alcanzó la meta, también acepta esa evidencia aunque tenga más de dos horas; si está atrasado y no alcanza la meta, se considera desconocido. No desmarca la tarea diaria ya completada ni habilita un cobro basado en minutos incompletos. Para cada fecha, la tarea `Ejercicio` es monotónica: un snapshot parcial posterior no revierte una finalización. El arreglo del servidor y su despliegue se documentan en `nas-backup/docs/fitia-health-snapshot-freshness.md`.
 
 La compilación debe realizarse con Android SDK instalado; la verificación del servidor incluye sintaxis Python, lectura del snapshot de Firebase y lectura de Microsoft Graph.
