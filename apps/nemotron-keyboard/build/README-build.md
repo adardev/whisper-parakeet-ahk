@@ -1,5 +1,12 @@
 # Nemotron con HoneyBoard
 
+**Estado del dispositivo (A54, 2026-11-16):** la aplicación independiente
+`com.nemotron.keyboard` fue desinstalada del teléfono. El paquete y su APK
+versionado siguen en el repositorio. El teclado actual es Samsung HoneyBoard
+con el port temporal de Nemotron; esto no requiere que la app independiente
+esté instalada. Consulta la bitácora enlazada desde el README del directorio
+para el estado y la forma de reactivar el montaje después de iniciar DFRoot.
+
 La APK final conserva el paquete y la firma de Nemotron e incorpora las clases,
 recursos, diccionarios y bibliotecas nativas del APK de HoneyBoard 5.9.30.88.
 El doble toque se detecta en el callback semántico de HoneyBoard: solo dos commits consecutivos del carácter de espacio activan el dictado. No se deduce por coordenadas ni por el área de la tecla. X, B, N y el resto del teclado no lo activan.

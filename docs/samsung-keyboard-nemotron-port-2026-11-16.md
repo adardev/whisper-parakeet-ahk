@@ -108,7 +108,6 @@ reiniciar, el APK del sistema sigue intacto y el montaje desaparece.
   ondas desaparecieron y la etiqueta de idioma volvió a mostrarse.
 - Se habló una frase real: el reconocedor la insertó correctamente en minúsculas.
   La frase se usó solo como borrador de prueba y se borró sin enviarla.
-- Nemotron Keyboard permanece disponible para volver atrás si hiciera falta.
 - No se instaló un módulo de arranque, no se escribió en `/system` y no se
   reinició el teléfono. El montaje dura esta sesión root y desaparece al
   reiniciar o terminarla. Después habrá que iniciar el root temporal y ejecutar
@@ -117,3 +116,41 @@ reiniciar, el APK del sistema sigue intacto y el montaje desaparece.
 El port está **montado y activo como HoneyBoard predeterminado**. Se verificaron
 el indicador animado, la restauración de la etiqueta, la ausencia de Toast y la
 inserción de voz real en minúsculas.
+
+## Desinstalación de Nemotron Keyboard del A54
+
+Después de validar el port, se desinstaló del teléfono la aplicación separada
+Nemotron Keyboard (`com.nemotron.keyboard`) mediante:
+
+```powershell
+adb uninstall com.nemotron.keyboard
+```
+
+ADB respondió `Success`. Se comprobó después que `pm path
+com.nemotron.keyboard` no devuelve una ruta y que el método de entrada
+predeterminado sigue siendo
+`com.samsung.android.honeyboard/.service.HoneyBoardService`. `ime list -s`
+también muestra HoneyBoard como el único método de entrada instalado. Así que
+la app independiente se quitó sin cambiar el teclado predeterminado.
+
+La desinstalación afectó solo al usuario del dispositivo: no se borró el código
+ni el APK versionado del repositorio (`apps/nemotron-keyboard/`), ni se tocó
+Nemotron Core, Nemotron UI, el APK OEM de HoneyBoard en `/system` o el candidato
+parcheado activo. No se hizo un reinicio. El archivo de la app independiente
+permanece disponible en el repositorio por si se desea reinstalarla; el port
+actual usa el paquete OEM de HoneyBoard y no necesita esa app separada.
+
+### Estado final verificado
+
+- `com.nemotron.keyboard`: desinstalado del teléfono (`adb uninstall` devolvió
+  `Success`; `pm path` vacío).
+- IME predeterminado: Samsung HoneyBoard, paquete
+  `com.samsung.android.honeyboard`.
+- `ime list -s`: HoneyBoard aparece como único IME.
+- HoneyBoard OEM sigue en `/system/app/HoneyBoard/HoneyBoard.apk`; su hash
+  original no se modificó.
+- El candidato con ondas se instaló como montaje temporal en el namespace de
+  Zygote, no como reemplazo permanente de `/system`. Sobrevive mientras dure la
+  sesión root; después de reiniciar hay que iniciar DFRoot y ejecutar el
+  controlador `enable` de nuevo.
+- No se reinició el teléfono durante la desinstalación.
