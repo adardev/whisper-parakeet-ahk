@@ -31,6 +31,44 @@ class SettingsActivity : AppCompatActivity() {
             setupHealthPrefs()
             setupWorkoutPowerSaver()
             setupAodTest()
+            setupImmersiveStatusBar()
+        }
+
+        private fun setupImmersiveStatusBar() {
+            val ctx = context ?: return
+            val pref = preferenceScreen.findPreference<androidx.preference.SwitchPreferenceCompat>(
+                "immersive_status_all_apps"
+            ) ?: return
+            pref.isChecked = com.nemotron.voiceime.dhizuku.ImmersiveStatusBarPolicy.isEnabled(ctx)
+            pref.onPreferenceChangeListener =
+                androidx.preference.Preference.OnPreferenceChangeListener { _, value ->
+                    val enabled = value as? Boolean ?: return@OnPreferenceChangeListener false
+                    if (!com.nemotron.voiceime.dhizuku.RootShellManager.hasPermission()) {
+                        com.nemotron.voiceime.dhizuku.RootShellManager.requestPermission()
+                        android.widget.Toast.makeText(
+                            ctx, "Concede acceso root de KernelSU y vuelve a activar esta opción.",
+                            android.widget.Toast.LENGTH_LONG
+                        ).show()
+                        return@OnPreferenceChangeListener false
+                    }
+                    pref.isEnabled = false
+                    Thread {
+                        val success = com.nemotron.voiceime.dhizuku.ImmersiveStatusBarPolicy
+                            .setEnabled(ctx.applicationContext, enabled)
+                        activity?.runOnUiThread {
+                            pref.isEnabled = true
+                            if (!success) {
+                                pref.isChecked = !enabled
+                                android.widget.Toast.makeText(
+                                    ctx,
+                                    "No se pudo actualizar el modo inmersivo del sistema.",
+                                    android.widget.Toast.LENGTH_LONG
+                                ).show()
+                            }
+                        }
+                    }.start()
+                    true
+                }
         }
 
         private fun setupWorkoutPowerSaver() {
