@@ -1,0 +1,6 @@
+id=nemotron-oneui-quickstep
+name=One UI Quickstep for Nemotron
+version=1.0
+versionCode=1
+author=Nemotron
+description=Uses Samsung One UI Home as the privileged Recents and gesture provider while Nemotron UI remains HOME. Does not replace or modify the Samsung launcher APK.
