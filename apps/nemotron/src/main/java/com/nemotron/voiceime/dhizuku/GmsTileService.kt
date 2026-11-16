@@ -22,13 +22,10 @@ class GmsTileService : AppFreezeTileService() {
     companion object {
         val BANK_APPS = listOf(
             "com.citibanamex.banamexmobile",
-            "org.microemu.android.model.common.VTUserApplicationBNRTMB",
             "com.didiglobal.cashloan",
             "com.mercadopago.wallet",
-            "com.revolut.revolut",
             "mx.bancosantander.supermovil",
-            "com.nu.production",
-            "mx.openbank.modelbank"
+            "com.nu.production"
         )
 
         const val INSTAGRAM_PACKAGE = "com.instagram.android"
