@@ -62,11 +62,14 @@ an older base must not replace later fixes.
 
 ## UI/Home assessment and remaining verification
 
-The local UI base APK contains a legacy ShortcutActivity/ShizukuManager path;
-it is not sufficient evidence of the currently installed UI version. No UI APK
-was rebuilt or installed from that base. Fetch and compare the installed base
-when the phone reconnects before touching its vendor DEX files. Core's shared
-picker source improvement does not imply a changed vendor Home APK.
+The installed Nemotron UI v1.0 (version code 5) was pulled from the phone and
+compared with the stock One UI Home and HoneyBoard APKs before evaluating safe
+pruning. The pruning pass retained all 44,067 UI classes and removed 0 bytes
+of keyboard assets/libraries. Its rebuilt candidate was not installed: it
+offered no safe reduction, and replacing the active launcher would add risk
+without a measured benefit. The installed UI and launcher configuration remain
+unchanged. Core's shared picker source improvement does not imply a changed
+vendor Home APK.
 
 Pending device checks: compare normal-use CPU and discharge over a representative
 interval, and check Keyboard dictation/case during normal use. The offline work did not change
@@ -110,7 +113,8 @@ The script's verification uses the same narrower signature exclusion for
 future builds. The Keyboard candidate was installed over an identical SHA-256
 base and matching signer/package/version; Android accepted the in-place update
 and retained package data. Dictation still needs ordinary-use confirmation.
-The local UI base/version concern above still applies; UI was not replaced.
+The exact installed UI base was inspected as described above; UI was not
+replaced because safe pruning found no removable UI code or assets.
 
 ## Fit3 panel-render scheduling regression
 
