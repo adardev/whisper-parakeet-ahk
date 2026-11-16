@@ -33,3 +33,23 @@ La compilación también aplica `patch-auto-caps.ps1` al HoneyBoard integrado. S
 `CAP_SENTENCES` que algunas apps envían al campo de texto. La tecla Shift manual
 sigue funcionando. Esto evita que chats inicien frases o palabras con mayúscula
 por decisión del editor aunque la preferencia del teclado esté apagada.
+
+## Port temporal al Samsung Keyboard original
+
+`prepare-stock-keyboard-root-candidate.ps1` toma una copia local del APK de
+HoneyBoard del teléfono y genera un candidato del mismo paquete
+`com.samsung.android.honeyboard`. Conserva el APK Samsung como base y agrega
+`stock-host/NemotronInlineDictation.java` al DEX, sin añadir componentes al
+manifest: el dictado se ejecuta dentro del `HoneyBoardService` ya registrado.
+El callback `ii/a.commitText` detecta dos commits de espacios en una ventana de
+750 ms; al completar dictado el texto se inserta en minúsculas. No inicia
+grabación en segundo plano ni activa el micrófono por sí solo. HoneyBoard ya
+declara `RECORD_AUDIO`; Android pide que el usuario conceda ese permiso.
+
+La preparación requiere el APK Samsung local, Apktool 2.12.1, SDK Android 36,
+Java 17 y una debug keystore. Para el A54, el script verifica el SHA-256 del
+donante antes de editarlo. El controlador `nemotron_honeyboard_control.sh`
+comprueba hashes y está pensado para montar el candidato solo en el namespace
+de Zygote, sin instalarlo, modificar `/system` ni alterar PackageManager.
+Consulta [el estado del port en el A54](../../../docs/samsung-keyboard-nemotron-port-2026-11-16.md);
+la bitácora distingue el candidato compilado del parche realmente activado.

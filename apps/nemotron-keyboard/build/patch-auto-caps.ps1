@@ -9,10 +9,18 @@ if (-not (Test-Path -LiteralPath $DecodedApk -PathType Container)) {
     throw "Decoded APK directory was not found: $DecodedApk"
 }
 
-$matches = @(Get-ChildItem -LiteralPath $DecodedApk -Recurse -Filter '*.smali' | Where-Object {
-    $text = [IO.File]::ReadAllText($_.FullName)
-    $text.Contains('.class public final Lcl/a;') -or $text.Contains('.class public Lcl/a;')
-})
+$matches = @(
+    Get-ChildItem -LiteralPath $DecodedApk -Directory | Where-Object { $_.Name -match '^smali(?:_classes\d+)?$' } |
+        ForEach-Object {
+            $candidate = Join-Path $_.FullName 'cl\a.smali'
+            if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+                $candidateText = [IO.File]::ReadAllText($candidate)
+                if ($candidateText.Contains('.class public final Lcl/a;') -or $candidateText.Contains('.class public Lcl/a;')) {
+                    Get-Item -LiteralPath $candidate
+                }
+            }
+        }
+)
 if ($matches.Count -ne 1) { throw "Expected exactly one HoneyBoard Lcl/a class, found $($matches.Count)." }
 
 $file = $matches[0]
