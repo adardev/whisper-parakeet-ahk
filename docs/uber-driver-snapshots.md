@@ -32,6 +32,15 @@ The official Uber Driver API integration remains disabled. The tile uses the
 visible wallet balance instead; the wallet's daily increase is evaluated on the
 NAS. Missing daily snapshots never count as zero and cannot trigger a charge.
 
+## Device verification
+
+On 15 Nov 2026, the user tested the installed A54 build and confirmed that the
+Driver tile opens Billetera. A valid wallet snapshot for that date was also
+confirmed in Firebase. Navigation is visibly slow because the screen is
+embedded in Uber's main activity and must load before the balance can be read;
+the bounded reader waits for two matching balance values before accepting a
+snapshot. The reader does not guess a value if Uber's UI fails to load.
+
 Each tile event is committed to a local queue before networking. If the NAS is
 unreachable, a persisted `JobScheduler` job retries only when the phone has
 network. The original event timestamp is sent on retry, so delayed delivery
