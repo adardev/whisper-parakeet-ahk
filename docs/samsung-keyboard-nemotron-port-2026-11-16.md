@@ -18,6 +18,12 @@ El equipo conectado se identificó como `SM-A546E`; el APK instalado es HoneyBoa
 5.9.30.88 en `/system/app/HoneyBoard/HoneyBoard.apk`, paquete
 `com.samsung.android.honeyboard`.
 
+Aunque no aparecía en la lista normal de IME, no está desinstalado: `pm path`
+resuelve el APK de sistema y `dumpsys package` muestra `installed=true`. Para el
+usuario 0 está deshabilitado (`enabled=3` / disabled-user); el IME predeterminado
+sigue siendo Nemotron Keyboard. Este HoneyBoard es el host que se conservará;
+Nemotron es únicamente la referencia de comportamiento.
+
 | Artefacto | SHA-256 | Estado |
 |---|---|---|
 | APK Samsung leído del teléfono | `48bc8996a647e32b414bd78aab51b997908f600f1f19b900be6e9fd7b307edff` | Sin modificar en `/system` |
