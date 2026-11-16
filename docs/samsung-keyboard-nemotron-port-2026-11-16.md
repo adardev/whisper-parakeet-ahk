@@ -27,7 +27,8 @@ conservará; Nemotron es únicamente la referencia de comportamiento.
 | Artefacto | SHA-256 | Estado |
 |---|---|---|
 | APK Samsung leído del teléfono | `48bc8996a647e32b414bd78aab51b997908f600f1f19b900be6e9fd7b307edff` | Sin modificar en `/system` |
-| Candidato Nemotron | `62938ecd57db2f8907182fad9668fcc6663c4ac818eb092c427d8fecb841972c` | Compilado, copiado a `/data/local/tmp/nemotron-honeyboard-root-candidate.apk` y montado durante la sesión |
+| Candidato inicial | `62938ecd57db2f8907182fad9668fcc6663c4ac818eb092c427d8fecb841972c` | Respaldo local de la revisión sin ondas |
+| Candidato con ondas | `ca1bf8a41d7b6af7387296d400b56b3378b241773709ca455423b29c3975b11b` | Montado en Zygote y probado en el proceso HoneyBoard |
 
 El candidato fue construido a partir de la copia exacta del APK Samsung. Apktool
 reconstruyó los cuatro DEX originales; el puente Java se añadió como
@@ -54,12 +55,19 @@ OEM de 138 MB.
 4. El manifest original ya declara `RECORD_AUDIO`. No se agrega un servicio
    Android nuevo, un permiso adicional ni un proceso de grabación autónomo. La
    función solo se activa con el gesto de doble espacio.
+5. `NemotronKeyboardWaveform.java` oculta la etiqueta de idioma en la barra
+   espaciadora mientras se escucha y dibuja nueve barras blancas dentro de su
+   misma área. La amplitud responde a `RecognitionListener.onRmsChanged`; al
+   detener o terminar, limpia el indicador y restaura el texto original.
+6. Se eliminaron todos los `Toast` propios del puente (inicio, error y frase
+   vacía). Las ondas son la única señal visual durante la escucha.
 
 ## Preparación reproducible
 
 El código está en:
 
 - `apps/nemotron-keyboard/build/stock-host/NemotronInlineDictation.java`
+- `apps/nemotron-keyboard/build/stock-host/NemotronKeyboardWaveform.java`
 - `apps/nemotron-keyboard/build/prepare-stock-keyboard-root-candidate.ps1`
 - `apps/nemotron-keyboard/build/patch-auto-caps.ps1`
 - `apps/nemotron/src/main/res/raw/nemotron_honeyboard_control.sh`
@@ -83,25 +91,29 @@ reiniciar, el APK del sistema sigue intacto y el montaje desaparece.
   `mount --bind` verificada en One UI Home.
 - El paquete original estaba instalado pero deshabilitado para el usuario 0.
   Se volvió a habilitar (`enabled=1`), sin desinstalarlo ni modificar su APK.
-- El controlador root devolvió `active`; `status` confirmó el candidato en
-  Zygote y en el proceso del teclado, con el hash exacto de compilación.
-  `/system` conserva el hash OEM.
+- El candidato inicial se desmontó con el controlador reversible y se confirmó
+  el hash original en Zygote. Después se montó el candidato con ondas desde
+  `/data/local/tmp/nemotron-honeyboard-root-candidate-waveform.apk`.
+- `status` confirmó el nuevo hash en Zygote y en el proceso activo HoneyBoard;
+  `/system` conservó el hash OEM durante el reemplazo.
 - Se seleccionó `com.samsung.android.honeyboard/.service.HoneyBoardService`
   como IME predeterminado. `dumpsys input_method` confirmó que es el IME actual
   y el teclado se abrió en un campo de texto.
 - Las teclas están en minúsculas con la opción automática de mayúsculas
   desactivada; el texto de comprobación visible quedó en minúsculas.
 - Se concedió `RECORD_AUDIO` y AppOp `allow`, necesarios para el dictado
-  solicitado. El doble espacio mostró “Escuchando…”; al detener sin hablar,
-  mostró “No te escuché”. El reconocedor instalado es
-  `com.google.android.tts`. Falta verificar una frase hablada real y su
-  inserción final en minúsculas.
+  solicitado. El reconocedor instalado es `com.google.android.tts`.
+- Durante la escucha, las nueve barras sustituyeron visualmente a “Español
+  (US)” en la tecla espaciadora; no apareció ningún `Toast`. Al detener, las
+  ondas desaparecieron y la etiqueta de idioma volvió a mostrarse.
+- Se habló una frase real: el reconocedor la insertó correctamente en minúsculas.
+  La frase se usó solo como borrador de prueba y se borró sin enviarla.
 - Nemotron Keyboard permanece disponible para volver atrás si hiciera falta.
 - No se instaló un módulo de arranque, no se escribió en `/system` y no se
   reinició el teléfono. El montaje dura esta sesión root y desaparece al
   reiniciar o terminarla. Después habrá que iniciar el root temporal y ejecutar
   `enable` otra vez para recuperar el parche.
 
-El port está **montado y activo como HoneyBoard predeterminado**. El inicio del
-dictado quedó verificado; la inserción de una frase real requiere una prueba
-hablada en el teléfono.
+El port está **montado y activo como HoneyBoard predeterminado**. Se verificaron
+el indicador animado, la restauración de la etiqueta, la ausencia de Toast y la
+inserción de voz real en minúsculas.

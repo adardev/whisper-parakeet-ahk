@@ -3,8 +3,8 @@
 set -eu
 
 pkg=com.samsung.android.honeyboard
-source=/data/local/tmp/nemotron-honeyboard-root-candidate.apk
-candidate_hash=62938ecd57db2f8907182fad9668fcc6663c4ac818eb092c427d8fecb841972c
+source=/data/local/tmp/nemotron-honeyboard-root-candidate-waveform.apk
+candidate_hash=ca1bf8a41d7b6af7387296d400b56b3378b241773709ca455423b29c3975b11b
 original_hash=48bc8996a647e32b414bd78aab51b997908f600f1f19b900be6e9fd7b307edff
 marker=/data/local/tmp/nemotron-honeyboard.target
 

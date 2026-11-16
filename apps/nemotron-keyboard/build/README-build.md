@@ -39,8 +39,12 @@ por decisión del editor aunque la preferencia del teclado esté apagada.
 `prepare-stock-keyboard-root-candidate.ps1` toma una copia local del APK de
 HoneyBoard del teléfono y genera un candidato del mismo paquete
 `com.samsung.android.honeyboard`. Conserva el APK Samsung como base y agrega
-`stock-host/NemotronInlineDictation.java` al DEX, sin añadir componentes al
-manifest: el dictado se ejecuta dentro del `HoneyBoardService` ya registrado.
+`stock-host/NemotronInlineDictation.java` y
+`stock-host/NemotronKeyboardWaveform.java` al DEX, sin añadir componentes al
+manifest: el dictado y su indicador de ondas se ejecutan dentro del
+`HoneyBoardService` ya registrado. Durante la escucha, las barras reemplazan la
+etiqueta de idioma de la barra espaciadora; al detener, la etiqueta vuelve.
+El puente no muestra Toast de dictado.
 El callback `ii/a.commitText` detecta dos commits de espacios en una ventana de
 750 ms; al completar dictado el texto se inserta en minúsculas. No inicia
 grabación en segundo plano ni activa el micrófono por sí solo. HoneyBoard ya

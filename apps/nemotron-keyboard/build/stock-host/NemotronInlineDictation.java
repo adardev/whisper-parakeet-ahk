@@ -13,7 +13,6 @@ import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
 import android.view.inputmethod.InputConnection;
 import android.inputmethodservice.InputMethodService;
-import android.widget.Toast;
 import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Locale;
@@ -78,7 +77,6 @@ public final class NemotronInlineDictation {
         }
         if (ime.checkSelfPermission("android.permission.RECORD_AUDIO")
                 != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            Toast.makeText(ime, "Permite el micrófono para dictar con doble espacio", Toast.LENGTH_LONG).show();
             try {
                 Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
                         Uri.parse("package:" + ime.getPackageName()));
@@ -87,10 +85,7 @@ public final class NemotronInlineDictation {
             } catch (Throwable ignored) {}
             return;
         }
-        if (!SpeechRecognizer.isRecognitionAvailable(ime)) {
-            Toast.makeText(ime, "No hay un reconocedor de voz disponible", Toast.LENGTH_SHORT).show();
-            return;
-        }
+        if (!SpeechRecognizer.isRecognitionAvailable(ime)) return;
         connection = input;
         recognized.setLength(0);
         stopping = false;
@@ -100,11 +95,10 @@ public final class NemotronInlineDictation {
         try {
             recognizer = SpeechRecognizer.createSpeechRecognizer(ime);
             recognizer.setRecognitionListener(listener);
+            showWaveform(true);
             startListening(generation);
-            Toast.makeText(ime, "Escuchando… doble espacio para terminar", Toast.LENGTH_SHORT).show();
         } catch (Throwable error) {
             cleanup();
-            Toast.makeText(ime, "No se pudo iniciar el dictado", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -124,7 +118,7 @@ public final class NemotronInlineDictation {
     private static final RecognitionListener listener = new RecognitionListener() {
         @Override public void onReadyForSpeech(Bundle params) {}
         @Override public void onBeginningOfSpeech() {}
-        @Override public void onRmsChanged(float rmsdB) {}
+        @Override public void onRmsChanged(float rmsdB) { NemotronKeyboardWaveform.setLevel(rmsdB); }
         @Override public void onBufferReceived(byte[] buffer) {}
         @Override public void onEndOfSpeech() {}
         @Override public void onPartialResults(Bundle partialResults) {}
@@ -139,8 +133,6 @@ public final class NemotronInlineDictation {
                 MAIN.postDelayed(() -> startListening(generation), 80L);
             } else {
                 cleanup();
-                InputMethodService ime = service.get();
-                if (ime != null) Toast.makeText(ime, "Error de reconocimiento de voz", Toast.LENGTH_SHORT).show();
             }
         }
         @Override public void onResults(Bundle results) {
@@ -164,8 +156,7 @@ public final class NemotronInlineDictation {
         if (!text.isEmpty() && target != null) {
             try { target.commitText(text + " ", 1); } catch (Throwable ignored) {}
         } else {
-            InputMethodService ime = service.get();
-            if (ime != null) Toast.makeText(ime, "No te escuché", Toast.LENGTH_SHORT).show();
+            // No toast: the spacebar waveform is the recording feedback.
         }
         cleanup();
     }
@@ -173,11 +164,24 @@ public final class NemotronInlineDictation {
     private static void cleanup() {
         MAIN.removeCallbacksAndMessages(null);
         try { if (recognizer != null) recognizer.destroy(); } catch (Throwable ignored) {}
+        NemotronKeyboardWaveform.setRecording(false);
         recognizer = null;
         connection = null;
         recognized.setLength(0);
         listening = false;
         stopping = false;
         delivered = false;
+    }
+
+    private static void showWaveform(boolean recording) {
+        InputMethodService ime = service.get();
+        if (ime == null) return;
+        try {
+            android.view.Window window = ime.getWindow() == null ? null : ime.getWindow().getWindow();
+            if (window == null) return;
+            android.view.View keyboard = window.getDecorView();
+            NemotronKeyboardWaveform.bind(keyboard, keyboard.getWidth() / 2f);
+            NemotronKeyboardWaveform.setRecording(recording);
+        } catch (Throwable ignored) {}
     }
 }

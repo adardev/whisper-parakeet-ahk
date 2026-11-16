@@ -92,7 +92,9 @@ try {
 
     New-Item -ItemType Directory -Path $javaClasses,$dexDir -Force | Out-Null
     & (Join-Path (Split-Path -Parent $JavaExe) 'javac.exe') -encoding UTF-8 --release 8 -Xlint:-options `
-        -cp $androidJar -d $javaClasses (Join-Path $PSScriptRoot 'stock-host\NemotronInlineDictation.java')
+        -cp $androidJar -d $javaClasses `
+        (Join-Path $PSScriptRoot 'stock-host\NemotronInlineDictation.java') `
+        (Join-Path $PSScriptRoot 'stock-host\NemotronKeyboardWaveform.java')
     if ($LASTEXITCODE -ne 0) { throw 'Could not compile the in-process voice dictation bridge.' }
     $classFiles = @(Get-ChildItem -LiteralPath $javaClasses -Recurse -Filter '*.class' | ForEach-Object FullName)
     & $d8 --min-api 29 --lib $androidJar --output $dexDir $classFiles
@@ -128,7 +130,7 @@ try {
         CandidateSha256 = (Get-FileHash -LiteralPath $OutputApk -Algorithm SHA256).Hash.ToLowerInvariant()
         Package = 'com.samsung.android.honeyboard'
         Version = '5.9.30.88'
-        Includes = 'Native HoneyBoard retained; Nemotron double-space dictation and lowercase output; Auto caps preference honored.'
+        Includes = 'Native HoneyBoard retained; double-space Spanish dictation with spacebar waveform and lowercase output; Auto caps preference honored; dictation toasts removed.'
         Runtime = 'Root namespace mount only. Does not install, replace, or write to /system.'
     } | Format-List
 } catch {
