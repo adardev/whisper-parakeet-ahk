@@ -339,3 +339,86 @@ Por eso One UI Home no se ha deshabilitado ni borrado: en esta configuración es
 A las 13:02 CST se instaló el ZIP experimental con `ksud module install`; KernelSU lo dejó en `/data/adb/modules_update/nemotron-recents` con `update=true`. El metainstalador de meta-overlayfs avisó `chcon: invalid context: 0644` dos veces; la inspección root confirmó después que ambos APK de la carpeta staged tenían etiqueta `u:object_r:system_file:s0`. `idmap2` acepta el overlay para `framework-res` y mapea `config_recentsComponentName`.
 
 Tras un reinicio normal, Android reportó `sys.boot_completed=1`, pero `su` ya no estaba disponible (`/system/bin/su: No such file or directory`). La lectura activa seguía siendo Samsung y SystemUI seguía enlazado a su Quickstep. Por tanto, ese arranque **no activó el reemplazo**; la causa observada es que el root temporal no está activo después del reinicio. No se deshabilitó el paquete ni sus componentes, no se borró One UI Home y no se cambió el HOME de Nemotron. El módulo quedó pendiente de volver a lanzar DFRoot/KernelSU y verificar si puede cargarse en la sesión root temporal.
+
+#### Verificación después de iniciar DFRoot manualmente (16 nov 2026)
+
+El usuario inició DFRoot manualmente y pidió que no se reiniciara otra vez el
+teléfono. Root quedó disponible por ADB (`uid=0`); no se envió ningún reinicio.
+La comprobación posterior encontró `nemotron-recents` con `enabled=false` pero
+`mount=true`, así que la desactivación de KernelSU no desmontó el overlay de la
+sesión en curso. El HOME sigue siendo Nemotron y `navigation_mode=2` (gestos),
+pero el recurso de Recents continúa dirigido a la `RecentsActivity` de Nemotron.
+ActivityTaskManager no le otorgó `MANAGE_ACTIVITY_TASKS`, y la búsqueda de
+servicios no encontró `TouchInteractionService` enlazado. Por eso el reemplazo
+no está funcionalmente validado y One UI Home permanece habilitado.
+
+La inspección de Package Manager muestra que `pm path` mantiene la app activa en
+`/data/app`; `pkgFlags` no incluye `SYSTEM` ni `UPDATED_SYSTEM_APP`, aunque el
+APK está visible en `/system/app/NemotronHome` mediante OverlayFS. El paquete de
+sistema no aparece incorporado por Package Manager en esta sesión. Esto es una
+hipótesis fuerte para explicar la falta de privilegios, pero no basta para
+probarla: `mRecentsUid=10421` ya coincide con Nemotron y la implementación AOSP
+usa la identidad del UID Recents como excepción a los permisos protegidos.
+
+El logcat aporta el fallo específico: el proceso `com.nemotron.voiceime2` cae
+registrando `TaskStackChangeListener`; `TaskSnapshotManager.registerTaskSnapshotListener`
+llama a `getTaskSnapshotManager()` y recibe `SecurityException` por
+`MANAGE_ACTIVITY_TASKS` y `READ_FRAME_BUFFER`. En esta versión de Samsung el
+comportamiento observado no coincide con la excepción por UID de Recents de
+AOSP; hace falta aislar la diferencia del framework Samsung antes de declarar
+una causa única. La próxima prueba debe confirmar el escaneo como sistema y
+volver a comprobar la concesión efectiva y el stack; debe preservar instalación
+y datos existentes.
+
+AOSP documenta que el componente indicado por
+[`config_recentsComponentName`](https://android.googlesource.com/platform/frameworks/base/+/e9048f3982868f85abf95869360f29b5762ae6fc/core/res/res/values/config.xml)
+recibe permisos especiales. `RecentTasks.loadRecentsComponent()` fija su UID
+después de System Ready y antes de iniciar servicios dependientes como SystemUI
+([código AOSP](https://android.googlesource.com/platform/frameworks/base/+/bf470778925c/services/core/java/com/android/server/wm/RecentTasks.java));
+ActivityTaskManager contempla explícitamente al UID Recents en su control de
+`registerTaskStackListener`
+([código AOSP](https://android.googlesource.com/platform/frameworks/base/+/32d2258c24799c92c3826bdfe96b277c440fdb89/services/core/java/com/android/server/wm/ActivityTaskManagerService.java)).
+Esto explica por qué cargar el overlay después de que el sistema inicializó no
+es equivalente a activarlo durante el escaneo/arranque; la implementación
+Samsung del A54 aún necesita una prueba específica.
+
+`cmd activity help` muestra `cmd activity restart` como reinicio del sistema de
+usuario, pero no expone un comando para refrescar Recents en vivo. No se ejecutó:
+el usuario prohibió reinicios. No se intentará reemplazarlo por un reinicio de
+SystemUI, que no actualiza de forma fiable `mRecentsComponent` y podría afectar
+la navegación.
+
+La accesibilidad está efectivamente vacía: `enabled_accessibility_services` es
+`null`, `accessibility_enabled=0`, `installedServiceCount=0` y no hay servicios
+bound/enabled. El guard de Nemotron ya fue quitado del APK fuente/instalado; no
+se necesita forzar detención de Nemotron Core porque ese proceso aloja otras
+funciones.
+
+Una muestra de `ps -A` en esta sesión no encontró proceso de One UI Home ni
+`nemotron.guard`; solo mostró `com.nemotron.core`. Así que deshabilitar el APK
+de Samsung ahora no liberaría RAM de un proceso activo. El servicio
+`TouchInteractionService` sí está declarado en el paquete Samsung, pero no
+aparece enlazado en la muestra actual.
+
+No volver a activar el módulo ni deshabilitar One UI Home en esta sesión. No
+intentar recuperar el Quickstep Samsung reiniciando SystemUI: eso puede afectar
+los gestos y el usuario prohibió cualquier reinicio. Resolver la concesión
+privilegiada de Recents y hacer una prueba controlada de gestos antes de cambiar
+el paquete de Samsung.
+
+#### HOME y prueba de gestos en la sesión activa (16 nov 2026)
+
+`cmd package resolve-activity` devolvía `ResolverActivity` pese a que el rol HOME
+era Nemotron. Se corrigió la preferencia en caliente con:
+
+```sh
+cmd package set-home-activity --user 0 \
+  com.nemotron.voiceime2/com.sec.android.app.launcher.activities.LauncherActivity
+```
+
+Después, `resolve-activity` devolvió esa actividad Nemotron y `KEYCODE_HOME` la
+abrió. En una prueba de entrada táctil ADB, un gesto de Atrás desde el borde
+izquierdo cerró Ajustes y volvió a Nemotron. Dos deslizamientos desde el borde
+inferior no cerraron Ajustes; por ello Inicio por gesto sigue sin verificar. El
+modo reportado permanece `navigation_mode=2`. No se deshabilitó One UI Home ni se
+reinició el teléfono.

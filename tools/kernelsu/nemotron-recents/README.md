@@ -1,5 +1,67 @@
 # Prototipo de Recientes para Nemotron
 
+## Estado en vivo después de iniciar DFRoot (16 nov 2026)
+
+El usuario inició DFRoot manualmente y pidió explícitamente que no se vuelva a
+reiniciar el teléfono. ADB confirmó root activo (`uid=0`). El módulo
+`nemotron-recents` ahora aparece `enabled=false`, pero KernelSU aún informa
+`mount=true`: desactivarlo no retiró el montaje de esta sesión. No se intentó
+un reinicio, soft reboot, reinicio de SystemUI ni deshabilitar One UI Home.
+
+Comprobaciones de solo lectura:
+
+- HOME sigue asignado a `com.nemotron.voiceime2` y el modo de navegación sigue
+  en gestos (`navigation_mode=2`).
+- `cmd package resolve-activity` inicialmente devolvía `ResolverActivity` pese
+  al rol HOME. Se fijó el componente Nemotron con `cmd package set-home-activity`
+  (sin reinicio); ahora la resolución HOME devuelve
+  `com.nemotron.voiceime2/com.sec.android.app.launcher.activities.LauncherActivity`.
+  `KEYCODE_HOME` abrió esa actividad correctamente.
+- Prueba por entrada táctil ADB: el gesto de Atrás desde el borde izquierdo
+  cerró Ajustes y regresó a Nemotron. Dos deslizamientos ascendentes desde el
+  borde inferior no cerraron Ajustes; Inicio por gesto no está verificado y no
+  debe afirmarse que la navegación esté completamente funcional.
+- `config_recentsComponentName` todavía resuelve a
+  `com.nemotron.voiceime2/com.android.quickstep.RecentsActivity`.
+- `dumpsys activity recents` muestra `mRecentsUid=10421` y ese componente, pero
+  la actividad integrada falla porque Nemotron no recibe
+  `MANAGE_ACTIVITY_TASKS` (`signature|recents`). Un `pm grant` no puede conceder
+  ese permiso protegido.
+- Aunque `/system/app/NemotronHome/NemotronHome.apk` existe en el montaje de
+  OverlayFS, Package Manager resuelve Nemotron desde `/data/app` y su
+  `pkgFlags` no incluyen `SYSTEM` ni `UPDATED_SYSTEM_APP`. Esto explica que el
+  cambio de recurso por sí solo no convierta la instalación activa en un
+  paquete de sistema ni habilite el acceso especial de Recents.
+- El logcat conserva el cierre de `com.nemotron.voiceime2` al registrar
+  `TaskStackChangeListener`: `TaskSnapshotManager.registerTaskSnapshotListener`
+  falla en `getTaskSnapshotManager()` con `MANAGE_ACTIVITY_TASKS` y
+  `READ_FRAME_BUFFER`. La fuente AOSP usa el UID de Recents como excepción a
+  estos permisos; en este Samsung el fallo persiste pese a
+  `mRecentsUid=10421`, por lo que la hipótesis de escaneo tardío del paquete es
+  probable, pero todavía no está demostrada como causa única.
+- No aparece un `TouchInteractionService` enlazado de Samsung ni de Nemotron en
+  la consulta actual. Por tanto, Inicio está seleccionado pero los gestos y
+  Recientes no están validados en este estado.
+- `cmd activity help` solo ofrece `cmd activity restart` para reiniciar el
+  sistema de usuario; no hay un comando de shell expuesto para refrescar en vivo
+  el componente Recents que ActivityTaskManager ya cargó. No se ejecutó ese
+  reinicio porque el usuario lo prohibió.
+- One UI Home sigue instalado y habilitado (`/system/priv-app/TouchWizHome_2017`);
+  no se deshabilitó. Hacerlo sin Quickstep autorizado podría romper Atrás,
+  Inicio, Recientes y ajustes de navegación.
+- En la captura actual de `ps -A` no aparece proceso de One UI Home ni un
+  proceso `nemotron.guard`; solo estaba activo `com.nemotron.core`. Deshabilitar
+  el paquete Samsung ahora no liberaría RAM de un proceso que no está corriendo.
+- Accesibilidad: `enabled_accessibility_services=null`,
+  `accessibility_enabled=0`, `installedServiceCount=0`, y ningún servicio
+  enlazado. El servicio de guardia de Nemotron ya no se ejecuta.
+
+**No declarar terminado el reemplazo de One UI Home.** No se debe volver a
+habilitar `nemotron-recents` ni desactivar One UI Home hasta resolver el permiso
+de Recents y validar los gestos. La verificación de cambios que requieren volver
+a leer la configuración del sistema queda pendiente; no debe iniciarse un
+reinicio sin autorización explícita del usuario.
+
 ## Auditoría de estado del dispositivo (16 nov 2026)
 
 La consulta por ADB a las 12:45 no encontró `nemotron-recents` en
