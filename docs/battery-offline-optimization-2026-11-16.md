@@ -1,9 +1,10 @@
 # Offline battery/CPU optimization continuation — 16 November 2026
 
-This work follows `battery-audit-2026-11-16.md`. The phone was disconnected for
-this phase; the outputs are candidates, not a claim of installed or measured
-battery savings. The existing feature set, sync thresholds, account state,
-navigation gestures, launcher layout and keyboard settings are preserved.
+This work follows `battery-audit-2026-11-16.md`. Optimizations are described
+with their measured limits. Sync thresholds, account state, navigation
+gestures, launcher layout and keyboard settings are preserved. Per the user's
+instruction, the unused AI chat client is excluded from the standalone Core
+package.
 
 ## Changes and evidence
 
@@ -16,6 +17,7 @@ navigation gestures, launcher layout and keyboard settings are preserved.
 | NemotronStreamClient | An old stream continuing after a new query, and callbacks sharing completion state | One request generation per stream; previous source cancelled; a local SSE test proves only the new answer completes |
 | KeyboardDictationFeedback | Enqueuing another main-thread message for every RMS callback already delivered on the main thread | Direct update on main; retains queued dispatch when called from another thread |
 | ShortcutPickerActivity | Repeated row lookups and icon loads while scrolling | Row holder and bounded 32-entry ConstantState cache; separate mutable Drawable per use; recycled icons cleared on load failure |
+| Standalone Core build | AI chat client classes and five chat/assistant layouts were packaged despite having no manifest activity or references outside the chat package | Core-specific source/resource build excludes them; the integrated source build remains unchanged |
 
 No refresh interval or query history range was shortened. Encrypted preference
 caching retains the same file names, encryption and fallback behavior; it does
@@ -66,9 +68,8 @@ was rebuilt or installed from that base. Fetch and compare the installed base
 when the phone reconnects before touching its vendor DEX files. Core's shared
 picker source improvement does not imply a changed vendor Home APK.
 
-Pending device checks: install new Core, compare the installed Keyboard base,
-validate dictation/case behavior and icon rendering, and compare normal-use CPU
-and discharge over a representative interval. The offline work did not change
+Pending device checks: compare normal-use CPU and discharge over a representative
+interval, and check Keyboard dictation/case during normal use. The offline work did not change
 the NAS, Beeminder rules, Google/microG packages or kernel modules.
 
 ## Follow-up: authentication, rendering and dictation cleanup
@@ -106,8 +107,10 @@ The lifecycle patch is idempotent. An independent comparison verified that
 Strict archive comparison now also covers non-signature `META-INF` library
 metadata: **5844 non-code/non-signature entries are byte-identical** to the base.
 The script's verification uses the same narrower signature exclusion for
-future builds. Both candidates still require device installation and normal-use
-verification. The local UI base/version concern above still applies.
+future builds. The Keyboard candidate was installed over an identical SHA-256
+base and matching signer/package/version; Android accepted the in-place update
+and retained package data. Dictation still needs ordinary-use confirmation.
+The local UI base/version concern above still applies; UI was not replaced.
 
 ## Fit3 panel-render scheduling regression
 
@@ -194,7 +197,22 @@ requires one authorized ADB device, writes private logs outside Git under
 one capture. An uncontaminated pair is still required to identify and then
 target the overnight wake source.
 
-The Core APK compiled successfully with JDK 17. ADB briefly returned the A54
-as connected, then dropped it during installation, so this build was not
-installed and the toast change is not yet active on the device. APK SHA-256:
-`8b4a0512f009d1a7ed0e6623ab0c739918eda7a2fb20708e21471092cd0cd8d8`.
+## Core package separation
+
+The previously installed Core DEX included `com.nemotron.voiceime.chat` even
+though package-manager activity discovery returned only `SetupAliasV2` and
+`TilePreferencesActivity`. The separate package contained 1,240 chat classes;
+the chat code had no references from outside its package. The standalone Core
+build now excludes that package and its five associated layouts. The build
+completed and the update installed in place with the same package UID 10352;
+the setup entry and Sleep Mode, Fit3, Android Auto and Work tile services
+remain declared. The installed APK has no chat/assistant DEX classes or those
+layouts. This removes unused packaged code; it is not evidence of a battery
+gain because those classes were not running before removal.
+
+The toast-only Core build compiled with JDK 17 and installed at 10:36. The
+follow-up Core build, with the AI chat code excluded, also compiled and
+installed in place at 10:50 on Nov 16; Android retained UID 10352 and version
+1.6. Its SHA-256 is
+`dec81ca606e0abef981712f5dc60f8962ec7f3887fc069e89c9916f49e4b2c21`. The
+previous Core APK was pulled to the local work directory before replacement.

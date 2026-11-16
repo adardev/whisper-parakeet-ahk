@@ -18,6 +18,20 @@ val prepareAndroidAutoPatchResource by tasks.registering(Copy::class) {
     rename { "android_auto_rail_candidate.apk" }
 }
 
+val coreResources = layout.buildDirectory.dir("generated/coreResources")
+val prepareCoreResources by tasks.registering(Sync::class) {
+    from("src/main/res") {
+        exclude(
+            "layout/activity_assist.xml",
+            "layout/activity_chat.xml",
+            "layout/activity_chats.xml",
+            "layout/item_chat.xml",
+            "layout/item_message.xml"
+        )
+    }
+    into(coreResources)
+}
+
 android {
     namespace = "com.nemotron.voiceime"
     compileSdk = 36
@@ -52,14 +66,27 @@ android {
         if (coreOnly) emptyList<Any>()
         else listOf(rootProject.file("apps/nemotron-keyboard/assets"))
     )
+    sourceSets.getByName("main").res.setSrcDirs(
+        if (coreOnly) listOf(coreResources) else listOf("src/main/res")
+    )
     sourceSets.getByName("main").res.srcDir(layout.buildDirectory.dir("generated/androidAutoPatchRes"))
     if (coreOnly) {
+        // The standalone Core package is the privileged tile/settings
+        // controller, not the AI chat client. Keep chat in the legacy
+        // integrated source build, but do not compile or package it in Core.
         sourceSets.getByName("debug").manifest.srcFile("src/core/AndroidManifest.xml")
+    }
+}
+
+if (coreOnly) {
+    tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+        exclude("**/com/nemotron/voiceime/chat/**")
     }
 }
 
 tasks.named("preBuild").configure {
     dependsOn(prepareAndroidAutoPatchResource)
+    if (coreOnly) dependsOn(prepareCoreResources)
 }
 
 dependencies {
