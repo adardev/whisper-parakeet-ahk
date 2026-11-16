@@ -1,10 +1,31 @@
 package com.nemotron.voiceime.chat
 
 import androidx.core.text.HtmlCompat
+import java.util.concurrent.ConcurrentHashMap
 
 /** Markdown ligero con bloques matemáticos legibles para TextView. */
 object MarkdownRenderer {
-    fun render(source: String): android.text.Spanned {
+    // All patterns are private constant expressions. Reuse their compiled
+    // forms across rows and nested math/table rendering.
+    private val patterns = ConcurrentHashMap<String, Regex>()
+    private val mathCommands = mapOf(
+        "\\partial" to "∂", "\\nabla" to "∇", "\\int" to "∫", "\\sum" to "Σ",
+        "\\prod" to "Π", "\\infty" to "∞", "\\times" to "×", "\\cdot" to "·",
+        "\\approx" to "≈", "\\pm" to "±", "\\leq" to "≤", "\\geq" to "≥",
+        "\\neq" to "≠", "\\equiv" to "≡", "\\in" to "∈", "\\notin" to "∉",
+        "\\pi" to "π", "\\theta" to "θ", "\\alpha" to "α", "\\beta" to "β",
+        "\\gamma" to "γ", "\\Delta" to "Δ", "\\lambda" to "λ", "\\mu" to "μ",
+        "\\to" to "→", "\\rightarrow" to "→", "\\leftarrow" to "←",
+        "\\iff" to "⇔", "\\land" to "∧", "\\lor" to "∨", "\\therefore" to "∴",
+        "\\quad" to " ", "\\qquad" to "  ", "\\," to " ", "\\;" to " ",
+        "\\!" to "", "\\left" to "", "\\right" to ""
+    )
+    private fun pattern(expression: String): Regex = patterns.computeIfAbsent(expression) { Regex(it) }
+
+    fun render(source: String): android.text.Spanned =
+        HtmlCompat.fromHtml(toHtml(source), HtmlCompat.FROM_HTML_MODE_LEGACY)
+
+    internal fun toHtml(source: String): String {
         var body = source.replace("\r\n", "\n")
         val math = mutableListOf<String>()
 
@@ -22,44 +43,44 @@ object MarkdownRenderer {
             return "@@MATH${math.lastIndex}@@"
         }
 
-        body = body.replace(Regex("""(?s)\$\$(.+?)\$\$""")) { saveMath(it.groupValues[1], true) }
-        body = body.replace(Regex("""(?s)\\\[(.+?)\\\]""")) { saveMath(it.groupValues[1], true) }
-        body = body.replace(Regex("""(?m)^\s*\\\((.+?)\\\)\s*$""")) { saveMath(it.groupValues[1], true) }
-        body = body.replace(Regex("""(?s)\\\((.+?)\\\)""")) { saveMath(it.groupValues[1], false) }
-        body = body.replace(Regex("""(?m)^\s*\$([^$\n]+)\$\s*$""")) { saveMath(it.groupValues[1], true) }
-        body = body.replace(Regex("""\$([^$\n]+)\$""")) { saveMath(it.groupValues[1], false) }
+        body = body.replace(pattern("""(?s)\$\$(.+?)\$\$""")) { saveMath(it.groupValues[1], true) }
+        body = body.replace(pattern("""(?s)\\\[(.+?)\\\]""")) { saveMath(it.groupValues[1], true) }
+        body = body.replace(pattern("""(?m)^\s*\\\((.+?)\\\)\s*$""")) { saveMath(it.groupValues[1], true) }
+        body = body.replace(pattern("""(?s)\\\((.+?)\\\)""")) { saveMath(it.groupValues[1], false) }
+        body = body.replace(pattern("""(?m)^\s*\$([^$\n]+)\$\s*$""")) { saveMath(it.groupValues[1], true) }
+        body = body.replace(pattern("""\$([^$\n]+)\$""")) { saveMath(it.groupValues[1], false) }
 
         val tables = mutableListOf<String>()
         body = extractTables(body, tables)
 
         var html = escape(body)
-        html = html.replace(Regex("""(?m)^#{1}\s+(.+)$""")) { "<br><big><b>${it.groupValues[1]}</b></big>" }
-        html = html.replace(Regex("""(?m)^#{2}\s+(.+)$""")) { "<br><b>${it.groupValues[1]}</b>" }
-        html = html.replace(Regex("""(?m)^#{3,6}\s+(.+)$""")) { "<b>${it.groupValues[1]}</b>" }
-        html = html.replace(Regex("""(?m)^\s*[-*+]\s+\[ \]\s+"""), "☐ ")
-        html = html.replace(Regex("""(?m)^\s*[-*+]\s+\[[xX]\]\s+"""), "☑ ")
-        html = html.replace(Regex("""(?m)^\s*[-*+]\s+"""), "• ")
-        html = html.replace(Regex("""(?m)^\s*\d+[.)]\s+"""), "• ")
-        html = html.replace(Regex("""(?m)^\s*>\s?"""), "│ ")
-        html = html.replace(Regex("""(?m)^\s*(?:---+|___+|\*\*\*+)\s*$"""), "<br>────────────<br>")
-        html = html.replace(Regex("```(?:[a-zA-Z0-9_+-]+)?\n?([\\s\\S]*?)```")) {
+        html = html.replace(pattern("""(?m)^#{1}\s+(.+)$""")) { "<br><big><b>${it.groupValues[1]}</b></big>" }
+        html = html.replace(pattern("""(?m)^#{2}\s+(.+)$""")) { "<br><b>${it.groupValues[1]}</b>" }
+        html = html.replace(pattern("""(?m)^#{3,6}\s+(.+)$""")) { "<b>${it.groupValues[1]}</b>" }
+        html = html.replace(pattern("""(?m)^\s*[-*+]\s+\[ \]\s+"""), "☐ ")
+        html = html.replace(pattern("""(?m)^\s*[-*+]\s+\[[xX]\]\s+"""), "☑ ")
+        html = html.replace(pattern("""(?m)^\s*[-*+]\s+"""), "• ")
+        html = html.replace(pattern("""(?m)^\s*\d+[.)]\s+"""), "• ")
+        html = html.replace(pattern("""(?m)^\s*>\s?"""), "│ ")
+        html = html.replace(pattern("""(?m)^\s*(?:---+|___+|\*\*\*+)\s*$"""), "<br>────────────<br>")
+        html = html.replace(pattern("```(?:[a-zA-Z0-9_+-]+)?\n?([\\s\\S]*?)```")) {
             "<br><tt><font color='#B8D5FF'>${it.groupValues[1]}</font></tt><br>"
         }
-        html = html.replace(Regex("`([^`]+)`")) { "<tt><font color='#B8D5FF'>${it.groupValues[1]}</font></tt>" }
-        html = html.replace(Regex("\\[([^]]+)]\\(([^)]+)\\)")) { "<a href='${it.groupValues[2]}'>${it.groupValues[1]}</a>" }
-        html = html.replace(Regex("\\*\\*([^*]+)\\*\\*|__([^_]+)__")) {
+        html = html.replace(pattern("`([^`]+)`")) { "<tt><font color='#B8D5FF'>${it.groupValues[1]}</font></tt>" }
+        html = html.replace(pattern("\\[([^]]+)]\\(([^)]+)\\)")) { "<a href='${it.groupValues[2]}'>${it.groupValues[1]}</a>" }
+        html = html.replace(pattern("\\*\\*([^*]+)\\*\\*|__([^_]+)__")) {
             "<b>${it.groupValues[1].ifEmpty { it.groupValues[2] }}</b>"
         }
-        html = html.replace(Regex("(?<!\\*)\\*([^*]+)\\*(?!\\*)|(?<!_)_([^_]+)_(?!_)")) {
+        html = html.replace(pattern("(?<!\\*)\\*([^*]+)\\*(?!\\*)|(?<!_)_([^_]+)_(?!_)")) {
             "<i>${it.groupValues[1].ifEmpty { it.groupValues[2] }}</i>"
         }
-        html = html.replace(Regex("~~([^~]+)~~")) { "<strike>${it.groupValues[1]}</strike>" }
+        html = html.replace(pattern("~~([^~]+)~~")) { "<strike>${it.groupValues[1]}</strike>" }
         html = html.replace("\n", "<br>")
         // Tables must be expanded before math placeholders are restored so
         // equations inside table cells are rendered too.
         tables.forEachIndexed { index, value -> html = html.replace("@@TABLE$index@@", value) }
         math.forEachIndexed { index, value -> html = html.replace("@@MATH$index@@", value) }
-        return HtmlCompat.fromHtml(html, HtmlCompat.FROM_HTML_MODE_LEGACY)
+        return html
     }
 
     /** Turns GitHub-style pipe tables into readable, monospaced table blocks. */
@@ -94,7 +115,7 @@ object MarkdownRenderer {
 
     private fun isSeparatorRow(line: String): Boolean =
         isTableRow(line) && parseCells(line).isNotEmpty() &&
-            parseCells(line).all { it.replace(":", "").trim().matches(Regex("-{3,}")) }
+            parseCells(line).all { it.replace(":", "").trim().matches(pattern("-{3,}")) }
 
     private fun parseCells(line: String): List<String> =
         line.trim().removePrefix("|").removeSuffix("|").split("|").map { it.trim() }
@@ -107,10 +128,10 @@ object MarkdownRenderer {
             // Keep Markdown inside cells (for example **Batería**) instead of
             // displaying the asterisks literally.
             var result = escape(value)
-            result = result.replace(Regex("\\*\\*([^*]+)\\*\\*|__([^_]+)__")) {
+            result = result.replace(pattern("\\*\\*([^*]+)\\*\\*|__([^_]+)__")) {
                 "<b>${it.groupValues[1].ifEmpty { it.groupValues[2] }}</b>"
             }
-            result = result.replace(Regex("(?<!\\*)\\*([^*]+)\\*(?!\\*)")) {
+            result = result.replace(pattern("(?<!\\*)\\*([^*]+)\\*(?!\\*)")) {
                 "<i>${it.groupValues[1]}</i>"
             }
             return result
@@ -138,35 +159,23 @@ object MarkdownRenderer {
     private fun normalizeMath(source: String): String {
         var value = source
         repeat(3) {
-            value = value.replace(Regex("""\\frac\{([^{}]*)\}\{([^{}]*)\}"""), "$1⁄$2")
-            value = value.replace(Regex("""\\sqrt\{([^{}]*)\}"""), "√($1)")
+            value = value.replace(pattern("""\\frac\{([^{}]*)\}\{([^{}]*)\}"""), "$1⁄$2")
+            value = value.replace(pattern("""\\sqrt\{([^{}]*)\}"""), "√($1)")
         }
-        val commands = mapOf(
-            "\\partial" to "∂", "\\nabla" to "∇", "\\int" to "∫", "\\sum" to "Σ",
-            "\\prod" to "Π", "\\infty" to "∞", "\\times" to "×", "\\cdot" to "·",
-            "\\approx" to "≈", "\\pm" to "±", "\\leq" to "≤", "\\geq" to "≥",
-            "\\neq" to "≠", "\\equiv" to "≡", "\\in" to "∈", "\\notin" to "∉",
-            "\\pi" to "π", "\\theta" to "θ", "\\alpha" to "α", "\\beta" to "β",
-            "\\gamma" to "γ", "\\Delta" to "Δ", "\\lambda" to "λ", "\\mu" to "μ",
-            "\\to" to "→", "\\rightarrow" to "→", "\\leftarrow" to "←",
-            "\\iff" to "⇔", "\\land" to "∧", "\\lor" to "∨", "\\therefore" to "∴",
-            "\\quad" to " ", "\\qquad" to "  ", "\\," to " ", "\\;" to " ",
-            "\\!" to "", "\\left" to "", "\\right" to ""
-        )
-        commands.forEach { (key, replacement) -> value = value.replace(key, replacement) }
+        mathCommands.forEach { (key, replacement) -> value = value.replace(key, replacement) }
         value = value.replace("\\\\", "\n")
-        value = value.replace(Regex("""\\(begin|end)\s*\{[^{}]*\}"""), "")
-        value = value.replace(Regex("&+"), " ")
-        value = value.replace(Regex("""\\text\{([^{}]*)\}"""), "$1")
-        value = value.replace(Regex("""\\mathrm\{([^{}]*)\}"""), "$1")
-        value = value.replace(Regex("""\\(mathbf|mathbb|mathcal|operatorname)\{([^{}]*)\}"""), "$2")
-        value = value.replace(Regex("""\\(overline|underline|hat|bar)\{([^{}]*)\}"""), "$2")
-        value = value.replace(Regex("""\^\{([^{}]*)\}""")) { toSuperscript(it.groupValues[1]) }
-        value = value.replace(Regex("""_\{([^{}]*)\}""")) { toSubscript(it.groupValues[1]) }
-        value = value.replace(Regex("""\^([A-Za-z0-9]+)""")) { toSuperscript(it.groupValues[1]) }
-        value = value.replace(Regex("""_([A-Za-z0-9]+)""")) { toSubscript(it.groupValues[1]) }
+        value = value.replace(pattern("""\\(begin|end)\s*\{[^{}]*\}"""), "")
+        value = value.replace(pattern("&+"), " ")
+        value = value.replace(pattern("""\\text\{([^{}]*)\}"""), "$1")
+        value = value.replace(pattern("""\\mathrm\{([^{}]*)\}"""), "$1")
+        value = value.replace(pattern("""\\(mathbf|mathbb|mathcal|operatorname)\{([^{}]*)\}"""), "$2")
+        value = value.replace(pattern("""\\(overline|underline|hat|bar)\{([^{}]*)\}"""), "$2")
+        value = value.replace(pattern("""\^\{([^{}]*)\}""")) { toSuperscript(it.groupValues[1]) }
+        value = value.replace(pattern("""_\{([^{}]*)\}""")) { toSubscript(it.groupValues[1]) }
+        value = value.replace(pattern("""\^([A-Za-z0-9]+)""")) { toSuperscript(it.groupValues[1]) }
+        value = value.replace(pattern("""_([A-Za-z0-9]+)""")) { toSubscript(it.groupValues[1]) }
         value = value.replace("{", "").replace("}", "")
-        value = value.replace(Regex("""\\[A-Za-z]+"""), "")
+        value = value.replace(pattern("""\\[A-Za-z]+"""), "")
         return value.trim()
     }
 

@@ -30,7 +30,7 @@ Run with JDK 17 and the configured Android SDK:
 .\gradlew.bat :apps:nemotron:testDebugUnitTest :apps:nemotron:assembleDebug -PnemotronComponent=core
 ```
 
-The JVM suite contains seven transport/storage tests across `ChatClientTest`,
+The initial JVM suite contains seven transport/storage tests across `ChatClientTest`,
 `ConversationStoreTest` and `NemotronStreamClientTest`. A real local HTTP/SSE
 server exercises connection reuse, HTTP errors and replaced/cancelled requests;
 temporary files verify persistence behavior. Android logging is a no-op for
@@ -70,3 +70,41 @@ Pending device checks: install new Core, compare the installed Keyboard base,
 validate dictation/case behavior and icon rendering, and compare normal-use CPU
 and discharge over a representative interval. The offline work did not change
 the NAS, Beeminder rules, Google/microG packages or kernel modules.
+
+## Follow-up: authentication, rendering and dictation cleanup
+
+Further source inspection identified additional repeated work:
+
+- `FirebaseHealthUploader` now shares a synchronized, single-entry credential
+  cache across uploader instances. It keys the value to the Firebase API key
+  and refresh token, uses a monotonic clock and the server-reported lifetime,
+  and refreshes at least a minute before expiry. Missing lifetime disables the
+  cache. Firebase/Uber HTTP 401 responses invalidate it. Credentials, anonymous
+  sign-in behavior, destination UID and snapshot payloads remain unchanged.
+- `MarkdownRenderer` reuses compiled expressions and the fixed math-command
+  map across rows. The HTML transformation is unchanged and can be tested on
+  the JVM separately from Android's Spanned conversion.
+- `MessageAdapter` updates just the old/new speech-button rows when narration
+  changes. A payload update avoids rerendering every message's Markdown; full
+  binds still apply message/role/format changes. Recycled animations are cancelled.
+- `VoiceRecordService` clears pending restart/finalization callbacks when it
+  cleans up or is destroyed, and resets its recording flags on destruction.
+
+The full JVM suite now has **13 passing tests**, including three HTML-format
+checks and three expiry/concurrency/failure-cache checks. This validates token
+cache mechanics, not a live Firebase sign-in on Android.
+
+The latest Keyboard candidate is
+`C:\Users\adaredu\work\offline-keyboard-background-20261116\Nemotron-Keyboard-candidate.apk`.
+Its SHA-256 is `c0dd72b467a58a6252e9cd613e6dd0a71110311221a8a6c2987de70101a97452`.
+The runtime refresh script also invokes
+`tools/patch-keyboard-callback-cleanup.ps1`, which modifies only the two known
+dictation lifecycle methods and rejects an unexpected register/field layout.
+The lifecycle patch is idempotent. An independent comparison verified that
+`VoiceRecordService` differs from its base only in `cleanup` and `onDestroy`.
+
+Strict archive comparison now also covers non-signature `META-INF` library
+metadata: **5844 non-code/non-signature entries are byte-identical** to the base.
+The script's verification uses the same narrower signature exclusion for
+future builds. Both candidates still require device installation and normal-use
+verification. The local UI base/version concern above still applies.

@@ -21,8 +21,33 @@ class MessageAdapter(
     private var speakingKey: String? = null
 
     fun setSpeaking(message: ChatMessage, speaking: Boolean) {
-        speakingKey = if (speaking) key(message) else null
-        notifyDataSetChanged()
+        val previous = speakingKey
+        val next = if (speaking) key(message) else null
+        if (previous == next) return
+        speakingKey = next
+        messages.forEachIndexed { index, item ->
+            val itemKey = key(item)
+            if (itemKey == previous || itemKey == next) notifyItemChanged(index, SPEAKING_PAYLOAD)
+        }
+    }
+
+    override fun onBindViewHolder(holder: MessageVH, position: Int, payloads: MutableList<Any>) {
+        if (payloads.isNotEmpty() && payloads.all { it == SPEAKING_PAYLOAD }) {
+            bindSpeaking(holder, messages[position])
+        } else {
+            onBindViewHolder(holder, position)
+        }
+    }
+
+    override fun onViewRecycled(holder: MessageVH) {
+        holder.bubble.animate().cancel()
+        super.onViewRecycled(holder)
+    }
+
+    private fun bindSpeaking(holder: MessageVH, message: ChatMessage) {
+        val isSpeaking = speakingKey == key(message)
+        holder.speak.setImageResource(if (isSpeaking) R.drawable.ic_stop else R.drawable.ic_volume)
+        holder.speak.contentDescription = if (isSpeaking) "Stop listening" else "Listen to message"
     }
 
     fun replaceMessages(next: List<ChatMessage>) {
@@ -81,9 +106,7 @@ class MessageAdapter(
         }
         holder.copy.setOnClickListener { onCopy(msg) }
         holder.speak.setOnClickListener { onSpeak(msg) }
-        val isSpeaking = speakingKey == key(msg)
-        holder.speak.setImageResource(if (isSpeaking) R.drawable.ic_stop else R.drawable.ic_volume)
-        holder.speak.contentDescription = if (isSpeaking) "Stop listening" else "Listen to message"
+        bindSpeaking(holder, msg)
         val openActions: (View) -> Boolean = { anchor ->
             anchor.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS)
             onLongPress(anchor, msg)
@@ -100,6 +123,10 @@ class MessageAdapter(
 
     private fun dp(v: Int): Int = (v * 3f).toInt()
     private fun key(message: ChatMessage): String = "${message.role}:${message.ts}"
+
+    private companion object {
+        const val SPEAKING_PAYLOAD = "speaking_state"
+    }
 
     class MessageVH(item: View) : RecyclerView.ViewHolder(item) {
         val wrap: LinearLayout = item.findViewById(R.id.msgWrap)

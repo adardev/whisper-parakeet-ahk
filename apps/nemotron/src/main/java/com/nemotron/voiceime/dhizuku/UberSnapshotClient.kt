@@ -98,6 +98,7 @@ internal object UberSnapshotClient {
                     .header("Authorization", "Bearer $idToken")
                     .build()
                 client.newCall(request).execute().use { response ->
+                    if (response.code == 401) FirebaseHealthUploader.invalidateCachedAuth()
                     val body = response.body?.string().orEmpty()
                     val result = runCatching { JSONObject(body) }.getOrNull()
                     if (!response.isSuccessful || result?.optBoolean("stored", false) != true) {

@@ -2,6 +2,7 @@ package com.nemotron.voiceime.health
 
 import android.content.Context
 import android.util.Log
+import android.os.SystemClock
 import com.nemotron.voiceime.data.SecureStore
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.Dispatchers
@@ -28,6 +29,8 @@ class FirebaseHealthUploader(private val context: Context) {
         private const val AUTH_URL = "https://identitytoolkit.googleapis.com/v1/accounts:signUp"
         private const val TOKEN_URL = "https://securetoken.googleapis.com/v1/token"
         private const val FIRESTORE = "https://firestore.googleapis.com/v1/projects"
+        private val authCache = ExpiringValueCache<Auth> { SystemClock.elapsedRealtime() }
+        internal fun invalidateCachedAuth() = authCache.invalidate()
         // OkHttp is thread-safe. Reuse connections across job/tile uploader
         // instances instead of creating an idle pool and TLS sessions for each.
         private val client = OkHttpClient.Builder()
@@ -72,8 +75,18 @@ class FirebaseHealthUploader(private val context: Context) {
         }
     }
 
-    private fun authenticate(apiKey: String): Auth = synchronized(this) {
+    private fun authenticate(apiKey: String): Auth {
         val refresh = SecureStore.getFirebaseRefreshToken(context)
+        return authCache.getOrLoad(apiKey + '\u0000' + refresh) {
+            val auth = authenticateUncached(apiKey, refresh)
+            // The server supplies the lifetime. Refresh at least a minute
+            // early; missing/invalid expiry never enables caching.
+            val lifetime = (auth.expiresInSeconds.coerceIn(0, 3600) - 60).coerceAtLeast(0) * 1000
+            auth to lifetime
+        }
+    }
+
+    private fun authenticateUncached(apiKey: String, refresh: String): Auth {
         if (refresh.isNotBlank()) {
             val body = FormBody.Builder()
                 .add("grant_type", "refresh_token")
@@ -82,9 +95,10 @@ class FirebaseHealthUploader(private val context: Context) {
             val r = request(Request.Builder().url("$TOKEN_URL?key=$apiKey").post(body).build())
             if (r.first) {
                 val json = JSONObject(r.third)
-                return@synchronized Auth(
+                return Auth(
                     json.getString("id_token"),
-                    json.optString("user_id", SecureStore.getFirebaseLocalId(context))
+                    json.optString("user_id", SecureStore.getFirebaseLocalId(context)),
+                    json.optLong("expires_in", 0)
                 )
             }
             Log.w(TAG, "Firebase refresh token rechazado; se crea sesión anónima nueva")
@@ -96,7 +110,7 @@ class FirebaseHealthUploader(private val context: Context) {
         val json = JSONObject(r.third)
         SecureStore.setFirebaseRefreshToken(context, json.getString("refreshToken"))
         SecureStore.setFirebaseLocalId(context, json.getString("localId"))
-        Auth(json.getString("idToken"), json.getString("localId"))
+        return Auth(json.getString("idToken"), json.getString("localId"), json.optLong("expiresIn", 0))
     }
 
     private fun toFirestoreDocument(json: JSONObject): JSONObject =
@@ -128,6 +142,7 @@ class FirebaseHealthUploader(private val context: Context) {
 
     private fun request(request: Request): Triple<Boolean, Int, String> {
         client.newCall(request).execute().use { response ->
+            if (response.code == 401) invalidateCachedAuth()
             if (!response.isSuccessful) {
                 Log.e(TAG, "HTTP ${response.code} url=${request.url}")
             }
@@ -135,5 +150,5 @@ class FirebaseHealthUploader(private val context: Context) {
         }
     }
 
-    private data class Auth(val idToken: String, val localId: String)
+    private data class Auth(val idToken: String, val localId: String, val expiresInSeconds: Long)
 }

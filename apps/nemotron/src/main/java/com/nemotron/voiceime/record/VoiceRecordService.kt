@@ -254,6 +254,7 @@ class VoiceRecordService : Service() {
     }
 
     private fun cleanup() {
+        main.removeCallbacksAndMessages(null)
         KeyboardDictationFeedback.setRecording(false)
         requestedRecordingState = false
         isRunning = false
@@ -344,6 +345,10 @@ class VoiceRecordService : Service() {
     }
 
     override fun onDestroy() {
+        main.removeCallbacksAndMessages(null)
+        isRunning = false
+        isProcessing = false
+        requestedRecordingState = false
         KeyboardDictationFeedback.setRecording(false)
         keyboardInputConnection = null
         restoreStreams()
