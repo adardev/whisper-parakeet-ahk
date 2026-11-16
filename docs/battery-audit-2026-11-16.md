@@ -54,8 +54,48 @@ sensor, power and idle records; no battery stats are reset and no setting is
 changed. The script requires exactly one authorized ADB device and does not
 run persistently. Capture at bedtime after Sleep Mode/radios have reached the
 intended state, then immediately after waking before opening apps or toggling
-radios. Until such a paired interval is available, the responsible package is
-unknown and no third-party app should be disabled based on this evidence.
+radios. The responsible package remains unknown; no third-party app should be
+disabled based on an unassigned system UID.
+
+### Extended ADB history snapshot (11:24, 16 November)
+
+A later read-only `dumpsys batterystats` snapshot extended the device history
+from 19:03 on 15 November through 11:24 on 16 November. It accumulated 14 h 10
+on battery, 10 h 38 screen-off, 12 h 20 in full idle, and a longest full-idle
+period of 8 h 47. Between 00:53 and the first screen-on event at 09:40, the
+screen stayed off and the displayed battery level moved from 74% to 73% by
+08:26: about one displayed percentage point over that 8 h 47 interval. Battery
+level is rounded, so this is an approximate single-night result, not a
+repeatable before/after test. The accumulated screen-off discharge across the
+whole 14 h history was 7 percentage points/310 mAh; that includes earlier
+screen use and USB reconnects and should not be read as the overnight-only
+loss.
+
+In the same model estimate, Core used 11.3 mAh total (0.73 mAh screen-off),
+Keyboard 13.4 mAh (2.03 mAh screen-off), and UI 15.3 mAh (1.05 mAh screen-off).
+Together the three were about 40 mAh total and 3.8 mAh screen-off. Their
+screen-off actual partial wakelocks were about 3.8 seconds for Core, 21 ms for
+Keyboard and none attributed to UI. These estimates are small relative to the
+device's computed 1,325 mAh over the full history, but remain model estimates.
+No Nemotron process explains the observed one-point loss during the longest
+idle interval.
+
+System UID 1000 was estimated at 229 mAh total and 32.3 mAh screen-off, with
+15 m 18 s of actual screen-off partial wakelock. `Prevent Sleep by
+AssistantDelay` accounts for 16 m 30 s across the entire history and 1,977
+acquisitions in the aggregate summary; Android still entered the 8 h 47 full
+idle interval. This UID is shared by system services, and the aggregate lock
+duration is not tied to that night alone, so it does not identify a package to
+disable or justify a system change. Samsung Health was estimated at 116 mAh
+total, 9.09 mAh screen-off and 4.5 seconds of actual screen-off partial
+wakelock. Its package was unfrozen and the hourly snapshot job was scheduled
+when the capture was taken. Its use is being monitored, but this snapshot
+does not show it as the cause of the longest idle interval's battery loss.
+
+The raw snapshot is kept outside Git at
+`C:\Users\adaredu\work\battery-current-20261116.txt`. BatteryStats was not
+reset. A separate bedtime/morning capture remains useful for future comparable
+nights and narrower wake-source attribution.
 
 Sleep Mode no longer emits the result/status toast after a tile action. The
 service still records the outcome in Android logs, refreshes the Quick Settings
