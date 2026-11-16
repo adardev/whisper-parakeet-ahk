@@ -37,8 +37,8 @@ case "${1:-}" in
     fi
     [ "$zygote_hash" = "$original_hash" ] || { echo unexpected_existing_mount; exit 1; }
     printf '%s\n' "$target" > "$marker"
-    # Toybox autodetects a file-to-file bind mount from the two paths.
-    nsenter -t "$zyg" -m -- mount "$source" "$target" || { rm -f "$marker"; echo mount_failed; exit 1; }
+    # Match the already verified One UI Home controller on this A54.
+    nsenter -t "$zyg" -m -- mount --bind "$source" "$target" || { rm -f "$marker"; echo mount_failed; exit 1; }
     [ "`hash_in_ns "$zyg"`" = "$candidate_hash" ] || {
       nsenter -t "$zyg" -m -- umount -l "$target" || true
       rm -f "$marker"

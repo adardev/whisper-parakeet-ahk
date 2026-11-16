@@ -18,16 +18,16 @@ El equipo conectado se identificó como `SM-A546E`; el APK instalado es HoneyBoa
 5.9.30.88 en `/system/app/HoneyBoard/HoneyBoard.apk`, paquete
 `com.samsung.android.honeyboard`.
 
-Aunque no aparecía en la lista normal de IME, no está desinstalado: `pm path`
-resuelve el APK de sistema y `dumpsys package` muestra `installed=true`. Para el
-usuario 0 está deshabilitado (`enabled=3` / disabled-user); el IME predeterminado
-sigue siendo Nemotron Keyboard. Este HoneyBoard es el host que se conservará;
-Nemotron es únicamente la referencia de comportamiento.
+Aunque antes no aparecía en la lista normal de IME, no estaba desinstalado:
+`pm path` resuelve el APK de sistema y `dumpsys package` muestra
+`installed=true`. Se volvió a habilitar para el usuario 0 (`enabled=1`); ahora
+aparece en `ime list -s` junto con Nemotron. Este HoneyBoard es el teclado que se
+conservará; Nemotron es únicamente la referencia de comportamiento.
 
 | Artefacto | SHA-256 | Estado |
 |---|---|---|
 | APK Samsung leído del teléfono | `48bc8996a647e32b414bd78aab51b997908f600f1f19b900be6e9fd7b307edff` | Sin modificar en `/system` |
-| Candidato Nemotron | `62938ecd57db2f8907182fad9668fcc6663c4ac818eb092c427d8fecb841972c` | Compilado y copiado a `/data/local/tmp/nemotron-honeyboard-root-candidate.apk`; sin montar |
+| Candidato Nemotron | `62938ecd57db2f8907182fad9668fcc6663c4ac818eb092c427d8fecb841972c` | Compilado, copiado a `/data/local/tmp/nemotron-honeyboard-root-candidate.apk` y montado durante la sesión |
 
 El candidato fue construido a partir de la copia exacta del APK Samsung. Apktool
 reconstruyó los cuatro DEX originales; el puente Java se añadió como
@@ -70,25 +70,38 @@ firma y valida el APK. El controlador valida ambos hashes y apunta al paquete
 original. Su objetivo es un montaje temporal en el namespace de Zygote; al
 reiniciar, el APK del sistema sigue intacto y el montaje desaparece.
 
-## Estado del teléfono al cierre
+## Activación y verificación en el A54 (16 nov 2026)
 
-- El IME predeterminado sigue siendo
-  `com.nemotron.keyboard/com.samsung.android.honeyboard.service.HoneyBoardService`.
-- `/system/app/HoneyBoard/HoneyBoard.apk` conserva el SHA-256 original.
-- El candidato está en `/data/local/tmp`, pero **no está montado ni activo**.
-- No se instaló ningún módulo de arranque, no se tocó `/system` y no se reinició.
-- La prueba de `nsenter` no pudo abrir `/proc/<zygote>/ns/mnt`. El `su` de esta
-  sesión reporta UID 0, pero `CapEff=0`; KernelSU/SELinux bloquea la entrada al
-  namespace y no hay `CAP_SYS_ADMIN` para montar. Para evitar un montaje global
-  o un reemplazo al arranque con firma OEM distinta, se dejó el sistema intacto.
-- El permiso de micrófono del paquete Samsung se devolvió a su estado previo
-  (`RECORD_AUDIO` denegado; AppOp `ignore`) porque el candidato no se activó.
-- La última consulta de ADB reinició el daemon y ya no encontró el A54; no se
-  volvió a intentar ninguna acción en el teléfono después de eso.
+- KernelSU Root de `com.nemotron.core` está autorizado. La sesión `adb shell su`
+  tiene un perfil distinto y reporta `CapEff=0`; por eso sus intentos de
+  `nsenter` fallan. Ejecutar `su` desde un shell del UID de Core
+  (`run-as com.nemotron.core` → `su`) sí conserva las capacidades completas y
+  permite entrar al namespace. No hizo falta cambiar perfiles de KernelSU.
+- Se revisó el procedimiento de One UI Home registrado en los commits
+  `385ad9b` y `ed3d588`: el mismo montaje temporal de Zygote y la misma
+  comprobación de hashes. El controlador de HoneyBoard ahora usa la sintaxis
+  `mount --bind` verificada en One UI Home.
+- El paquete original estaba instalado pero deshabilitado para el usuario 0.
+  Se volvió a habilitar (`enabled=1`), sin desinstalarlo ni modificar su APK.
+- El controlador root devolvió `active`; `status` confirmó el candidato en
+  Zygote y en el proceso del teclado, con el hash exacto de compilación.
+  `/system` conserva el hash OEM.
+- Se seleccionó `com.samsung.android.honeyboard/.service.HoneyBoardService`
+  como IME predeterminado. `dumpsys input_method` confirmó que es el IME actual
+  y el teclado se abrió en un campo de texto.
+- Las teclas están en minúsculas con la opción automática de mayúsculas
+  desactivada; el texto de comprobación visible quedó en minúsculas.
+- Se concedió `RECORD_AUDIO` y AppOp `allow`, necesarios para el dictado
+  solicitado. El doble espacio mostró “Escuchando…”; al detener sin hablar,
+  mostró “No te escuché”. El reconocedor instalado es
+  `com.google.android.tts`. Falta verificar una frase hablada real y su
+  inserción final en minúsculas.
+- Nemotron Keyboard permanece disponible para volver atrás si hiciera falta.
+- No se instaló un módulo de arranque, no se escribió en `/system` y no se
+  reinició el teléfono. El montaje dura esta sesión root y desaparece al
+  reiniciar o terminarla. Después habrá que iniciar el root temporal y ejecutar
+  `enable` otra vez para recuperar el parche.
 
-Por tanto, el port está **preparado y compilado**, pero no se afirma que el
-teclado Samsung original ya esté ejecutando las funciones. Para activarlo hay
-que recuperar acceso de montaje únicamente al namespace de Zygote desde
-KernelSU; no se debe instalar este APK como actualización normal, ni sustituir
-el APK del sistema, ni convertirlo en módulo de arranque sin una vía de retorno
-probada.
+El port está **montado y activo como HoneyBoard predeterminado**. El inicio del
+dictado quedó verificado; la inserción de una frase real requiere una prueba
+hablada en el teléfono.
