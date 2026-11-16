@@ -32,6 +32,15 @@ class Fit3TileService : AppFreezeTileService() {
     }
 
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val syncingTileRefresh = object : Runnable {
+        override fun run() {
+            if (!operationInProgress.get()) return
+            applySyncingState()
+            // One UI can restore the cached tile appearance after a tap.
+            // Reassert only while this tile service is listening and work is active.
+            mainHandler.postDelayed(this, SYNCING_TILE_REFRESH_MS)
+        }
+    }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         // Started only to protect the current explicit tile operation from
@@ -54,9 +63,9 @@ class Fit3TileService : AppFreezeTileService() {
     }
 
     override fun onStartListening() {
-        // Don't replace the last rendered state with gray while the Bluetooth
-        // operation is running; the final state is published when it finishes.
-        if (!operationInProgress.get()) super.onStartListening()
+        // Keep the active/syncing presentation if Quick Settings recreates its
+        // listener during a long Health transfer or Bluetooth handshake.
+        if (operationInProgress.get()) publishSyncingState() else super.onStartListening()
     }
 
     override fun onClick() {
@@ -87,6 +96,7 @@ class Fit3TileService : AppFreezeTileService() {
                 .setOngoing(true).build())
         } catch (t: Throwable) {
             operationInProgress.set(false)
+            mainHandler.removeCallbacks(syncingTileRefresh)
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
             Log.e(TAG, "No se pudo mantener la operación Fit3 activa", t)
@@ -104,8 +114,7 @@ class Fit3TileService : AppFreezeTileService() {
                 val controlledPackages = listOf(
                     targetPackage,
                     SAMSUNG_WEARABLE_PLUGIN,
-                    SAMSUNG_ACCESSORY_PACKAGE,
-                    SAMSUNG_WATCH_MANAGER_PACKAGE
+                    SAMSUNG_ACCESSORY_PACKAGE
                 )
                 val packageStates = RootShellManager.getPackageStates(controlledPackages)
                     ?: throw IllegalStateException("No se pudo consultar el estado de Samsung Health")
@@ -236,42 +245,22 @@ class Fit3TileService : AppFreezeTileService() {
                         return@Thread
                     }
                     RootShellManager.stopApp(targetPackage)
-                    // Galaxy Wearable owns the saved pairing and must be
-                    // available while Fit3 is active. Restore its previous
-                    // battery-saving state together with the other packages.
-                    RootShellManager.stopApp(SAMSUNG_WATCH_MANAGER_PACKAGE)
-                    if (!RootShellManager.hideApp(SAMSUNG_WATCH_MANAGER_PACKAGE)) {
-                        RootShellManager.unhideApp(targetPackage)
-                        RootShellManager.unstopApp(targetPackage)
-                        RootShellManager.unhideApp(SAMSUNG_WEARABLE_PLUGIN)
-                        RootShellManager.unstopApp(SAMSUNG_WEARABLE_PLUGIN)
-                        if (!hasConnectedBluetoothPeripherals()) {
-                            RootShellManager.unhideApp(SAMSUNG_ACCESSORY_PACKAGE)
-                            RootShellManager.unstopApp(SAMSUNG_ACCESSORY_PACKAGE)
-                        }
-                        Log.e(TAG, "No se pudo pausar Galaxy Wearable; se restauró el stack Fit3")
-                        showMessage("No se pudo pausar Galaxy Wearable; Fit3 quedó activo")
-                        return@Thread
-                    }
                     val frozen = RootShellManager.getHiddenPackages(
                         listOf(
                             targetPackage,
                             SAMSUNG_WEARABLE_PLUGIN,
-                            SAMSUNG_ACCESSORY_PACKAGE,
-                            SAMSUNG_WATCH_MANAGER_PACKAGE
+                            SAMSUNG_ACCESSORY_PACKAGE
                         )
                     ).orEmpty()
                     check(targetPackage in frozen && SAMSUNG_WEARABLE_PLUGIN in frozen &&
-                        SAMSUNG_WATCH_MANAGER_PACKAGE in frozen &&
                         (hasConnectedBluetoothPeripherals() || SAMSUNG_ACCESSORY_PACKAGE in frozen)) {
-                        "No se confirmó que Samsung Health, Fit3 Plugin y Galaxy Wearable quedaran ocultos"
+                        "No se confirmó que Samsung Health y Fit3 Plugin quedaran ocultos"
                     }
-                    Log.i(TAG, "Apagado completado: subidaConfirmada=$uploaded, Fit3 desconectada; Samsung Health, Fit3 Plugin y Galaxy Wearable ocultos sin deshabilitar sus permisos; SAP pausado cuando no hay otros periféricos")
+                    Log.i(TAG, "Apagado completado: subidaConfirmada=$uploaded, Fit3 desconectada; Samsung Health y Fit3 Plugin ocultos sin deshabilitar sus permisos; Galaxy Wearable queda bajo control manual; SAP pausado cuando no hay otros periféricos")
                 } else {
                     // Restore packages before waking Samsung's background
                     // health receiver, which initializes its own HostManager.
                     for (pkg in listOf(
-                        SAMSUNG_WATCH_MANAGER_PACKAGE,
                         SAMSUNG_ACCESSORY_PACKAGE,
                         SAMSUNG_WEARABLE_PLUGIN,
                         targetPackage
@@ -330,6 +319,7 @@ class Fit3TileService : AppFreezeTileService() {
                 showMessage("No se pudo cambiar Fit3: ${t.message ?: "consulta los registros"}")
             } finally {
                 operationInProgress.set(false)
+                mainHandler.removeCallbacks(syncingTileRefresh)
                 try {
                     HealthWorkoutPowerSaver.syncForFit3State(applicationContext)
                     refreshState()
@@ -514,10 +504,16 @@ class Fit3TileService : AppFreezeTileService() {
     }
 
     private fun publishSyncingState() = mainHandler.post {
+        if (!operationInProgress.get()) return@post
+        mainHandler.removeCallbacks(syncingTileRefresh)
+        syncingTileRefresh.run()
+    }
+
+    private fun applySyncingState() {
         qsTile?.let { tile ->
             tile.label = "Sincronizando"
             tile.subtitle = null
-            tile.state = Tile.STATE_INACTIVE
+            tile.state = Tile.STATE_ACTIVE
             tile.updateTile()
         }
     }
@@ -531,13 +527,13 @@ class Fit3TileService : AppFreezeTileService() {
         private const val TAG = "Fit3BluetoothTile"
         private const val OPERATION_CHANNEL = "fit3_connection_action"
         private const val OPERATION_NOTIFICATION = 9025
+        private const val SYNCING_TILE_REFRESH_MS = 500L
         private const val FIT3_PREFERENCES = "fit3_tile_preferences"
         private const val FIT3_ADDRESS_KEY = "paired_fit3_address"
         private const val KNOWN_FIT3_ADDRESS = "74:19:0A:49:64:DD"
         private const val SAMSUNG_HEALTH_PACKAGE = "com.sec.android.app.shealth"
         private const val SAMSUNG_WEARABLE_PLUGIN = "com.samsung.wearable.fit3plugin"
         private const val SAMSUNG_ACCESSORY_PACKAGE = "com.samsung.accessory"
-        private const val SAMSUNG_WATCH_MANAGER_PACKAGE = "com.samsung.android.app.watchmanager"
         private const val HOST_MANAGER_SERVICE = "com.samsung.wearable.hostmanager.service.HostManager"
         private const val HOST_MANAGER_START_ACTION = "com.samsung.android.hostmanager.service.NSHostManager"
         private const val SAMSUNG_ACCESSORY_SERVICE = "com.samsung.accessory/.services.SAFrameworkService"

@@ -66,7 +66,7 @@ temporarily loses its Bluetooth connection. A disconnected watch must not change
 an intended off tap into another reconnect attempt.
 
 - On: unhide and unstop Samsung Accessory, `com.samsung.wearable.fit3plugin`,
-  `com.samsung.android.app.watchmanager`, and `com.sec.android.app.shealth`;
+  and `com.sec.android.app.shealth`;
   ensure they are enabled (including migration from older builds that disabled
   dependencies), repair missing Health Connect grants, and enable Bluetooth
   when needed. Send the SDK's `REQUEST_MANAGER_CAPABILITY` to the plugin's
@@ -76,18 +76,26 @@ an intended off tap into another reconnect attempt.
   Confirm the Fit3 GATT connection within 25 seconds; otherwise report that the
   watch is still disconnected.
 - Off: wait for the Health SDK read and confirmed Firebase upload, request Fit3
-  disconnection, then `pm hide` and force-stop Samsung Health, Fit3 Plugin, and
-  Galaxy Wearable. If no other Bluetooth peripheral is connected, also hide and
-  stop Samsung Accessory so its SAP service cannot restart. These are hide
+  disconnection, then `pm hide` and force-stop Samsung Health and Fit3 Plugin.
+  Galaxy Wearable's package state is not changed by this tile. If no other
+  Bluetooth peripheral is connected, also hide and stop Samsung Accessory so
+  its SAP service cannot restart. These are hide
   operations, not package disables; Health Connect grants are retained.
   If Fit3 was the only connected device, turn Bluetooth off and verify the link
   went down. Preserve Bluetooth when another device is connected.
-- Galaxy Wearable is restored as a connection dependency while Fit3 is active
-  and hidden again when Fit3 is paused. Its separate tile remains available.
+- Galaxy Wearable remains under manual control; the Fit3 tile does not enable,
+  hide, or force-stop it. Fit3 connection requests continue through the Fit3
+  plugin's HostManager service and receiver.
   Sleep Mode uses a bounded direct BLE exchange and leaves plugin state as the
   Fit3 tile set it.
 - The pre-disconnect sync wait is bounded at 60 seconds. An unsuccessful upload
   is reported and local Health data is preserved; it does not trap the tile on.
+- While a Fit3 tile operation is in progress, its label stays `Sincronizando`
+  and its state remains active. While Quick Settings is open, the service
+  reapplies that state every 500 ms to prevent One UI from restoring the
+  cached off appearance, and republishes it if tile listening restarts. It
+  continues through brief tile-listener stops and ends with the operation;
+  then the tile returns to the actual Fit3 state.
 - The busy guard is shared between tile service instances to prevent overlapping
   taps from starting multiple transfers or opposing connection requests.
 
