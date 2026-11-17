@@ -1,0 +1,11 @@
+# Fondo de bloqueo con ahorro máximo (16 nov 2026)
+
+System UI de este A54 quita `FLAG_SHOW_WALLPAPER` cuando `Settings.System.minimal_battery_use=1`. La imagen configurada era correcta; el modo de ahorro era la causa de la pantalla negra. En `SecNotificationShadeWindowControllerHelperImpl.apply`, el parche omite la rama de ocultación para ese valor y conserva la rama del modo de emergencia.
+
+Se probó el candidato temporal con SHA-256 `73df730fd66944febf64867d32dc9ce032cba5afa5bf642054d2d2d6430e8b4e`, derivado de SystemUI original `0b53ae0d66a94ada8188a3c3ed5bfb44f7e62efec70b56539c4de42bc9ce6642`. La captura de bloqueo mostró la imagen mientras `minimal_battery_use=1`, `global.low_power=1` y `system.aod_mode=0`; `display_night_theme_wallpaper=0` desactiva el oscurecimiento. AOD Service sigue sin instalarse para el usuario. Se reinició solo System UI, no el teléfono. El APK original permanece en /system.
+
+`patch-systemui.ps1` aplica la modificación a una decodificación de Apktool de esa versión. El APK candidato de sesión está en el dispositivo, `/data/local/tmp/systemui-wallpaper-candidate.apk`, y en la PC `C:\Users\adaredu\work\systemui-wallpaper-max-saving-signed.apk`. `session-watchdog.sh` es el procedimiento experimental utilizado, no un servicio de arranque. Incluye comprobación de hashes y reversión tras 45 segundos si no se crea el archivo de confirmación. El archivo de confirmación solo debe crearse tras comprobar System UI y la imagen; un marcador viejo debe borrarse antes de cada intento. No se modificó ningún ajuste de ahorro al aplicar el parche.
+
+## Arranque
+
+Este montaje es temporal: al reiniciar desaparece. **Todavía no se ha configurado ni validado su reactivación automática.** Un arranque automático que modifique System UI sin verificar recuperación podría afectar al desbloqueo; no se instaló un módulo persistente. One UI Home también utiliza un montaje temporal y no consta una reactivación de arranque en Core. Android Auto aplica el parche al encender el tile; apagarlo lo retira. No se verificó el comportamiento tras reiniciar ni después de reactivar DFRoot. Las imágenes candidatas dependen de la versión exacta de cada APK y requieren validar sus hashes tras una actualización.
