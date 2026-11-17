@@ -1,0 +1,6 @@
+id=nemotron-session-patches
+name=Nemotron Session Patches
+version=1.0
+versionCode=1
+author=Nemotron
+description=Late boot session mounts with hash checks and SystemUI rollback; no system overlay.
