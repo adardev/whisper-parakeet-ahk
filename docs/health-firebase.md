@@ -191,3 +191,11 @@ confirmed:
 
 The watch was left connected. Galaxy Wearable remained disabled and neither
 the UI nor Keyboard APK was changed.
+
+### Sincronización al apagar Fit3 (17 nov 2026)
+
+El servidor ejecutaba el cron cada minuto, pero Firebase respondía 404 para el snapshot de Samsung Health del día. En el teléfono, el SDK agotaba 15 segundos consultando 30 días de ejercicio; por eso se cancelaba la transferencia y Fit3 informaba que no se confirmó la subida. Los 25 permisos del SDK estaban concedidos.
+
+`SamsungHealthManager` consulta primero el ejercicio desde el inicio del día y pide `TOTAL_DURATION` con el intervalo de fechas `[hoy, mañana)`. El rango anterior con ambos extremos en hoy producía `InvalidRequestException: Time Range is invalid`. Se intenta también recuperar el histórico previo durante hasta cinco segundos: si no responde o falla, el snapshot conserva los registros de hoy, y no garantiza contener todos los registros históricos. Los demás tipos de datos conservan su ventana anterior.
+
+Tras instalar Core, al apagar el tile el SDK leyó tres sesiones y el agregado de 9104.418 segundos; Firestore confirmó la subida y el servidor leyó 151.7403 minutos. A las 15:32 el cron actualizó la tarea por su conciliación normal; el registro siguiente confirmó que Ejercicio ya no figuraba pendiente. No se completó manualmente. La versión instalada incluye además manejo de errores del histórico opcional; ese manejo adicional compiló, pero la prueba real anterior observó el caso de espera agotada.

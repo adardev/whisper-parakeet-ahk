@@ -100,9 +100,16 @@ class SamsungHealthManager(context: Context, @Suppress("UNUSED_PARAMETER") scope
         } ?: readableTypes
         for (type in typesToRead) {
             try {
-                val typeStart = if (type == DataTypes.BODY_COMPOSITION) {
-                    start.minusSeconds(bodyCompositionHistorySeconds)
-                } else start
+                val typeStart = when (type) {
+                    DataTypes.BODY_COMPOSITION -> start.minusSeconds(bodyCompositionHistorySeconds)
+                    // Exercise history can become large enough for Samsung's
+                    // SDK to time out before today's data can be uploaded.
+                    DataTypes.EXERCISE -> maxOf(
+                        start,
+                        LocalDate.now(ZoneId.systemDefault()).atStartOfDay(ZoneId.systemDefault()).toInstant()
+                    )
+                    else -> start
+                }
                 val typeFilter = LocalTimeFilter.of(
                     LocalDateTime.ofInstant(typeStart, ZoneId.systemDefault()), endLocal
                 )
@@ -144,7 +151,7 @@ class SamsungHealthManager(context: Context, @Suppress("UNUSED_PARAMETER") scope
                     // start/end spans include idle gaps between activity.
                     val today = LocalDate.now(ZoneId.systemDefault())
                     val aggregateRequest = DataType.ExerciseType.TOTAL_DURATION.requestBuilder
-                        .setLocalDateFilter(LocalDateFilter.of(today, today))
+                        .setLocalDateFilter(LocalDateFilter.of(today, today.plusDays(1)))
                         .build()
                     val aggregate = withTimeoutOrNull(timeoutMs) {
                         store.aggregateData(aggregateRequest)
@@ -162,6 +169,38 @@ class SamsungHealthManager(context: Context, @Suppress("UNUSED_PARAMETER") scope
                             "SamsungHealthManager",
                             "Samsung Health no devolvió la duración agregada de ejercicio de hoy"
                         )
+                    }
+                    // Preserve the historical records when Samsung can return
+                    // them quickly; a slow history must not block today's sync.
+                    if (typeStart.isAfter(start)) {
+                        val history = try {
+                            withTimeoutOrNull(5_000L) {
+                                val historyFilter = LocalTimeFilter.of(
+                                    LocalDateTime.ofInstant(start, ZoneId.systemDefault()),
+                                    LocalDateTime.ofInstant(typeStart, ZoneId.systemDefault())
+                                )
+                                store.readData(
+                                    builder.setLocalTimeFilter(historyFilter)
+                                        .setOrdering(Ordering.ASC).build()
+                                )
+                            }
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            android.util.Log.w("SamsungHealthManager", "Histórico de ejercicio no disponible: ${e.message}")
+                            null
+                        }
+                        if (history != null) {
+                            val currentIds = (0 until points.length()).mapNotNull {
+                                points.optJSONObject(it)?.optString("uid")
+                            }.toHashSet()
+                            history.dataList.forEach { point ->
+                                if (currentIds.add(point.uid.toString())) points.put(pointToJson(type, point))
+                            }
+                            android.util.Log.i("SamsungHealthManager", "Histórico de ejercicio: ${history.dataList.size} registros")
+                        } else {
+                            android.util.Log.w("SamsungHealthManager", "Histórico de ejercicio omitido por tiempo; se conservan los registros de hoy")
+                        }
                     }
                 }
             } catch (e: Exception) {
