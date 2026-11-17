@@ -9,6 +9,7 @@ import com.samsung.android.sdk.health.data.permission.AccessType
 import com.samsung.android.sdk.health.data.permission.Permission
 import com.samsung.android.sdk.health.data.request.DataType
 import com.samsung.android.sdk.health.data.request.DataTypes
+import com.samsung.android.sdk.health.data.request.LocalDateFilter
 import com.samsung.android.sdk.health.data.request.LocalTimeFilter
 import com.samsung.android.sdk.health.data.request.Ordering
 import com.samsung.android.sdk.health.data.request.ReadDataRequest
@@ -20,6 +21,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
 
@@ -137,6 +139,30 @@ class SamsungHealthManager(context: Context, @Suppress("UNUSED_PARAMETER") scope
                 result.put(type.name, points)
                 if (type == DataTypes.EXERCISE) {
                     android.util.Log.i("SamsungHealthManager", "Ejercicio leído: ${points.length()} registros")
+                    // Use Samsung Health's official aggregate for the daily
+                    // exercise duration. Session logs omit pauses while full
+                    // start/end spans include idle gaps between activity.
+                    val today = LocalDate.now(ZoneId.systemDefault())
+                    val aggregateRequest = DataType.ExerciseType.TOTAL_DURATION.requestBuilder
+                        .setLocalDateFilter(LocalDateFilter.of(today, today))
+                        .build()
+                    val aggregate = withTimeoutOrNull(timeoutMs) {
+                        store.aggregateData(aggregateRequest)
+                    }
+                    val duration = aggregate?.dataList?.firstOrNull()?.value
+                    if (duration != null) {
+                        val seconds = duration.seconds.toDouble() + duration.nano / 1_000_000_000.0
+                        result.put("exerciseTotalDurationSeconds", seconds)
+                        android.util.Log.i(
+                            "SamsungHealthManager",
+                            "Duración agregada de ejercicio hoy: ${seconds.toLong()}s"
+                        )
+                    } else {
+                        android.util.Log.w(
+                            "SamsungHealthManager",
+                            "Samsung Health no devolvió la duración agregada de ejercicio de hoy"
+                        )
+                    }
                 }
             } catch (e: Exception) {
                 // Unavailable/ungranted types do not prevent the rest of the snapshot,
