@@ -65,6 +65,7 @@ try {
     New-Item -ItemType Directory -Path $compatDir -Force | Out-Null
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'oneui-compat/LauncherCompat-stock.smali') -Destination (Join-Path $compatDir 'LauncherCompat.smali') -Force
     & (Join-Path $PSScriptRoot 'patch-oneui-behavior.ps1') -DecodedRoot $decoded -StockHost
+    & (Join-Path $PSScriptRoot 'patch-finder-opaque-cards.ps1') -DecodedRoot $decoded
 
     # Return all temporary shaded references to Samsung's original library names.
     $reverseMap = @($namespaceMap | ForEach-Object { @{ From = $_.To; To = $_.From } })
@@ -110,7 +111,7 @@ try {
         OutputApk = $OutputApk
         Sha256 = $hash
         Package = 'com.sec.android.app.launcher'
-        Includes = 'Nemotron Home policy, manual app pin dialog, social icon filtering, native shortcut return matching, package-event filter, and scheduler tuning.'
+        Includes = 'Nemotron Home policy, manual app pin dialog, social icon filtering, native shortcut return matching, package-event filter, scheduler tuning, and opaque Finder cards.'
         Note = 'Runtime-only candidate. Never install; use only with the per-process root mount controller.'
     } | Format-List
 } catch {

@@ -11,3 +11,7 @@ INSERT OR IGNORE INTO nemotron_native_allowlist SELECT id,component FROM item WH
 INSERT OR IGNORE INTO nemotron_native_allowlist VALUES (-2147483648,'initialized');
 -- Keep automatically discovered AppItems hidden, while preserving shortcuts the user explicitly pins.
 DELETE FROM item WHERE type='app' AND (component LIKE 'com.sec.android.app.shealth/%' OR intent LIKE '%com.sec.android.app.shealth%' OR component LIKE 'com.whatsapp/%' OR intent LIKE '%com.whatsapp%');
+-- Keep the user's single Home page. App entries on later pages are removed
+-- from the launcher database only; packages remain installed and enabled.
+DELETE FROM item WHERE container_id IN (SELECT id FROM item_group WHERE type='page' AND rank > 0);
+DELETE FROM item_group WHERE type='page' AND rank > 0;

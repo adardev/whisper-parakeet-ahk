@@ -161,3 +161,44 @@ One UI Home. El código fuente y estas instrucciones permanecen versionados en
 GitHub aunque se quite ese paquete del teléfono. En esta actualización se
 desinstaló `com.nemotron.voiceime2`; se confirmó que Core, el teclado activo,
 One UI Home como HOME y el montaje KernelSU de la sesión siguen disponibles.
+
+### Tarjetas opacas de Finder (16 nov 2026)
+
+La captura del usuario identifica dos tarjetas del propio Finder de One UI Home:
+**Searched apps** y **Quick panel**. La jerarquía de accesibilidad confirma que
+ambas son vistas `card_layout` del paquete `com.sec.android.app.launcher` y usan
+`@drawable/search_card_background`. El fondo del bloqueo también se ve en la
+captura; no forma parte de este cambio.
+
+Se añadió `apps/nemotron-ui/build/patch-finder-opaque-cards.ps1` y se integró en
+`prepare-stock-oneui-root-candidate.ps1`. El script conserva radio, tamaños y
+contenido Samsung, y fija los cuatro drawables `search_card_background`,
+`_dark`, `_light` y `_medium` en `#ff242629`, cuyo canal alfa es `ff` (100 %).
+Así se cubren las variantes que Finder selecciona para sus tarjetas. El APK
+candidato compilado y firmado para la sesión está en
+`C:\Users\adaredu\work\oneui-finder-opaque-root-candidate.apk`, SHA-256
+`a2eed8c69d9dbaa9dd19b6dbf3241971ef01d1888aa90bbba65275ffe476a0e6`.
+Apktool volvió a decodificar el candidato y confirmó el color opaco en los
+cuatro drawables.
+
+El candidato quedó activo en esta sesión KernelSU mediante el montaje que ya
+usaba One UI Home. Se quitó el bind anterior, se instaló el nuevo APK candidato
+en la ruta fuente y se volvió a montar sobre One UI Home; el hash de Zygote y
+del proceso del launcher coincide con el candidato. `/system` conserva la huella
+original. La captura posterior muestra opacas ambas tarjetas; no hubo fatal ni
+ANR. [Captura de Finder](images/finder-opaque-2026-11-16.png).
+
+El `su -c` normal de ADB entrega UID 0 sin capacidades de montaje. El controlador
+`nemotron_oneui_home_control.sh` ahora detecta si no puede entrar al namespace y
+reintenta esa operación con `su -mm`; la ejecución quedó comprobada con
+`status` → `disable` → `enable` → `status`. El APK actualizado de Nemotron Core
+(versión 1.6, versionCode 11) se instaló para sincronizar el hash y el
+controlador. El montaje sigue siendo de sesión: no es un módulo persistente y
+puede requerir volver a activarlo después de reiniciar o cerrar KernelSU. No
+requiere AOD, no cambia el fondo y no modifica la pantalla de bloqueo.
+
+### Limpieza de la segunda página (16 nov 2026)
+
+La base `HomeOnly.db` contenía seis accesos en una segunda página. Se respaldó la base antes de la limpieza y se aplicó la política desde One UI Home al abrirla: elimina los elementos y grupos de páginas posteriores a la primera. Esta política también elimina cualquier contenido que se coloque en páginas adicionales cuando vuelva a abrirse la base; la página principal, dock y widgets existentes se conservan. No desinstala ni deshabilita paquetes.
+
+Tras abrir One UI Home se comprobó la integridad de la base y que solo quedaba la página `id=3`, con sus accesos y widgets. El APK de sesión activo tiene SHA-256 `91065022a24e092a9174b503d26850aa99ff78c3971dd4e12b4fc53db11e84a2`; el APK Samsung en `/system` conserva su hash original. El montaje es temporal y debe reactivarse tras reiniciar. El respaldo local anterior a la limpieza está en `C:\Users\adaredu\work\homeonly-before-page2-clean-20261116.db` junto con sus archivos WAL y SHM.

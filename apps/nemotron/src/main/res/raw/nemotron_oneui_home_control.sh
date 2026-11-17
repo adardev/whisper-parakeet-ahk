@@ -5,12 +5,23 @@ set -eu
 pkg=com.sec.android.app.launcher
 source=/data/local/tmp/nemotron-oneui-home-root-candidate.apk
 source_name=nemotron-oneui-home-root-candidate.apk
-candidate_hash=857f05b77c784fb9712bf7af6575d80556f2944e7839d7728c590b9a603cc419
+candidate_hash=91065022a24e092a9174b503d26850aa99ff78c3971dd4e12b4fc53db11e84a2
 original_hash=b97823026a11786674f49ab0b763b055a539426e6f1221d5d54a8e93a18d9da1
 marker=/data/local/tmp/nemotron-oneui-home.target
 
 zyg=`pidof zygote64`
 case "$zyg" in ''|*[!0-9]*) echo no_zygote; exit 1;; esac
+
+# KernelSU's default su shell may have uid 0 but no CAP_SYS_ADMIN. Retry only
+# this mount controller in mount-master mode when entering Zygote's namespace
+# fails; keep the retry bounded to avoid recursion.
+if ! nsenter -t "$zyg" -m -- true >/dev/null 2>&1; then
+  if [ "${NEMOTRON_MOUNT_MASTER_RETRY:-0}" = 1 ]; then
+    echo namespace_access_denied
+    exit 1
+  fi
+  exec su -mm -c "NEMOTRON_MOUNT_MASTER_RETRY=1 sh '$0' '${1:-}'"
+fi
 
 get_path() { pm path "$1" | sed -n '1s/^package://p'; }
 valid_target() { [ "$1" = /system/priv-app/TouchWizHome_2017/TouchWizHome_2017.apk ]; }
