@@ -324,3 +324,77 @@ su -c 'sh /data/adb/modules/nemotron-session-patches/waze-control.sh disable'
 ```
 
 Waze auto-activation at boot remains off until the final in-car behavior has been confirmed. No reboot was performed. The proprietary APKs and generated screenshots/videos are intentionally not tracked; the builders, installer/controller, and this experiment log are tracked.
+
+### Two-step destination flow and map Settings removal (22 Nov 2026)
+
+The user's four head-unit photos clarified that destination selection had two
+separate confirmation screens, so the earlier v4 callback change did not meet
+the requested one-tap flow:
+
+1. Search results (`Where to?`) show places such as `1885 Nueva Escocia,
+   Guadalajara`.
+2. Selecting a place shows the address/place card and its first **Go now**.
+3. That action opens the trip-overview map/pane, with route options and a
+   second **Go now**.
+4. The second action starts turn-by-turn navigation.
+
+The first action is Waze's `AAOS_ADDRESS_PREVIEW_GO_NOW` (`0x7f120027`). The
+builder now invokes that screen's existing callback once when a valid
+address-preview action is built. The per-controller guard prevents repeated
+Car App template refreshes from dispatching multiple starts. When routes are
+ready, the trip-overview pane invokes its existing `AAOS_TRIP_OVERVIEW_GO_ACTION`
+callback once per screen instance. This uses Waze's own destination and
+recommended-route selection; it does not substitute a hard-coded destination
+or route. The earlier route-preview callback hook remains as a fallback for
+the alternate Waze Car App screen path.
+
+The map toolbar retains **Search** and now omits **Settings**, in addition to
+the already removed Home/Work and Saved Places actions.
+
+Candidate v6, built from the original installed Waze base:
+
+- SHA-256: `26fb4578f09d96d399f3fbd117b9b39d2ebd05977184f58c7a9914ffe3cd5d8d`
+- Apktool build, zipalign, and APK v3 signature verification succeeded.
+- KernelSU controller status verifies the installed base remains stock and
+  the Zygote bind mount matches candidate v6.
+- Waze process is running. The post-activation log check showed no Waze fatal
+  exception.
+- The callback path and toolbar still need a parked, in-car interaction check:
+  select a destination and confirm it goes straight to active navigation,
+  with Search present and Settings absent.
+- Like the prior candidate, v6 is session-mounted. The boot hook intentionally
+  does not activate Waze automatically, and no reboot was performed.
+
+Candidate v5 was briefly activated while the first callback was being
+validated, then cleanly unmounted and replaced by v6. It is not the current
+candidate. At that point the builder output was `nemotron-waze-aa-toolbar-v6.apk`.
+
+### Restore destination taps after v6 regression (22 Nov 2026)
+
+The first in-car check disproved the v6 assumption: selecting a destination
+did nothing. The address-preview and trip-overview callbacks had been invoked
+while Waze was constructing Car App templates. Those callbacks enqueue UI
+actions intended to run only after a real host tap; calling them during render
+consumed the action at the wrong time. No crash was required for the UI to
+become unresponsive.
+
+Candidate v7 removes all eager Go-now callback invocations. It retains the
+known map presentation changes: fullscreen initial map, Home/Work and Saved
+Places removed, Search retained, and Settings omitted. Waze's normal tap
+handlers are restored. This addresses the no-op tap regression, but also means
+the requested direct-to-navigation flow is not implemented in v7: the natural
+Waze confirmation flow remains until a correct tap-time interception is
+identified and tested.
+
+- Builder output: `nemotron-waze-aa-toolbar-v7.apk`.
+- SHA-256: `738db3b2618d47db57a05a3ab69632b9bfdb161c45616795ebe7d79148f6be25`.
+- Mounted through KernelSU's Zygote bind mount; PackageManager's installed
+  Waze APK remains stock (`3ea14a...c0aefc`).
+- Waze restarted with PID 7671 and the post-activation log check showed no
+  fatal exception.
+- The v7 template/callback behavior still needs a parked in-car tap check.
+- No reboot was performed. Boot auto-activation remains disabled.
+
+Do not reintroduce callback invocation from a template builder or state
+collector. A future one-tap implementation must intercept the user's actual
+place-selection action and preserve Waze's selected/recommended route.

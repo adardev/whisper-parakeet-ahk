@@ -1,6 +1,6 @@
 param(
     [string]$InputApk = "$env:TEMP\waze-base.apk",
-    [string]$OutputApk = "$env:TEMP\nemotron-waze-aa-toolbar-v4.apk"
+    [string]$OutputApk = "$env:TEMP\nemotron-waze-aa-toolbar-v7.apk"
 )
 
 $ErrorActionPreference = 'Stop'
@@ -135,38 +135,24 @@ $startMethod = $startMethod.Insert($toolbarResultEnd, $fullscreen.Replace("`n", 
 $startText = $startText.Substring(0, $methodStart) + $startMethod + $startText.Substring($methodEnd)
 [System.IO.File]::WriteAllText($startScreen, $startText, [System.Text.UTF8Encoding]::new($false))
 
-# On the route-preview screen, invoke Waze's existing Go now callback when a
-# ready selected-route model arrives. Guard it per screen instance so repeated
-# template refreshes cannot submit the same navigation action multiple times.
-$routeScreen = Join-Path $decoded 'smali_classes5\com\waze\c\a\b\h.smali'
-$routeText = [System.IO.File]::ReadAllText($routeScreen)
-$fieldsAnchor = '.field private final e:Landroidx/car/app/navigation/model/RoutePreviewNavigationTemplate;'
-if (-not $routeText.Contains($fieldsAnchor)) { throw 'Waze route-preview screen fields changed.' }
-if (-not $routeText.Contains('.field private f:Z')) {
-    $routeText = $routeText.Replace($fieldsAnchor, $fieldsAnchor + [Environment]::NewLine + '.field private f:Z')
+# Do not invoke UI action callbacks while constructing templates. Waze only
+# handles those callbacks after the driver taps the matching action; eagerly
+# calling them here consumes the action before the host can dispatch a tap.
+
+# Keep the map Search action but omit Settings from Waze's map action strip.
+$toolbarText = [System.IO.File]::ReadAllText($toolbar)
+$toolbarStart = $toolbarText.IndexOf($signature)
+$toolbarEnd = $toolbarText.IndexOf('.end method', $toolbarStart)
+$toolbarMethod = $toolbarText.Substring($toolbarStart, $toolbarEnd - $toolbarStart)
+$settingsLabel = '    :cond_b'
+$settingsIndex = $toolbarMethod.IndexOf($settingsLabel)
+if ($settingsIndex -lt 0) { throw 'Could not locate the map Settings action.' }
+$settingsEnd = $settingsIndex + $settingsLabel.Length
+if (-not $toolbarMethod.Substring($settingsEnd).StartsWith([Environment]::NewLine + '    goto :cond_c')) {
+    $toolbarMethod = $toolbarMethod.Insert($settingsEnd, [Environment]::NewLine + '    goto :cond_c')
 }
-$routeBranch = '    if-eqz v9, :cond_a'
-$routeBranchIndex = $routeText.IndexOf($routeBranch)
-if ($routeBranchIndex -lt 0) { throw 'Could not locate the selected-route branch.' }
-$routeBranchEnd = $routeText.IndexOf([Environment]::NewLine, $routeBranchIndex) + [Environment]::NewLine.Length
-$autoStart = @'
-    iget-boolean v5, v0, Lcom/waze/c/a/b/h;->f:Z
-
-    if-nez v5, :nemotron_auto_start_already_dispatched
-
-    const/4 v5, 0x1
-
-    iput-boolean v5, v0, Lcom/waze/c/a/b/h;->f:Z
-
-    invoke-interface {v11}, Lg/h/a/a;->invoke()Ljava/lang/Object;
-
-    return-void
-
-    :nemotron_auto_start_already_dispatched
-    return-void
-'@
-$routeText = $routeText.Insert($routeBranchEnd, $autoStart.Replace("`n", [Environment]::NewLine))
-[System.IO.File]::WriteAllText($routeScreen, $routeText, [System.Text.UTF8Encoding]::new($false))
+$toolbarText = $toolbarText.Substring(0, $toolbarStart) + $toolbarMethod + $toolbarText.Substring($toolbarEnd)
+[System.IO.File]::WriteAllText($toolbar, $toolbarText, [System.Text.UTF8Encoding]::new($false))
 
 & $java -jar $apktool b $decoded -o $rebuilt
 if ($LASTEXITCODE -ne 0) { throw "Apktool build failed ($LASTEXITCODE)" }
