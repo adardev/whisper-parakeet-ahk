@@ -408,3 +408,29 @@ identified and tested.
 Do not reintroduce callback invocation from a template builder or state
 collector. A future one-tap implementation must intercept the user's actual
 place-selection action and preserve Waze's selected/recommended route.
+
+### Boot activation repair (22 Nov 2026)
+
+After the user reported that the Waze Android Auto changes were absent on a new
+Android Auto connection, ADB showed the installed Waze APK still had the stock
+hash and the Zygote namespace also exposed that stock hash. The persistent
+KernelSU store did contain the v7 candidate and matching hash, but the live
+module lacked `waze-control.sh`; its installed boot hook had no Waze activation
+block, and the module had no KernelSU `service.sh` hook to run it after boot.
+That explains why the session mount did not survive as an automatic startup
+patch.
+
+The repair adds a KernelSU `service.sh` that waits for a stable Zygote,
+PackageManager, and installed Waze path, verifies the stored v7 APK and hash,
+then calls `waze-control.sh boot-enable`. At boot, that mode mounts only the
+verified candidate and avoids force-stopping Waze if Android Auto has already
+started it. The regular manual `enable` command still restarts Waze and should
+only be used while parked.
+
+The files were installed on the A54 without a reboot. `waze-control.sh status`
+then confirmed the stock PackageManager hash, the v7 Zygote mount hash, and the
+matching persistent candidate hash. The active Waze process was deliberately
+not stopped while Android Auto was connected; that already-running process
+keeps its loaded stock code until Waze is restarted safely. The next new Waze
+process will inherit the v7 mount, and the KernelSU `service.sh` will recreate
+the mount on future boots. No phone reboot was performed.

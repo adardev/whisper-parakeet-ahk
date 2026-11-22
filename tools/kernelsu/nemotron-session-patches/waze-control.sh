@@ -33,7 +33,8 @@ file_hash() {
 ns_hash() { nsenter -t "$zyg" -m -- sha256sum "$target" 2>/dev/null | cut -d ' ' -f 1; }
 
 case "${1:-}" in
-  enable)
+  enable|boot-enable)
+    action=${1:-}
     [ "$(file_hash "$target")" = "$original_hash" ] || { echo original_changed; exit 1; }
     if [ "$(file_hash "$source" 2>/dev/null || true)" != "$candidate_hash" ]; then
       staged="$source.new"
@@ -60,8 +61,16 @@ case "${1:-}" in
       exit 1
     }
     printf '%s\n' "$target" > "$marker"
-    # Restart only Waze so its next CarAppService process inherits this mount.
-    am force-stop --user 0 "$pkg" >/dev/null 2>&1 || true
+    # A manual enable is only used while parked and restarts Waze so its next
+    # CarAppService process inherits this mount. At boot, avoid interrupting
+    # Android Auto if the user connected before KernelSU's late_start hook ran;
+    # that process will pick up the mount the next time Waze starts naturally.
+    if [ "$action" = enable ]; then
+      am force-stop --user 0 "$pkg" >/dev/null 2>&1 || true
+    elif pidof "$pkg" >/dev/null 2>&1; then
+      echo mounted_restart_deferred
+      exit 0
+    fi
     echo active
     ;;
   disable)
@@ -85,5 +94,5 @@ case "${1:-}" in
     echo "candidate=$(file_hash "$source" 2>/dev/null || file_hash "$store/nemotron-waze-aa-candidate-v1.apk" 2>/dev/null || true)"
     echo "expected=$candidate_hash"
     ;;
-  *) echo 'usage: enable|disable|status'; exit 2 ;;
+  *) echo 'usage: enable|boot-enable|disable|status'; exit 2 ;;
 esac

@@ -46,3 +46,15 @@ sin tocar `/system`. No se reinició el A54 para validar el nuevo arranque. La
 revisión local encontró el ADB desconectado al preparar esta versión, así que el
 paquete documenta el estado de arranque; la carga del módulo actualizado en el
 teléfono necesita que KernelSU reciba esta versión del módulo.
+
+## Waze late_start hook repair
+
+El 22 de noviembre, la auditoría del A54 encontró el APK v7 y su hash en el
+almacén persistente, pero no encontró `waze-control.sh` ni `service.sh` en el
+módulo activo. Por eso el montaje que se había hecho durante una sesión ADB no
+se reconstruía automáticamente al iniciar. Se instaló `service.sh` como hook
+late_start de KernelSU: espera a Zygote y Package Manager, valida el APK v7 y
+monta Waze sin detenerlo si ya está abierto. El montaje de esta sesión se
+verificó por hash en Zygote; el proceso Waze que ya estaba conectado a Android
+Auto no se reinició y conserva el código que cargó al arrancar. El próximo
+proceso Waze nuevo hereda el patch. No se reinició el teléfono.

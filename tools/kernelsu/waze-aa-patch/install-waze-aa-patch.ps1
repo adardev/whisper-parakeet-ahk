@@ -9,6 +9,7 @@ $repo = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
 $adb = 'adb'
 $module = Join-Path $repo 'tools\kernelsu\nemotron-session-patches'
 $controller = Join-Path $module 'waze-control.sh'
+$service = Join-Path $module 'service.sh'
 $moduleProp = Join-Path $module 'module.prop'
 $deviceModule = '/data/adb/modules/nemotron-session-patches'
 $store = '/data/adb/nemotron-session-patches'
@@ -16,6 +17,7 @@ $stage = '/data/local/tmp/nemotron-waze-aa-stage'
 $remoteCandidate = "$stage/nemotron-waze-aa-candidate-v1.apk"
 $remoteHash = "$stage/waze-aa.sha256"
 $remoteController = "$stage/waze-control.sh"
+$remoteService = "$stage/service.sh"
 $remoteProp = "$stage/module.prop"
 $candidateHash = (Get-FileHash -LiteralPath $CandidateApk -Algorithm SHA256).Hash.ToLowerInvariant()
 
@@ -33,7 +35,7 @@ if ($LASTEXITCODE -ne 0 -or ($remoteStock -join ' ') -notmatch '3ea14a2669439b24
 }
 
 $backup = "$store/backup-before-waze-aa-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
-$prepare = "mkdir -p $stage $store $backup; cp -p $deviceModule/boot-completed.sh $backup/boot-completed.sh; cp -p $deviceModule/module.prop $backup/module.prop"
+$prepare = "mkdir -p $stage $store $backup; cp -p $deviceModule/boot-completed.sh $backup/boot-completed.sh; cp -p $deviceModule/module.prop $backup/module.prop; if [ -f $deviceModule/service.sh ]; then cp -p $deviceModule/service.sh $backup/service.sh; fi"
 & $adb -s $Serial shell "su -c '$prepare'" | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'Could not back up the existing KernelSU hook.' }
 
@@ -45,6 +47,7 @@ try {
         @($CandidateApk, $remoteCandidate),
         @($hashFile, $remoteHash),
         @($controller, $remoteController),
+        @($service, $remoteService),
         @($moduleProp, $remoteProp)
     )) {
         & $adb -s $Serial push $entry[0] $entry[1] | Out-Null
@@ -61,15 +64,18 @@ mkdir -p $store $deviceModule
 cp $remoteCandidate $store/nemotron-waze-aa-candidate-v1.apk.new
 cp $remoteHash $store/waze-aa.sha256.new
 cp $remoteController $deviceModule/waze-control.sh.new
+cp $remoteService $deviceModule/service.sh.new
 cp $remoteProp $deviceModule/module.prop.new
 test "`$(sha256sum $store/nemotron-waze-aa-candidate-v1.apk.new | cut -d ' ' -f1)" = $candidateHash
 chmod 0644 $store/nemotron-waze-aa-candidate-v1.apk.new $store/waze-aa.sha256.new $deviceModule/module.prop.new
-chmod 0755 $deviceModule/waze-control.sh.new
+chmod 0755 $deviceModule/waze-control.sh.new $deviceModule/service.sh.new
 mv -f $store/nemotron-waze-aa-candidate-v1.apk.new $store/nemotron-waze-aa-candidate-v1.apk
 mv -f $store/waze-aa.sha256.new $store/waze-aa.sha256
 mv -f $deviceModule/waze-control.sh.new $deviceModule/waze-control.sh
+mv -f $deviceModule/service.sh.new $deviceModule/service.sh
 mv -f $deviceModule/module.prop.new $deviceModule/module.prop
 sh -n $deviceModule/waze-control.sh
+sh -n $deviceModule/service.sh
 echo staged_no_reboot
 "@
 $tempInstall = Join-Path $env:TEMP ('waze-aa-install-' + [guid]::NewGuid().ToString('N') + '.sh')
@@ -87,6 +93,6 @@ if ($EnableNow) {
     & $adb -s $Serial shell "su -c 'sh $deviceModule/waze-control.sh enable'"
     if ($LASTEXITCODE -ne 0) { throw 'Could not activate the Waze mount.' }
 } else {
-    Write-Output 'Staged the manual Waze candidate without enabling it at boot. Use -EnableNow only while the car is parked.'
+    Write-Output 'Staged the Waze candidate and KernelSU late_start hook. The active session is unchanged; use -EnableNow only while parked.'
 }
 Write-Output "Candidate SHA256: $candidateHash"
