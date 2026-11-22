@@ -201,9 +201,10 @@ if ($StockHost) {
 .end method
 '@
     }
-    # The package-level immersive rule includes One UI Home. Restore the status
-    # bar only after Samsung's Normal home state stays settled for 800 ms; this
-    # avoids revealing it while Home is entering during app/Recents gestures.
+    # The package-level immersive rule includes One UI Home. Restore its status
+    # bar as soon as the Home transition completes, without waiting for the
+    # remaining launcher animation frames. External Quick Switch gestures hold
+    # a guard until Home regains window focus.
     Edit-Class 'Launcher.smali' {
         param($text)
         $resume = '(?s)(\.method public final onResume\(\)V.*?invoke-super \{p0\}, L(?:com/nemotron/oneui/shaded/)?androidx/fragment/app/FragmentActivity;->onResume\(\)V\r?\n)'
@@ -218,7 +219,7 @@ if ($StockHost) {
         if ([regex]::Matches($text, $focus).Count -ne 1) { throw 'Launcher.onWindowFocusChanged hook was not unique.' }
         $focusHook = '$0' + @'
     if-eqz p1, :nemotron_home_focus_done
-    invoke-static {p0}, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->attachAndApply(Lcom/sec/android/app/launcher/Launcher;)V
+    invoke-static {p0}, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->onHomeWindowFocusChanged(Lcom/sec/android/app/launcher/Launcher;)V
     :nemotron_home_focus_done
 '@
         $text = [regex]::Replace($text, $focus, $focusHook, 1)

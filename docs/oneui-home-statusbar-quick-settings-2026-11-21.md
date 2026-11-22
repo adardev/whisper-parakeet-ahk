@@ -1,15 +1,16 @@
 # One UI Home status bar, Gemini shortcut, and immersive Quick Settings — 2026-11-21
 
-## Home status bar timing
+## Home status bar timing and startup persistence
 
-The Home-only status-bar hook keeps the bar hidden during app focus, launcher transitions, launcher animations, and Home losing window focus. On stable normal Home, the status bar is now requested on the next main-loop turn (`postDelayed(..., 0)`), so the Home Live notification can start with the bar already present. The app-switch gesture logic and global immersive policy were not changed for this timing adjustment.
+The Home-only status-bar hook keeps the bar hidden during app focus and external Quick Switch gestures. When One UI Home reports the normal Home state, regains window focus, and is no longer transitioning, it now changes the immersive exception synchronously in that callback. This removes the extra main-loop turn that previously delayed the status bar relative to Home's Live notification animation. The external-gesture guard is cleared only when Home regains focus; Recents/app transitions remain immersive.
 
-The stock Samsung APK at `/system` has SHA-256 `b97823026a11786674f49ab0b763b055a539426e6f1221d5d54a8e93a18d9da1`. The active Zygote and launcher APK now have SHA-256 `45ab667243b1b0192267687848c82662ab38c06fcd5a96e55803eefcb635ce4c`.
+The stock Samsung APK at `/system` has SHA-256 `b97823026a11786674f49ab0b763b055a539426e6f1221d5d54a8e93a18d9da1`. The current live Zygote and launcher APK have SHA-256 `193b3d20f286c44b14284000d8406fab5e0b8e9a7275dc8718dfa2ddd5d8b96a`.
 
-- Candidate: `oneui-home-statusbar-next-loop-20261121.apk`
-- Build: rebuilt from stock with the repo's candidate script and verified with APK Signature Scheme v3.
-- Applied live through the KernelSU Zygote mount controller; launcher process was refreshed. No phone reboot or SystemUI restart was done.
-- The phone's persistent KernelSU candidate store was not updated. Its boot script still references the previous `f961a9a...` candidate, so this 0 ms timing is confirmed live for this boot but is not yet guaranteed to survive the next reboot.
+- Candidate: `oneui-home-instant-focus-20261121.apk`, rebuilt from stock and verified with APK Signature Scheme v3.
+- Applied in this session with the KernelSU Zygote mount controller. Only One UI Home was refreshed; neither the phone nor System UI was restarted.
+- After returning Home, `policy_control` was observed as `immersive.status=apps,-com.sec.android.app.launcher`; `/system` stayed stock.
+- KernelSU module v1.2 was installed with the candidate embedded. KernelSU reported `update=true`, so the module update is staged for the next natural reboot. The phone was not rebooted. Its boot hook prefers the embedded v81 candidate, verifies its hash, and then applies the Zygote mount; HoneyBoard and System UI keep their existing candidate-store fallback. The unique v81 filename avoids replacing an older APK owned by another SELinux context in `/data/local/tmp`.
+- `build-update.ps1` recreates the KernelSU module ZIP from the APK candidate. The APK itself is generated locally and is not committed to the repo.
 
 ## Gemini Home shortcut removal
 

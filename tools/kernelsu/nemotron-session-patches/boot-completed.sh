@@ -24,7 +24,8 @@ lock="/data/local/tmp/nemotron-session-patches-$boot-$zyg.lock"
 mkdir "$lock" 2>/dev/null || { log already_running_or_stale_lock; exit 0; }
 trap 'rmdir "$lock" 2>/dev/null' EXIT
 prepare() {
- src="$STORE/$1"; dst="/data/local/tmp/$1"; expected="$2"
+ src="$MODDIR/$1"; dst="/data/local/tmp/$1"; expected="$2"
+ [ -f "$src" ] || src="$STORE/$1"
  [ "$(file_hash "$src")" = "$expected" ] || { log "source_invalid $1"; return 1; }
  [ "$(file_hash "$dst")" = "$expected" ] && return 0
  cp "$src" "$dst.new" || return 1
@@ -33,8 +34,8 @@ prepare() {
  mv -f "$dst.new" "$dst" || return 1
 }
 # Each controller checks both stock and candidate hashes before mounting.
-oneui=nemotron-oneui-home-root-candidate.apk
-if prepare "$oneui" 45ab667243b1b0192267687848c82662ab38c06fcd5a96e55803eefcb635ce4c; then
+oneui=nemotron-oneui-home-root-candidate-v81.apk
+if prepare "$oneui" 193b3d20f286c44b14284000d8406fab5e0b8e9a7275dc8718dfa2ddd5d8b96a; then
  sh "$MODDIR/oneui-control.sh" enable >> "$LOG" 2>&1 || log oneui_failed
 fi
 keyboard=nemotron-honeyboard-root-candidate-waveform.apk

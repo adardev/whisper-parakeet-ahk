@@ -3,6 +3,7 @@
 
 .field private static activityRef:Ljava/lang/ref/WeakReference;
 .field private static showHomeStatusRunnable:Ljava/lang/Runnable;
+.field private static externalAppGestureActive:Z
 
 .method static constructor <clinit>()V
     .locals 1
@@ -59,6 +60,18 @@
     return-void
 .end method
 
+.method public static onHomeWindowFocusChanged(Lcom/sec/android/app/launcher/Launcher;)V
+    .locals 1
+
+    if-eqz p0, :done
+    const/4 v0, 0x0
+    sput-boolean v0, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->externalAppGestureActive:Z
+    invoke-static {p0}, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->attachAndApply(Lcom/sec/android/app/launcher/Launcher;)V
+
+    :done
+    return-void
+.end method
+
 .method public static detach(Lcom/sec/android/app/launcher/Launcher;)V
     .locals 1
 
@@ -100,13 +113,16 @@
     invoke-interface {p1}, Lcom/honeyspace/sdk/HoneyScreenManager;->isNormalHomescreen()Z
     move-result v0
     if-eqz v0, :hide
+    sget-boolean v0, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->externalAppGestureActive:Z
+    if-nez v0, :hide
     invoke-interface {p1}, Lcom/honeyspace/sdk/HoneyScreenManager;->isOnStateTransition()Z
     move-result v0
     if-nez v0, :hide
-    invoke-interface {p1}, Lcom/honeyspace/sdk/HoneyScreenManager;->isOnGoingAnimationRunning()Z
-    move-result v0
-    if-nez v0, :hide
-    invoke-static {p0}, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->scheduleHomeStatusBar(Landroid/content/Context;)V
+    # Apply in this focus/state callback itself. Posting even a zero-delay
+    # runnable leaves one main-loop turn where Home's live header can move
+    # before the status bar becomes visible.
+    const/4 v0, 0x1
+    invoke-static {p0, v0}, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->setImmersivePolicy(Landroid/content/Context;Z)V
     goto :done
 
     :hide
@@ -128,9 +144,9 @@
     invoke-direct {v1, v0}, Landroid/os/Handler;-><init>(Landroid/os/Looper;)V
     sget-object v2, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->showHomeStatusRunnable:Ljava/lang/Runnable;
     invoke-virtual {v1, v2}, Landroid/os/Handler;->removeCallbacks(Ljava/lang/Runnable;)V
-    # State, animation, and focus gates above and in the deferred callback
-    # isolate this to stable Home. Post on the next main-loop turn so Home
-    # status-bar-backed Live notifications do not animate ahead of the bar.
+    # State-transition and focus gates above and in the deferred callback
+    # isolate this to Home. Do not wait for the final launcher
+    # animation frames; Live notifications and the status bar should arrive together.
     const-wide/16 v3, 0x0
     invoke-virtual {v1, v2, v3, v4}, Landroid/os/Handler;->postDelayed(Ljava/lang/Runnable;J)Z
     return-void
@@ -164,8 +180,7 @@
     invoke-interface {v1}, Lcom/honeyspace/sdk/HoneyScreenManager;->isOnStateTransition()Z
     move-result v2
     if-nez v2, :done
-    invoke-interface {v1}, Lcom/honeyspace/sdk/HoneyScreenManager;->isOnGoingAnimationRunning()Z
-    move-result v1
+    sget-boolean v1, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->externalAppGestureActive:Z
     if-nez v1, :done
     const/4 v1, 0x1
     invoke-static {v0, v1}, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->setImmersivePolicy(Landroid/content/Context;Z)V
@@ -176,6 +191,9 @@
 
 .method public static onExternalAppGestureStart(Landroid/content/Context;)V
     .locals 3
+
+    const/4 v0, 0x1
+    sput-boolean v0, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->externalAppGestureActive:Z
 
     # Cancel every pending Home reveal first. A delayed callback can otherwise
     # race the launcher losing focus during the lateral task switch.

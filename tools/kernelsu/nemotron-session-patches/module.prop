@@ -1,6 +1,6 @@
 id=nemotron-session-patches
 name=Nemotron Session Patches
-version=1.0
-versionCode=1
+version=1.2
+versionCode=3
 author=Nemotron
-description=Late boot session mounts with hash checks and SystemUI rollback; no system overlay.
+description=Boot-persistent root patches with hash checks, Home status bar sync, and SystemUI rollback; no system overlay.
