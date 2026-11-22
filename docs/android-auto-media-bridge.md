@@ -132,7 +132,7 @@ The Waze Android Auto Car App source was rebuilt from the installed Waze
 5.27.0.1 base APK (versionCode 1030748; source SHA-256
 `3ea14a2669439b240bb59aaa28b7a8557829d125cf103ebde196bc5606c0aefc`). The
 Zygote-private candidate is SHA-256
-`df9845f0f5f90d473c32bc135cf7751a1cad9e38cea8b341b3fa9ac22516393c` and was
+`314b2b99f1bfa0c240a7c638fa45e53763fd26258cc3a8df808db32498d35204` and was
 verified with `apksigner` v3. It is not installed through Package Manager, so
 the phone APK, Package Manager signature state, and phone-side Waze interface
 remain stock.
@@ -162,22 +162,17 @@ models to address that regression. Its corrected persistent mount is verified,
 but the new panel and route-preview behavior still need a physical car-display
 check.
 
-The first map-only template caused Android Auto to reject Waze's screen because
-`MapTemplate.Builder` requires either a Pane or an ItemList. The crash appeared
-as `IllegalStateException: Either Pane or Item List must be set but not both`.
-The active candidate now supplies a Pane row with a single-space title while retaining
-the map controller and action strip. Zygote's mount hash matches this new
-candidate and the installed package remains stock. A fresh car-display launch
-is still required to verify the host accepts the corrected template and that
-the Drive now panel stays absent.
-
-The first Pane correction still crashed because Android Auto rejects an empty
-Row title (`IllegalArgumentException: The title cannot be null or empty`). The
-current candidate uses a single-space title to satisfy that check without
-displaying a visible label. The candidate was rebuilt, signature-verified,
-staged, and activated. No new Waze launch from an Android Auto host appeared in
-the device log after activation, so a new head-unit session must confirm this
-last validation fix opens cleanly.
+The initial map-only versions caused successive Android Auto template errors:
+the first omitted the required Pane/ItemList; the Pane workaround then failed
+on an empty row title; and the MapTemplate attempt was rejected as a nested
+content template. The current candidate keeps Waze's supported parent
+MapWithContentTemplate and supplies a ListTemplate with a single-space row,
+omitting the Drive now header and destinations while retaining the map action
+strip. Zygote is mounted with candidate SHA-256
+`314b2b99f1bfa0c240a7c638fa45e53763fd26258cc3a8df808db32498d35204`; the
+installed base APK hash remains stock. The latest device log has no new Waze
+launch after this activation, so the Android Auto host still needs to open a
+fresh Waze session to confirm the template renders successfully.
 
 To inspect the staged/active state:
 

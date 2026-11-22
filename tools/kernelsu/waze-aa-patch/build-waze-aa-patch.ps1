@@ -117,15 +117,13 @@ $mapOnly = @'
 
     :nemotron_map_only_start_state
 
-    new-instance v13, Landroidx/car/app/navigation/model/MapTemplate$Builder;
+    new-instance v13, Landroidx/car/app/model/ListTemplate$Builder;
 
-    invoke-direct {v13}, Landroidx/car/app/navigation/model/MapTemplate$Builder;-><init>()V
+    invoke-direct {v13}, Landroidx/car/app/model/ListTemplate$Builder;-><init>()V
 
-    invoke-virtual {v13, v14}, Landroidx/car/app/navigation/model/MapTemplate$Builder;->setMapController(Landroidx/car/app/navigation/model/MapController;)Landroidx/car/app/navigation/model/MapTemplate$Builder;
+    new-instance v12, Landroidx/car/app/model/ItemList$Builder;
 
-    new-instance v12, Landroidx/car/app/model/Pane$Builder;
-
-    invoke-direct {v12}, Landroidx/car/app/model/Pane$Builder;-><init>()V
+    invoke-direct {v12}, Landroidx/car/app/model/ItemList$Builder;-><init>()V
 
     new-instance v11, Landroidx/car/app/model/Row$Builder;
 
@@ -139,19 +137,19 @@ $mapOnly = @'
 
     move-result-object v11
 
-    invoke-virtual {v12, v11}, Landroidx/car/app/model/Pane$Builder;->addRow(Landroidx/car/app/model/Row;)Landroidx/car/app/model/Pane$Builder;
+    invoke-virtual {v12, v11}, Landroidx/car/app/model/ItemList$Builder;->addItem(Landroidx/car/app/model/Item;)Landroidx/car/app/model/ItemList$Builder;
 
-    invoke-virtual {v12}, Landroidx/car/app/model/Pane$Builder;->build()Landroidx/car/app/model/Pane;
+    invoke-virtual {v12}, Landroidx/car/app/model/ItemList$Builder;->build()Landroidx/car/app/model/ItemList;
 
     move-result-object v12
 
-    invoke-virtual {v13, v12}, Landroidx/car/app/navigation/model/MapTemplate$Builder;->setPane(Landroidx/car/app/model/Pane;)Landroidx/car/app/navigation/model/MapTemplate$Builder;
+    invoke-virtual {v13, v12}, Landroidx/car/app/model/ListTemplate$Builder;->setSingleList(Landroidx/car/app/model/ItemList;)Landroidx/car/app/model/ListTemplate$Builder;
 
     move-object/from16 v12, v33
 
-    invoke-virtual {v13, v12}, Landroidx/car/app/navigation/model/MapTemplate$Builder;->setActionStrip(Landroidx/car/app/model/ActionStrip;)Landroidx/car/app/navigation/model/MapTemplate$Builder;
+    invoke-virtual {v13, v12}, Landroidx/car/app/model/ListTemplate$Builder;->setActionStrip(Landroidx/car/app/model/ActionStrip;)Landroidx/car/app/model/ListTemplate$Builder;
 
-    invoke-virtual {v13}, Landroidx/car/app/navigation/model/MapTemplate$Builder;->build()Landroidx/car/app/navigation/model/MapTemplate;
+    invoke-virtual {v13}, Landroidx/car/app/model/ListTemplate$Builder;->build()Landroidx/car/app/model/ListTemplate;
 
     move-result-object v13
 
