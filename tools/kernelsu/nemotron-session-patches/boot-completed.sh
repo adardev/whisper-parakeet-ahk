@@ -46,6 +46,13 @@ settings=nemotron-settings-app-filter-v1.apk
 if prepare "$settings" afcc203b80e8278c7000a17cd0651e37ba3b96aa9673d11fafeaee28b8137d6f; then
  sh "$MODDIR/settings-app-filter-control.sh" enable >> "$LOG" 2>&1 || log settings_filter_failed
 fi
+waze=nemotron-waze-aa-candidate-v1.apk
+waze_hash=$(cat "$STORE/waze-aa.sha256" 2>/dev/null)
+case "$waze_hash" in *[!0-9a-f]*|'') log waze_candidate_hash_missing;; *)
+ if prepare "$waze" "$waze_hash"; then
+  sh "$MODDIR/waze-control.sh" enable >> "$LOG" 2>&1 || log waze_aa_failed
+ fi
+;; esac
 # SystemUI is session mounted only after stock/candidate validation. A failed
 # startup is rolled back and never retried until its failure marker is cleared.
 target=/system/system_ext/priv-app/SystemUI/SystemUI.apk

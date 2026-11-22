@@ -1,6 +1,6 @@
 id=nemotron-session-patches
 name=Nemotron Session Patches
-version=1.9.1
-versionCode=11
+version=1.9.2
+versionCode=12
 author=Nemotron
-description=Boot-persistent root patches with a 100 ms Home status bar settle delay and Settings filter; no system overlay.
+description=Boot-persistent root patches for Home, keyboard, Settings, Waze Android Auto, and SystemUI; no system overlay.

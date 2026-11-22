@@ -6,7 +6,7 @@ $stage = '/data/local/tmp/nemotron-session-patches-update'
 if ($LASTEXITCODE -ne 0) { throw 'ADB device unavailable' }
 & $Adb shell mkdir -p $stage
 if ($LASTEXITCODE -ne 0) { throw 'Cannot create staging directory' }
-foreach ($name in @('module.prop','boot-completed.sh','oneui-control.sh','honeyboard-control.sh','install-update.sh')) {
+foreach ($name in @('module.prop','boot-completed.sh','oneui-control.sh','honeyboard-control.sh','waze-control.sh','install-update.sh')) {
     & $Adb push (Join-Path $module $name) "$stage/$name"
     if ($LASTEXITCODE -ne 0) { throw "Cannot push $name" }
 }

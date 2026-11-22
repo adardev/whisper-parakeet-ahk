@@ -11,7 +11,7 @@ if ($actual -ne $expected) { throw "Candidate hash mismatch: $actual" }
 $settingsExpected = 'afcc203b80e8278c7000a17cd0651e37ba3b96aa9673d11fafeaee28b8137d6f'
 $settingsActual = (Get-FileHash -LiteralPath $SettingsCandidateApk -Algorithm SHA256).Hash.ToLowerInvariant()
 if ($settingsActual -ne $settingsExpected) { throw "Settings candidate hash mismatch: $settingsActual" }
-foreach ($name in @('boot-completed.sh','oneui-control.sh','honeyboard-control.sh','hotinstall.sh','customize.sh')) {
+foreach ($name in @('boot-completed.sh','oneui-control.sh','honeyboard-control.sh','waze-control.sh','hotinstall.sh','customize.sh')) {
     $path = Join-Path $module $name
     if (-not (Test-Path -LiteralPath $path)) { throw "Missing module file: $name" }
 }
@@ -20,7 +20,7 @@ if (-not (Test-Path -LiteralPath $settingsControl)) { throw 'Missing Settings ap
 $stage = Join-Path $env:TEMP ('nemotron-session-patches-package-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $stage | Out-Null
 try {
-    foreach ($name in @('module.prop','boot-completed.sh','oneui-control.sh','honeyboard-control.sh','install-update.sh','customize.sh','hotinstall.sh')) {
+    foreach ($name in @('module.prop','boot-completed.sh','oneui-control.sh','honeyboard-control.sh','waze-control.sh','install-update.sh','customize.sh','hotinstall.sh')) {
         Copy-Item -LiteralPath (Join-Path $module $name) -Destination $stage
     }
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot '..\settings-app-filter\control.sh') -Destination (Join-Path $stage 'settings-app-filter-control.sh')

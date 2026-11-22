@@ -125,3 +125,53 @@ private/secure virtual display; ADB captures it as black and cannot inspect its
 controls or reliably inject taps. Do not disable Waze's car service as a
 workaround, since that would remove navigation rather than only dismissing the
 panel.
+
+### Waze Android Auto action strip and route preview patch (22 Nov 2026)
+
+The Waze Android Auto Car App source was rebuilt from the installed Waze
+5.27.0.1 base APK (versionCode 1030748; source SHA-256
+`3ea14a2669439b240bb59aaa28b7a8557829d125cf103ebde196bc5606c0aefc`). The
+Zygote-private candidate is SHA-256
+`e653e1066c349bff72194fa40f328cc3c60fd7316df6be58788276fedfae1e9d` and was
+verified with `apksigner` v3. It is not installed through Package Manager, so
+the phone APK, Package Manager signature state, and phone-side Waze interface
+remain stock.
+
+The Android Auto map action strip no longer publishes the dynamic Home/Work
+shortcut, Saved Places/bookmark, or Search action. Settings is retained, as is
+any independent host-provided action. Waze's separate destination suggestions
+also omit Work. The route alternatives screen now invokes the existing **Go
+now** callback once when route results are ready, using Waze's already selected
+default/best route; this bypasses the extra route-preview step for any
+destination, rather than special-casing Work.
+
+The candidate, expected hash, updated controller, and persistent
+`service.d` boot hook are staged under `/data/adb`. The hook enables the private
+Zygote mount after boot without changing Package Manager's view. At staging
+time the Zygote and installed base APK still both report the original stock
+hash, and Waze is running, so this build has **not yet been activated or
+verified on the car display**. Activation force-stops Waze so its next
+Android Auto service process inherits the mount; do that only while parked and
+with no active navigation. No reboot was performed.
+
+To inspect the staged/active state:
+
+```sh
+su -c 'sh /data/adb/modules/nemotron-session-patches/waze-control.sh status'
+```
+
+Once parked, activate with:
+
+```sh
+su -c 'sh /data/adb/modules/nemotron-session-patches/waze-control.sh enable'
+```
+
+Rollback to stock and restart Waze with:
+
+```sh
+su -c 'sh /data/adb/modules/nemotron-session-patches/waze-control.sh disable'
+```
+
+The build and staging scripts are in `tools/kernelsu/waze-aa-patch/`. The
+proprietary Waze APK candidate is device-local and is intentionally not tracked
+in Git.
