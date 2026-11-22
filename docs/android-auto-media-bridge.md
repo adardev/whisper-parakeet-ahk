@@ -223,8 +223,24 @@ preview behavior, or phone-side Waze. Candidate SHA-256:
 
 The APK passed Apktool build, zipalign, and `apksigner` v3 verification. It is
 staged in KernelSU storage and was temporarily mounted in Zygote at 13:26 CST;
-the installed Waze APK remains stock. At the time of activation, Android Auto
-had not yet relaunched the Waze process, so its car display is not yet
-verified. Waze candidate auto-activation remains disabled at boot. The
-dedicated builder is
+the installed Waze APK remains stock. A later physical car-display photo
+confirmed Search and Settings remained while the Home/Work and Saved Places
+actions were absent, but also showed that Drive now still appeared. Waze
+candidate auto-activation remains disabled at boot. The dedicated builder is
 `tools/kernelsu/waze-aa-patch/build-waze-aa-toolbar-patch.ps1`.
+
+### Startup panel suppression candidate (22 Nov 2026)
+
+The v2 candidate adds a narrow check in Waze's map-screen builder: if the
+start-state suggestion model is present, it routes to Waze's own existing
+null-content fallback, which creates a loading `ListTemplate`. This avoids
+constructing a new nested template or touching route-preview/navigation
+content. The official Android for Cars API permits `ListTemplate` as content
+inside `MapWithContentTemplate` and requires a supported content template.
+Candidate SHA-256:
+`012c5e88b70589127b57bb70d6425353a18e1f736a583f8da773c9f2cce71a2f`.
+
+The v2 APK passed Apktool, zipalign, and `apksigner` v3 verification. It has
+not been staged or mounted because ADB disconnected after the photo. The
+previous toolbar-only v1 remains the active Zygote mount until v2 can be
+applied and checked on the car display. Auto-activation at boot remains off.

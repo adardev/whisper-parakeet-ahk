@@ -1,6 +1,6 @@
 param(
     [string]$InputApk = "$env:TEMP\waze-base.apk",
-    [string]$OutputApk = "$env:TEMP\nemotron-waze-aa-toolbar-v1.apk"
+    [string]$OutputApk = "$env:TEMP\nemotron-waze-aa-toolbar-v2.apk"
 )
 
 $ErrorActionPreference = 'Stop'
@@ -28,8 +28,8 @@ New-Item -ItemType Directory -Path $work | Out-Null
 & $java -jar $apktool d -f -o $decoded $InputApk
 if ($LASTEXITCODE -ne 0) { throw "Apktool decode failed ($LASTEXITCODE)" }
 
-# Only alter Waze's Android Auto map ActionStrip. Do not patch its CarApp
-# templates, start screen, suggestions, or route flow.
+# Remove the two requested map-toolbar actions without changing the rest of
+# Waze's Car App model or action callbacks.
 $toolbar = Join-Path $decoded 'smali_classes5\com\waze\ca\a\c\b.smali'
 $toolbarText = [System.IO.File]::ReadAllText($toolbar)
 $signature = '.method public static b(Landroidx/car/app/CarContext;ZZZZZLg/h/a/a;Lg/h/a/a;Lg/h/a/a;Lg/h/a/a;Lg/h/a/a;Lg/h/a/a;)Landroidx/car/app/model/ActionStrip;'
@@ -55,6 +55,35 @@ $toolbarMethod = $toolbarMethod.Insert($savedIndex + $savedLabel.Length, [Enviro
 
 $toolbarText = $toolbarText.Substring(0, $toolbarStart) + $toolbarMethod + $toolbarText.Substring($toolbarEnd)
 [System.IO.File]::WriteAllText($toolbar, $toolbarText, [System.Text.UTF8Encoding]::new($false))
+
+# At startup Waze builds a ListTemplate for the Drive now suggestion model.
+# When that model exists, drop only that content model and let Waze's existing
+# null-content fallback build its valid loading ListTemplate. Other map content
+# (search results, route previews, navigation) remains untouched.
+$startScreen = Join-Path $decoded 'smali_classes5\com\waze\car_lib\screens\q.smali'
+$startText = [System.IO.File]::ReadAllText($startScreen)
+$methodSignature = '.method private final z(Lcom/waze/car_lib/r/v;)V'
+$methodStart = $startText.IndexOf($methodSignature)
+if ($methodStart -lt 0) { throw 'Waze AA map-screen template method was not found.' }
+$methodEnd = $startText.IndexOf('.end method', $methodStart)
+if ($methodEnd -lt 0) { throw 'Waze AA map-screen template method has no end marker.' }
+$startMethod = $startText.Substring($methodStart, $methodEnd - $methodStart)
+$contentJoin = $startMethod.LastIndexOf('    :goto_e')
+if ($contentJoin -lt 0) { throw 'Could not locate the common start-content template join.' }
+$suppressStartContent = @'
+    invoke-virtual/range {p1 .. p1}, Lcom/waze/car_lib/r/v;->b()Lcom/waze/ca/a/c/l;
+
+    move-result-object v32
+
+    if-eqz v32, :nemotron_keep_start_content
+
+    const/4 v13, 0x0
+
+    :nemotron_keep_start_content
+'@
+$startMethod = $startMethod.Insert($contentJoin, $suppressStartContent.Replace("`n", [Environment]::NewLine))
+$startText = $startText.Substring(0, $methodStart) + $startMethod + $startText.Substring($methodEnd)
+[System.IO.File]::WriteAllText($startScreen, $startText, [System.Text.UTF8Encoding]::new($false))
 
 & $java -jar $apktool b $decoded -o $rebuilt
 if ($LASTEXITCODE -ne 0) { throw "Apktool build failed ($LASTEXITCODE)" }
