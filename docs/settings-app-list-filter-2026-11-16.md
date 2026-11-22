@@ -64,12 +64,24 @@ No se instala el candidato como actualización porque su firma no es la firma
 privada de Samsung. El APK original permanece en `/system`; el candidato se
 monta temporalmente sobre su ruta **solo en el namespace de montajes de
 Zygote**, siguiendo el método de los parches de One UI Home y Samsung Keyboard.
-No se añadió ni alteró ningún módulo de KernelSU y no se reinició el teléfono.
-El perfil root de Shell se dejó en su estado **Default** después de comprobar
-que no era necesario modificarlo para este montaje.
+La primera aplicación fue temporal: no se añadió al módulo de arranque y el
+montaje desapareció al reiniciar Zygote/teléfono. El 21 de noviembre se corrigió
+esa omisión en `nemotron-session-patches`: su hook de inicio ahora prepara y
+valida este candidato junto con los demás APK y llama al mismo controlador.
+El filtro conserva el alcance limitado a Ajustes → Apps. El candidato se sigue
+montando en Zygote; `/system` no se modifica y no se instala el APK firmado con
+la debug keystore como una actualización normal.
+
+El paquete del módulo de arranque v1.4 incluye el candidato validado y el
+controlador. Su integración quedó preparada en el repo; falta instalarla en el
+A54 porque ADB se desconectó durante este intento. Al instalarlo con KernelSU
+puede quedar marcado `update=true`; eso indica que el módulo está preparado y
+se activará en el siguiente arranque. La aplicación de la sesión se hace con el
+controlador una vez que el candidato esté copiado a `/data/local/tmp`.
 
 El control reversible está en
-`tools/kernelsu/settings-app-filter/control.sh`:
+`tools/kernelsu/settings-app-filter/control.sh` (el módulo lo copia como
+`settings-app-filter-control.sh`):
 
 ```sh
 adb shell su -c 'sh /data/local/tmp/nemotron-settings-app-filter-control.sh status'

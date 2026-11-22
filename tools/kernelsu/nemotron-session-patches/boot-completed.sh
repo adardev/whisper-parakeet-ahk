@@ -42,6 +42,10 @@ keyboard=nemotron-honeyboard-root-candidate-waveform.apk
 if prepare "$keyboard" ca1bf8a41d7b6af7387296d400b56b3378b241773709ca455423b29c3975b11b; then
  sh "$MODDIR/honeyboard-control.sh" enable >> "$LOG" 2>&1 || log keyboard_failed
 fi
+settings=nemotron-settings-app-filter-v1.apk
+if prepare "$settings" afcc203b80e8278c7000a17cd0651e37ba3b96aa9673d11fafeaee28b8137d6f; then
+ sh "$MODDIR/settings-app-filter-control.sh" enable >> "$LOG" 2>&1 || log settings_filter_failed
+fi
 # SystemUI is session mounted only after stock/candidate validation. A failed
 # startup is rolled back and never retried until its failure marker is cleared.
 target=/system/system_ext/priv-app/SystemUI/SystemUI.apk
