@@ -62,15 +62,22 @@ navigation app there.
 
 ## A54 media routing and Waze navigation (22 Nov 2026)
 
-The selector now prefers a session that is actually playing, then a usable
-current session, then a paused or buffering session, and only falls back to a
-stopped session when there is no better supported source. Android was listing
-an old stopped YouTube Music session before paused Salt Player. Selecting the
-first supported session sent the car's next/previous commands to the wrong
-player and mirrored stale metadata. After installing the Core update, the
-`CarMediaBridge` session reported Salt Player's current track and paused state,
-with Salt's next/previous actions (`20279`) preserved. The APK compiled and
-installed successfully; no song was skipped during verification.
+The selector now prefers a session that is actually playing. If neither
+supported player is playing, it chooses the most recently updated paused or
+buffering session, then keeps the current session or falls back to the first
+supported session. Android can list an old stopped YouTube Music session before
+paused Salt Player. Selecting the first supported session sent the car's
+next/previous commands to the wrong player and mirrored stale metadata. The
+listener now also re-evaluates the source when session metadata changes, so
+switching between paused apps can update the car source.
+
+The browser service logs each forwarded transport command and its destination
+package, which makes future routing issues diagnosable from logcat without
+guessing which player received a wheel-button event. The APK compiled and was
+installed successfully. The owner then confirmed on the connected car that
+Next skips the current Salt Player track when Salt is selected, and skips the
+YouTube Music track after switching to YouTube Music. No player APK or media
+library is modified.
 
 Maps' main, limited, and widescreen Android Auto projection components were
 disabled because the main component had become enabled again since the earlier
@@ -86,3 +93,25 @@ Waze once from the car's Android Auto launcher/navigation picker to make it the
 last-used navigation app. The head unit was not connected during this update,
 so that final on-car selection and the steering-wheel button press still need
 physical verification. Google Maps remains available for normal phone use.
+
+### Follow-up verification while connected
+
+The owner confirmed that the car's Next control now skips the active track in
+Salt Player, then skips the active track in YouTube Music after switching to
+that player. This supersedes the earlier pending transport-control check.
+
+The phone-side Waze **Show trip suggestions** switch was turned off, but that
+did not remove **Drive now** from Android Auto. Waze has a separate in-car
+setting: **Waze on car screen > Settings > Privacy > Personalisation > Trip
+suggestions > Show trip suggestions**. The in-car toggle still needs to be
+changed and checked after a fresh Android Auto connection. Waze's [official
+instructions](https://support.google.com/waze/answer/9747181?hl=en) note that
+planned drives and calendar events can remain visible even with trip
+suggestions disabled.
+
+On the fresh connection, Android reports Waze's `WazeCarAppService` bound to
+Android Auto. The car projection uses a private/secure virtual display; ADB
+captures it as black and cannot inspect its controls or reliably inject taps.
+The in-car setting therefore remains pending direct verification on the head
+unit. Do not patch or disable Waze's car service as a workaround, since that
+would remove navigation rather than only dismissing this panel.

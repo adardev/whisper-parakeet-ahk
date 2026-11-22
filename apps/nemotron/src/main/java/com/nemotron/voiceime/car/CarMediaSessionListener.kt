@@ -78,17 +78,21 @@ class CarMediaSessionListener : NotificationListenerService() {
         // Android can report an old player session in STOPPED state ahead of
         // the player the user most recently paused. Picking the first session
         // made Android Auto show (for example) stale YouTube Music metadata and
-        // sent steering-wheel next/previous to the wrong app while Salt was
-        // paused. Prefer an actively playing session, then keep a usable current
-        // session, then prefer paused/buffering media over stopped sessions.
-        // Retain a stopped current session only as a final fallback so Play can
-        // still resume it when it is the only supported source.
+        // When both apps are paused, the previous source can remain paused and
+        // keep winning merely because it is current. Use the most recently
+        // updated paused/buffering session to follow the app the user just
+        // switched to; retain current for timestamp ties or stopped-only
+        // sessions so Play can still resume a sole source.
+        val pausedOrBuffering = supported.filter {
+            it.playbackState?.state == PlaybackState.STATE_PAUSED ||
+                it.playbackState?.state == PlaybackState.STATE_BUFFERING
+        }
+        val mostRecentPaused = pausedOrBuffering.maxWithOrNull(
+            compareBy<MediaController> { it.playbackState?.lastPositionUpdateTime ?: Long.MIN_VALUE }
+                .thenBy { it.sessionToken == current?.sessionToken }
+        )
         val selected = playing
-            ?: current?.takeUnless { it.playbackState?.state == PlaybackState.STATE_STOPPED }
-            ?: supported.firstOrNull {
-                it.playbackState?.state == PlaybackState.STATE_PAUSED ||
-                    it.playbackState?.state == PlaybackState.STATE_BUFFERING
-            }
+            ?: mostRecentPaused
             ?: current
             ?: supported.firstOrNull()
         val changed = CarMusicSessionBridge.controller()?.sessionToken != selected?.sessionToken
@@ -122,9 +126,11 @@ class CarMediaSessionListener : NotificationListenerService() {
                     if (stateChanged) refreshMusicSession()
                 }
 
-                // Metadata for the selected session is already forwarded by
-                // CarMusicSessionBridge. It does not change membership or
-                // playback priority; do not requery all sessions for artwork.
+                // Reopening a paused app or changing its queue can make it the
+                // user's current source without changing PLAYING/PAUSED state.
+                override fun onMetadataChanged(metadata: android.media.MediaMetadata?) {
+                    refreshMusicSession()
+                }
             }
             runCatching {
                 controller.registerCallback(callback)

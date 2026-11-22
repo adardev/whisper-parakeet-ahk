@@ -27,16 +27,16 @@ class CarMediaBrowserService : MediaBrowserServiceCompat() {
             setFlags(MediaSessionCompat.FLAG_HANDLES_MEDIA_BUTTONS or
                 MediaSessionCompat.FLAG_HANDLES_TRANSPORT_CONTROLS)
             setCallback(object : MediaSessionCompat.Callback() {
-                override fun onPlay() = dispatch { it.transportControls.play() }
-                override fun onPause() = dispatch { it.transportControls.pause() }
-                override fun onStop() = dispatch { it.transportControls.stop() }
-                override fun onSkipToNext() = dispatch { it.transportControls.skipToNext() }
-                override fun onSkipToPrevious() = dispatch { it.transportControls.skipToPrevious() }
-                override fun onSeekTo(pos: Long) = dispatch { it.transportControls.seekTo(pos) }
+                override fun onPlay() = dispatch("play") { it.transportControls.play() }
+                override fun onPause() = dispatch("pause") { it.transportControls.pause() }
+                override fun onStop() = dispatch("stop") { it.transportControls.stop() }
+                override fun onSkipToNext() = dispatch("next") { it.transportControls.skipToNext() }
+                override fun onSkipToPrevious() = dispatch("previous") { it.transportControls.skipToPrevious() }
+                override fun onSeekTo(pos: Long) = dispatch("seek") { it.transportControls.seekTo(pos) }
                 override fun onPlayFromMediaId(mediaId: String?, extras: Bundle?) =
-                    dispatch { it.transportControls.play() }
+                    dispatch("play-from-id") { it.transportControls.play() }
                 override fun onPlayFromSearch(query: String?, extras: Bundle?) =
-                    dispatch { it.transportControls.play() }
+                    dispatch("play-from-search") { it.transportControls.play() }
             })
             isActive = true
         }
@@ -71,14 +71,15 @@ class CarMediaBrowserService : MediaBrowserServiceCompat() {
         super.onDestroy()
     }
 
-    private fun dispatch(action: (MediaController) -> Unit): Unit {
+    private fun dispatch(command: String, action: (MediaController) -> Unit): Unit {
         val source = CarMusicSessionBridge.controller()
         if (source == null) {
-            Log.w(TAG, "Ignored car media command: no active supported music session")
+            Log.w(TAG, "Ignored car media command=$command: no active supported music session")
             return
         }
+        Log.i(TAG, "Forwarding car media command=$command to ${source.packageName}")
         runCatching { action(source) }
-            .onFailure { Log.e(TAG, "Could not forward car control to active music app", it) }
+            .onFailure { Log.e(TAG, "Could not forward car media command=$command to ${source.packageName}", it) }
     }
 
     private fun refreshMirroredSession() {
