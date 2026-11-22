@@ -229,18 +229,23 @@ actions were absent, but also showed that Drive now still appeared. Waze
 candidate auto-activation remains disabled at boot. The dedicated builder is
 `tools/kernelsu/waze-aa-patch/build-waze-aa-toolbar-patch.ps1`.
 
-### Startup panel suppression candidate (22 Nov 2026)
+### Fullscreen startup map candidate (22 Nov 2026)
 
-The v2 candidate adds a narrow check in Waze's map-screen builder: if the
-start-state suggestion model is present, it routes to Waze's own existing
-null-content fallback, which creates a loading `ListTemplate`. This avoids
-constructing a new nested template or touching route-preview/navigation
-content. The official Android for Cars API permits `ListTemplate` as content
-inside `MapWithContentTemplate` and requires a supported content template.
+The user clarified that the startup suggestions pane must be absent completely,
+so a loading list is not an acceptable replacement. The v3 candidate checks
+for Waze's start-state suggestion model and emits a top-level
+`NavigationTemplate` for that state. It preserves Waze's toolbar ActionStrip,
+map-control ActionStrip, and pan-mode listener, while bypassing the
+`MapWithContentTemplate` that creates the left pane. Other map states,
+navigation, and route previews retain Waze's original template path. This
+uses the NavigationTemplate that Waze already constructs elsewhere in its Car
+App implementation; Android's Car App Library defines it as a map-first
+navigation template with action strips.
+
 Candidate SHA-256:
-`012c5e88b70589127b57bb70d6425353a18e1f736a583f8da773c9f2cce71a2f`.
-
-The v2 APK passed Apktool, zipalign, and `apksigner` v3 verification. It has
-not been staged or mounted because ADB disconnected after the photo. The
-previous toolbar-only v1 remains the active Zygote mount until v2 can be
-applied and checked on the car display. Auto-activation at boot remains off.
+`ec1ce014bf61be3410c24d9d89fd3ff05bf9807c9b5e3ed12b54b104059055b5`. It
+passed Apktool, zipalign, and `apksigner` v3 verification, and is staged in
+KernelSU storage. It has not been activated yet: the toolbar-only v1 remains
+mounted until the car is confirmed parked, because activation force-stops
+Waze to make Android Auto load the new code. Auto-activation at boot remains
+off.

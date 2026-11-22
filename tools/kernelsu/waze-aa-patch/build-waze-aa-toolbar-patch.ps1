@@ -1,6 +1,6 @@
 param(
     [string]$InputApk = "$env:TEMP\waze-base.apk",
-    [string]$OutputApk = "$env:TEMP\nemotron-waze-aa-toolbar-v2.apk"
+    [string]$OutputApk = "$env:TEMP\nemotron-waze-aa-toolbar-v3.apk"
 )
 
 $ErrorActionPreference = 'Stop'
@@ -56,10 +56,10 @@ $toolbarMethod = $toolbarMethod.Insert($savedIndex + $savedLabel.Length, [Enviro
 $toolbarText = $toolbarText.Substring(0, $toolbarStart) + $toolbarMethod + $toolbarText.Substring($toolbarEnd)
 [System.IO.File]::WriteAllText($toolbar, $toolbarText, [System.Text.UTF8Encoding]::new($false))
 
-# At startup Waze builds a ListTemplate for the Drive now suggestion model.
-# When that model exists, drop only that content model and let Waze's existing
-# null-content fallback build its valid loading ListTemplate. Other map content
-# (search results, route previews, navigation) remains untouched.
+# For the initial suggestion model, use Waze's existing top-level
+# NavigationTemplate path, which renders the map without a MapWithContent pane.
+# Preserve both Waze action strips and its PanModeListener. Other map content,
+# route previews, and navigation remain on Waze's original screen path.
 $startScreen = Join-Path $decoded 'smali_classes5\com\waze\car_lib\screens\q.smali'
 $startText = [System.IO.File]::ReadAllText($startScreen)
 $methodSignature = '.method private final z(Lcom/waze/car_lib/r/v;)V'
@@ -68,20 +68,70 @@ if ($methodStart -lt 0) { throw 'Waze AA map-screen template method was not foun
 $methodEnd = $startText.IndexOf('.end method', $methodStart)
 if ($methodEnd -lt 0) { throw 'Waze AA map-screen template method has no end marker.' }
 $startMethod = $startText.Substring($methodStart, $methodEnd - $methodStart)
-$contentJoin = $startMethod.LastIndexOf('    :goto_e')
-if ($contentJoin -lt 0) { throw 'Could not locate the common start-content template join.' }
-$suppressStartContent = @'
+
+# Keep Waze's map pan listener and zoom/pan ActionStrip while swapping only
+# the startup presentation into the fullscreen NavigationTemplate.
+$panListener = '    invoke-virtual {v1, v2}, Landroidx/car/app/navigation/model/MapController$Builder;->setPanModeListener(Landroidx/car/app/navigation/model/PanModeListener;)Landroidx/car/app/navigation/model/MapController$Builder;'
+$panIndex = $startMethod.IndexOf($panListener)
+if ($panIndex -lt 0) { throw 'Could not locate the Waze pan-mode listener.' }
+$panEnd = $panIndex + $panListener.Length
+$startMethod = $startMethod.Insert($panEnd, [Environment]::NewLine + '    move-object/from16 v32, v2')
+
+$mapAction = '    invoke-virtual {v1, v3}, Landroidx/car/app/navigation/model/MapController$Builder;->setMapActionStrip(Landroidx/car/app/model/ActionStrip;)Landroidx/car/app/navigation/model/MapController$Builder;'
+$mapActionIndex = $startMethod.IndexOf($mapAction)
+if ($mapActionIndex -lt 0) { throw 'Could not locate Waze map-control actions.' }
+$startMethod = $startMethod.Insert($mapActionIndex, '    move-object/from16 v31, v3' + [Environment]::NewLine)
+
+$toolbarCall = 'invoke-static/range {v1 .. v12}, Lcom/waze/ca/a/c/b;->b('
+$toolbarIndex = $startMethod.IndexOf($toolbarCall)
+if ($toolbarIndex -lt 0) { throw 'Could not locate Waze startup action strip.' }
+$toolbarResult = '    move-result-object v2'
+$toolbarResultIndex = $startMethod.IndexOf($toolbarResult, $toolbarIndex)
+if ($toolbarResultIndex -lt 0) { throw 'Could not locate Waze startup action-strip result.' }
+$toolbarResultEnd = $toolbarResultIndex + $toolbarResult.Length
+$fullscreen = @'
+
     invoke-virtual/range {p1 .. p1}, Lcom/waze/car_lib/r/v;->b()Lcom/waze/ca/a/c/l;
 
-    move-result-object v32
+    move-result-object v3
 
-    if-eqz v32, :nemotron_keep_start_content
+    if-eqz v3, :nemotron_keep_map_content
 
-    const/4 v13, 0x0
+    new-instance v3, Landroidx/car/app/navigation/model/NavigationTemplate$Builder;
 
-    :nemotron_keep_start_content
+    invoke-direct {v3}, Landroidx/car/app/navigation/model/NavigationTemplate$Builder;-><init>()V
+
+    invoke-virtual {v3, v2}, Landroidx/car/app/navigation/model/NavigationTemplate$Builder;->setActionStrip(Landroidx/car/app/model/ActionStrip;)Landroidx/car/app/navigation/model/NavigationTemplate$Builder;
+
+    move-result-object v3
+
+    move-object/from16 v14, v31
+
+    invoke-virtual {v3, v14}, Landroidx/car/app/navigation/model/NavigationTemplate$Builder;->setMapActionStrip(Landroidx/car/app/model/ActionStrip;)Landroidx/car/app/navigation/model/NavigationTemplate$Builder;
+
+    move-result-object v3
+
+    move-object/from16 v15, v32
+
+    invoke-virtual {v3, v15}, Landroidx/car/app/navigation/model/NavigationTemplate$Builder;->setPanModeListener(Landroidx/car/app/navigation/model/PanModeListener;)Landroidx/car/app/navigation/model/NavigationTemplate$Builder;
+
+    move-result-object v3
+
+    invoke-virtual {v3}, Landroidx/car/app/navigation/model/NavigationTemplate$Builder;->build()Landroidx/car/app/navigation/model/NavigationTemplate;
+
+    move-result-object v3
+
+    check-cast v3, Landroidx/car/app/model/Template;
+
+    move-object/from16 v1, p0
+
+    invoke-virtual {v1, v3}, Lcom/waze/car_lib/screens/core/n;->w(Landroidx/car/app/model/Template;)V
+
+    return-void
+
+    :nemotron_keep_map_content
 '@
-$startMethod = $startMethod.Insert($contentJoin, $suppressStartContent.Replace("`n", [Environment]::NewLine))
+$startMethod = $startMethod.Insert($toolbarResultEnd, $fullscreen.Replace("`n", [Environment]::NewLine))
 $startText = $startText.Substring(0, $methodStart) + $startMethod + $startText.Substring($methodEnd)
 [System.IO.File]::WriteAllText($startScreen, $startText, [System.Text.UTF8Encoding]::new($false))
 
