@@ -132,27 +132,35 @@ The Waze Android Auto Car App source was rebuilt from the installed Waze
 5.27.0.1 base APK (versionCode 1030748; source SHA-256
 `3ea14a2669439b240bb59aaa28b7a8557829d125cf103ebde196bc5606c0aefc`). The
 Zygote-private candidate is SHA-256
-`e653e1066c349bff72194fa40f328cc3c60fd7316df6be58788276fedfae1e9d` and was
+`8e40e47121669c9b101237d3b1fc02c90736174b839db0cc96b83bab8747bfa8` and was
 verified with `apksigner` v3. It is not installed through Package Manager, so
 the phone APK, Package Manager signature state, and phone-side Waze interface
 remain stock.
 
 The Android Auto map action strip no longer publishes the dynamic Home/Work
-shortcut, Saved Places/bookmark, or Search action. Settings is retained, as is
-any independent host-provided action. Waze's separate destination suggestions
-also omit Work. The route alternatives screen now invokes the existing **Go
-now** callback once when route results are ready, using Waze's already selected
-default/best route; this bypasses the extra route-preview step for any
-destination, rather than special-casing Work.
+shortcut or Saved Places/bookmark. Search and Settings are retained, as is any
+independent host-provided action. Waze's separate destination suggestions also
+omit Work. In the initial start state, the screen now emits a map-only template
+whenever the Start State model is present or loading; this keeps the Drive now
+destination panel from being restored by later loading/data updates while
+leaving the map action strip available.
+
+For route alternatives, the screen invokes the existing **Go now** callback
+once when Waze enters the selected-route state. It suppresses every subsequent
+render of that route-preview screen instance as well, so a later model update
+cannot put the preview back. This uses Waze's selected default/best route for
+any destination rather than special-casing Work.
 
 The candidate, expected hash, updated controller, and persistent
 `service.d` boot hook are staged under `/data/adb`. The hook enables the private
-Zygote mount after boot without changing Package Manager's view. At staging
-time the Zygote and installed base APK still both report the original stock
-hash, and Waze is running, so this build has **not yet been activated or
-verified on the car display**. Activation force-stops Waze so its next
-Android Auto service process inherits the mount; do that only while parked and
-with no active navigation. No reboot was performed.
+Zygote mount after boot without changing Package Manager's view. The current
+candidate is mounted in Zygote and Waze was restarted to inherit it; the
+installed base APK still reports the stock hash. No reboot was performed.
+The owner reported that an earlier iteration briefly hid Drive now but a later
+update restored it. This build covers both populated and loading Start State
+models to address that regression. Its corrected persistent mount is verified,
+but the new panel and route-preview behavior still need a physical car-display
+check.
 
 To inspect the staged/active state:
 
@@ -160,7 +168,7 @@ To inspect the staged/active state:
 su -c 'sh /data/adb/modules/nemotron-session-patches/waze-control.sh status'
 ```
 
-Once parked, activate with:
+If the mount needs to be manually reapplied later (this restarts Waze):
 
 ```sh
 su -c 'sh /data/adb/modules/nemotron-session-patches/waze-control.sh enable'

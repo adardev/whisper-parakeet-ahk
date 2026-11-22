@@ -62,8 +62,8 @@ $methodNew = $method.Substring(0, $workBodyStart) + $emptyWork + $method.Substri
 $q = $q.Substring(0, $methodStart) + $methodNew + $q.Substring($methodEnd)
 [System.IO.File]::WriteAllText($suggestions, $q, [System.Text.UTF8Encoding]::new($false))
 
-# Suppress the dynamic Home/Work shortcut, Saved Places, and Search from the
-# map toolbar, keeping Settings (and any independent host action).
+# Suppress the dynamic Home/Work shortcut and Saved Places from the map
+# toolbar, keeping Search and Settings (and any independent host action).
 $toolbar = Join-Path $decoded 'smali_classes5\com\waze\ca\a\c\b.smali'
 $toolbarText = [System.IO.File]::ReadAllText($toolbar)
 $toolbarStart = $toolbarText.IndexOf('.method public static b(Landroidx/car/app/CarContext;ZZZZZLg/h/a/a;Lg/h/a/a;Lg/h/a/a;Lg/h/a/a;Lg/h/a/a;Lg/h/a/a;)Landroidx/car/app/model/ActionStrip;')
@@ -78,17 +78,65 @@ $savedLabel = '    :cond_9'
 $savedIndex = $toolbarMethod.IndexOf($savedLabel)
 if ($savedIndex -lt 0) { throw 'Could not locate the Saved Places map action.' }
 $toolbarMethod = $toolbarMethod.Insert($savedIndex + $savedLabel.Length, [Environment]::NewLine + '    goto :cond_a')
-$searchLabel = '    :cond_a'
-$searchIndex = $toolbarMethod.IndexOf($searchLabel)
-if ($searchIndex -lt 0) { throw 'Could not locate the Search map action.' }
-$settingsBranch = '    if-eqz p1, :cond_b'
-$settingsIndex = $toolbarMethod.IndexOf($settingsBranch, $searchIndex)
-if ($settingsIndex -lt 0) { throw 'Could not locate the Settings action after Search.' }
-$toolbarMethod = $toolbarMethod.Insert($searchIndex + $searchLabel.Length, [Environment]::NewLine + '    goto :nemotron_keep_settings')
-$settingsIndex = $toolbarMethod.IndexOf($settingsBranch, $searchIndex)
-$toolbarMethod = $toolbarMethod.Insert($settingsIndex, '    :nemotron_keep_settings' + [Environment]::NewLine)
 $toolbarText = $toolbarText.Substring(0, $toolbarStart) + $toolbarMethod + $toolbarText.Substring($toolbarEnd)
 [System.IO.File]::WriteAllText($toolbar, $toolbarText, [System.Text.UTF8Encoding]::new($false))
+
+# On Waze's initial Android Auto start state, show the map template directly
+# instead of publishing its Drive now destination panel.
+$startScreen = Join-Path $decoded 'smali_classes5\com\waze\car_lib\screens\q.smali'
+$startText = [System.IO.File]::ReadAllText($startScreen)
+$actionStripMarker = 'invoke-static/range {v1 .. v12}, Lcom/waze/ca/a/c/b;->b('
+$actionStripIndex = $startText.IndexOf($actionStripMarker)
+if ($actionStripIndex -lt 0) { throw 'Could not locate the Waze AA action strip for the start-state template.' }
+$actionStripResult = 'move-result-object v2'
+$actionStripResultIndex = $startText.IndexOf($actionStripResult, $actionStripIndex)
+if ($actionStripResultIndex -lt 0) { throw 'Could not locate the Waze AA action-strip result.' }
+$insertIndex = $actionStripResultIndex + $actionStripResult.Length
+$startText = $startText.Insert($insertIndex, [Environment]::NewLine + '    move-object/from16 v33, v2')
+$startBranch = '    :cond_3'
+$startBranchIndex = $startText.IndexOf($startBranch, $actionStripIndex)
+if ($startBranchIndex -lt 0) { throw 'Could not locate Waze AA start-state branch.' }
+$startStateCall = 'invoke-virtual/range {p1 .. p1}, Lcom/waze/car_lib/r/v;->i()Z'
+$startStateCallIndex = $startText.IndexOf($startStateCall, $startBranchIndex)
+if ($startStateCallIndex -lt 0) { throw 'Could not locate Waze AA start-state loading check.' }
+$mapOnly = @'
+    invoke-virtual/range {p1 .. p1}, Lcom/waze/car_lib/r/v;->b()Lcom/waze/ca/a/c/l;
+
+    move-result-object v2
+
+    if-eqz v2, :nemotron_check_start_state_loading
+
+    goto/16 :nemotron_map_only_start_state
+
+    :nemotron_check_start_state_loading
+    invoke-virtual/range {p1 .. p1}, Lcom/waze/car_lib/r/v;->i()Z
+
+    move-result v2
+
+    if-eqz v2, :nemotron_keep_start_state_content
+
+    :nemotron_map_only_start_state
+
+    new-instance v13, Landroidx/car/app/navigation/model/MapTemplate$Builder;
+
+    invoke-direct {v13}, Landroidx/car/app/navigation/model/MapTemplate$Builder;-><init>()V
+
+    invoke-virtual {v13, v14}, Landroidx/car/app/navigation/model/MapTemplate$Builder;->setMapController(Landroidx/car/app/navigation/model/MapController;)Landroidx/car/app/navigation/model/MapTemplate$Builder;
+
+    move-object/from16 v12, v33
+
+    invoke-virtual {v13, v12}, Landroidx/car/app/navigation/model/MapTemplate$Builder;->setActionStrip(Landroidx/car/app/model/ActionStrip;)Landroidx/car/app/navigation/model/MapTemplate$Builder;
+
+    invoke-virtual {v13}, Landroidx/car/app/navigation/model/MapTemplate$Builder;->build()Landroidx/car/app/navigation/model/MapTemplate;
+
+    move-result-object v13
+
+    goto/16 :goto_e
+
+    :nemotron_keep_start_state_content
+'@
+$startText = $startText.Insert($startStateCallIndex, $mapOnly.Replace("`n", [Environment]::NewLine) + [Environment]::NewLine)
+[System.IO.File]::WriteAllText($startScreen, $startText, [System.Text.UTF8Encoding]::new($false))
 
 # Waze's Android Auto alternative-routes screen receives the same callback as
 # its Go now button. Invoke it once when routes are ready, skipping that screen.
@@ -110,6 +158,7 @@ $autoStart = @'
     return-void
 
     :auto_start_already_dispatched
+    return-void
 '@
 $routeBranch = $routeText.IndexOf('    if-eqz v9, :cond_a')
 if ($routeBranch -lt 0) { throw 'Could not find the Android Auto alternative-routes branch.' }
