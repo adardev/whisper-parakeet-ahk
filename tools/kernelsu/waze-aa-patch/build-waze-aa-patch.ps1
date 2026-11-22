@@ -123,6 +123,30 @@ $mapOnly = @'
 
     invoke-virtual {v13, v14}, Landroidx/car/app/navigation/model/MapTemplate$Builder;->setMapController(Landroidx/car/app/navigation/model/MapController;)Landroidx/car/app/navigation/model/MapTemplate$Builder;
 
+    new-instance v12, Landroidx/car/app/model/Pane$Builder;
+
+    invoke-direct {v12}, Landroidx/car/app/model/Pane$Builder;-><init>()V
+
+    new-instance v11, Landroidx/car/app/model/Row$Builder;
+
+    invoke-direct {v11}, Landroidx/car/app/model/Row$Builder;-><init>()V
+
+    const-string v10, ""
+
+    invoke-virtual {v11, v10}, Landroidx/car/app/model/Row$Builder;->setTitle(Ljava/lang/CharSequence;)Landroidx/car/app/model/Row$Builder;
+
+    invoke-virtual {v11}, Landroidx/car/app/model/Row$Builder;->build()Landroidx/car/app/model/Row;
+
+    move-result-object v11
+
+    invoke-virtual {v12, v11}, Landroidx/car/app/model/Pane$Builder;->addRow(Landroidx/car/app/model/Row;)Landroidx/car/app/model/Pane$Builder;
+
+    invoke-virtual {v12}, Landroidx/car/app/model/Pane$Builder;->build()Landroidx/car/app/model/Pane;
+
+    move-result-object v12
+
+    invoke-virtual {v13, v12}, Landroidx/car/app/navigation/model/MapTemplate$Builder;->setPane(Landroidx/car/app/model/Pane;)Landroidx/car/app/navigation/model/MapTemplate$Builder;
+
     move-object/from16 v12, v33
 
     invoke-virtual {v13, v12}, Landroidx/car/app/navigation/model/MapTemplate$Builder;->setActionStrip(Landroidx/car/app/model/ActionStrip;)Landroidx/car/app/navigation/model/MapTemplate$Builder;
