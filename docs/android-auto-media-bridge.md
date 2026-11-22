@@ -222,7 +222,9 @@ preview behavior, or phone-side Waze. Candidate SHA-256:
 `c6a1d6a543f2819851f5097df533113aa9d1ebb5592512623212a7a86cb48c5b`.
 
 The APK passed Apktool build, zipalign, and `apksigner` v3 verification. It is
-staged in KernelSU storage, but not mounted or tested in the car. Zygote still
-uses the stock Waze APK, and Waze candidate auto-activation remains disabled
-at boot. The dedicated builder is
+staged in KernelSU storage and was temporarily mounted in Zygote at 13:26 CST;
+the installed Waze APK remains stock. At the time of activation, Android Auto
+had not yet relaunched the Waze process, so its car display is not yet
+verified. Waze candidate auto-activation remains disabled at boot. The
+dedicated builder is
 `tools/kernelsu/waze-aa-patch/build-waze-aa-toolbar-patch.ps1`.
