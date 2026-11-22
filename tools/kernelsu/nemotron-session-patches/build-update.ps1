@@ -1,6 +1,6 @@
 param(
     [Parameter(Mandatory = $true)][string]$CandidateApk,
-    [string]$OutputZip = (Join-Path $env:TEMP 'nemotron-session-patches-v1.2.zip')
+    [string]$OutputZip = (Join-Path $env:TEMP 'nemotron-session-patches-v1.3.zip')
 )
 $ErrorActionPreference = 'Stop'
 $module = $PSScriptRoot

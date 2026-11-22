@@ -1,6 +1,6 @@
 id=nemotron-session-patches
 name=Nemotron Session Patches
-version=1.2
-versionCode=3
+version=1.3
+versionCode=4
 author=Nemotron
 description=Boot-persistent root patches with hash checks, Home status bar sync, and SystemUI rollback; no system overlay.

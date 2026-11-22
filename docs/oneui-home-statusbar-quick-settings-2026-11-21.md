@@ -9,7 +9,7 @@ The stock Samsung APK at `/system` has SHA-256 `b97823026a11786674f49ab0b763b055
 - Candidate: `oneui-home-instant-focus-20261121.apk`, rebuilt from stock and verified with APK Signature Scheme v3.
 - Applied in this session with the KernelSU Zygote mount controller. Only One UI Home was refreshed; neither the phone nor System UI was restarted.
 - After returning Home, `policy_control` was observed as `immersive.status=apps,-com.sec.android.app.launcher`; `/system` stayed stock.
-- KernelSU module v1.2 was installed with the candidate embedded. KernelSU reported `update=true`, so the module update is staged for the next natural reboot. The phone was not rebooted. Its boot hook prefers the embedded v81 candidate, verifies its hash, and then applies the Zygote mount; HoneyBoard and System UI keep their existing candidate-store fallback. The unique v81 filename avoids replacing an older APK owned by another SELinux context in `/data/local/tmp`.
+- KernelSU module v1.3 was installed with the candidate embedded. KernelSU reported `update=true`, so the module update is staged for the next natural reboot. The phone was not rebooted. Its boot hook prefers the embedded v81 candidate, verifies its hash, and then applies the Zygote mount; HoneyBoard and System UI keep their existing candidate-store fallback. The unique v81 filename avoids replacing an older APK owned by another SELinux context in `/data/local/tmp`; the controller only adjusts the mode and SELinux label, so it does not rely on changing the APK owner.
 - `build-update.ps1` recreates the KernelSU module ZIP from the APK candidate. The APK itself is generated locally and is not committed to the repo.
 
 ## Gemini Home shortcut removal
