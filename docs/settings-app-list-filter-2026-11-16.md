@@ -73,11 +73,12 @@ montando en Zygote; `/system` no se modifica y no se instala el APK firmado con
 la debug keystore como una actualización normal.
 
 El paquete del módulo de arranque v1.4 incluye el candidato validado y el
-controlador. Su integración quedó preparada en el repo; falta instalarla en el
-A54 porque ADB se desconectó durante este intento. Al instalarlo con KernelSU
-puede quedar marcado `update=true`; eso indica que el módulo está preparado y
-se activará en el siguiente arranque. La aplicación de la sesión se hace con el
-controlador una vez que el candidato esté copiado a `/data/local/tmp`.
+controlador. KernelSU aceptó la actualización y la dejó en
+`/data/adb/modules_update/nemotron-session-patches` (`update=true`), lista para
+el siguiente arranque. No se reinició el teléfono. ADB se desconectó durante la
+copia del candidato a la ubicación temporal, así que no se pudo verificar el
+montaje de Ajustes en la sesión actual. Al reconectar el teléfono, el candidato
+se puede copiar y montar con el controlador sin reiniciar.
 
 El control reversible está en
 `tools/kernelsu/settings-app-filter/control.sh` (el módulo lo copia como
