@@ -4,6 +4,7 @@
 .field private static activityRef:Ljava/lang/ref/WeakReference;
 .field private static showHomeStatusRunnable:Ljava/lang/Runnable;
 .field private static externalAppGestureActive:Z
+.field private static homeGestureTargetActive:Z
 
 .method static constructor <clinit>()V
     .locals 1
@@ -112,6 +113,24 @@
 
     invoke-interface {p1}, Lcom/honeyspace/sdk/HoneyScreenManager;->isNormalHomescreen()Z
     move-result v0
+    sget-boolean v1, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->homeGestureTargetActive:Z
+    if-eqz v1, :normal_home_logic
+    if-eqz v0, :show_for_home_gesture
+    invoke-interface {p1}, Lcom/honeyspace/sdk/HoneyScreenManager;->isOnStateTransition()Z
+    move-result v0
+    if-nez v0, :show_for_home_gesture
+    const/4 v1, 0x0
+    sput-boolean v1, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->homeGestureTargetActive:Z
+    const/4 v0, 0x1
+    invoke-static {p0, v0}, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->setImmersivePolicy(Landroid/content/Context;Z)V
+    goto :done
+
+    :show_for_home_gesture
+    const/4 v0, 0x1
+    invoke-static {p0, v0}, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->setImmersivePolicy(Landroid/content/Context;Z)V
+    goto :done
+
+    :normal_home_logic
     if-eqz v0, :hide
     sget-boolean v0, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->externalAppGestureActive:Z
     if-nez v0, :hide
@@ -130,6 +149,18 @@
     invoke-static {p0, v0}, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->setImmersivePolicy(Landroid/content/Context;Z)V
 
     :done
+    return-void
+.end method
+
+.method public static onHomeGestureTargetChanged(Landroid/content/Context;Z)V
+    .locals 1
+
+    sput-boolean p1, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->homeGestureTargetActive:Z
+    if-eqz p1, :not_home
+    const/4 v0, 0x0
+    sput-boolean v0, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->externalAppGestureActive:Z
+    :not_home
+    invoke-static {p0, p1}, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->setImmersivePolicy(Landroid/content/Context;Z)V
     return-void
 .end method
 

@@ -26,9 +26,9 @@ case "${1:-}" in
     source_hash=`sha256sum "$source" | cut -d ' ' -f 1`
     [ "$system_hash" = "$original_hash" ] || { echo original_changed; exit 1; }
     [ "$source_hash" = "$candidate_hash" ] || { echo candidate_changed; exit 1; }
-    chown system:system "$source"
     chmod 0644 "$source"
-    chcon u:object_r:apk_data_file:s0 "$source"
+    # Use the label accepted by this device's KernelSU SELinux domain.
+    chcon u:object_r:system_file:s0 "$source"
     zygote_hash=`hash_in_ns "$zyg"`
     if [ "$zygote_hash" = "$candidate_hash" ]; then
       printf '%s\n' "$target" > "$marker"

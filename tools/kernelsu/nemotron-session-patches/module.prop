@@ -1,6 +1,6 @@
 id=nemotron-session-patches
 name=Nemotron Session Patches
-version=1.4
-versionCode=5
+version=1.5
+versionCode=6
 author=Nemotron
-description=Boot-persistent root patches with hash checks, Settings app-list filter, Home status bar sync, and SystemUI rollback; no system overlay.
+description=Boot-persistent root patches with Settings app filter and Home gesture status bar timing; no system overlay.

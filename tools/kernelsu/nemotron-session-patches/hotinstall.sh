@@ -1,8 +1,8 @@
 #!/system/bin/sh
 set -eu
 MODDIR=${0%/*}
-candidate=nemotron-oneui-home-root-candidate-v81.apk
-expected=193b3d20f286c44b14284000d8406fab5e0b8e9a7275dc8718dfa2ddd5d8b96a
+candidate=nemotron-oneui-home-root-candidate-v83.apk
+expected=fc48b7df73308343eddfa7694d3bfa634d5a7818f004c96476867e72ae6a882e
 dst="/data/local/tmp/$candidate"
 sha() { sha256sum "$1" | cut -d ' ' -f 1; }
 [ "$(sha "$MODDIR/$candidate")" = "$expected" ] || { echo candidate_hash_mismatch; exit 1; }
@@ -21,7 +21,7 @@ if [ "$(sha "$settings_dst" 2>/dev/null || true)" != "$settings_expected" ]; the
   cp "$MODDIR/$settings" "$settings_dst.new"
   [ "$(sha "$settings_dst.new")" = "$settings_expected" ] || { echo settings_copy_mismatch; exit 1; }
   chmod 0644 "$settings_dst.new"
-  chcon u:object_r:apk_data_file:s0 "$settings_dst.new"
+  chcon u:object_r:system_file:s0 "$settings_dst.new"
   mv -f "$settings_dst.new" "$settings_dst"
 fi
 sh "$MODDIR/settings-app-filter-control.sh" enable

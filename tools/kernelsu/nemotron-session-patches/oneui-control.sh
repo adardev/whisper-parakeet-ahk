@@ -3,9 +3,9 @@
 set -eu
 
 pkg=com.sec.android.app.launcher
-source=/data/local/tmp/nemotron-oneui-home-root-candidate-v81.apk
-source_name=nemotron-oneui-home-root-candidate-v81.apk
-candidate_hash=193b3d20f286c44b14284000d8406fab5e0b8e9a7275dc8718dfa2ddd5d8b96a
+source=/data/local/tmp/nemotron-oneui-home-root-candidate-v83.apk
+source_name=nemotron-oneui-home-root-candidate-v83.apk
+candidate_hash=fc48b7df73308343eddfa7694d3bfa634d5a7818f004c96476867e72ae6a882e
 original_hash=b97823026a11786674f49ab0b763b055a539426e6f1221d5d54a8e93a18d9da1
 marker=/data/local/tmp/nemotron-oneui-home.target
 
@@ -46,7 +46,9 @@ case "${1:-}" in
     [ "$system_hash" = "$original_hash" ] || { echo original_changed; exit 1; }
     [ "$source_hash" = "$candidate_hash" ] || { echo candidate_changed; exit 1; }
     chmod 0644 "$source"
-    chcon u:object_r:apk_data_file:s0 "$source"
+    # Root's KSU domain may relabel staged APKs as system_file; apk_data_file
+    # is not permitted on this Samsung build. The content hash is checked above.
+    chcon u:object_r:system_file:s0 "$source"
     zygote_hash=`hash_in_ns "$zyg"`
     if [ "$zygote_hash" = "$candidate_hash" ]; then
       printf '%s\n' "$target" > "$marker"

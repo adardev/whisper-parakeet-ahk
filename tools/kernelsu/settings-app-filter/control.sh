@@ -26,7 +26,8 @@ case "${1:-}" in
     [ "$(hash_path "$target")" = "$original_hash" ] || { echo original_changed; exit 1; }
     [ "$(hash_path "$source")" = "$candidate_hash" ] || { echo candidate_changed; exit 1; }
     chmod 0644 "$source"
-    chcon u:object_r:apk_data_file:s0 "$source"
+    # Samsung's KernelSU shell can apply system_file but rejects apk_data_file.
+    chcon u:object_r:system_file:s0 "$source"
     current=$(hash_in_zygote)
     if [ "$current" = "$candidate_hash" ]; then echo already_active; exit 0; fi
     [ "$current" = "$original_hash" ] || { echo unexpected_existing_mount; exit 1; }
