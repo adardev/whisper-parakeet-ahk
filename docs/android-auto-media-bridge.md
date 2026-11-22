@@ -210,3 +210,19 @@ the candidate installer. Other boot patches are left intact. Waze remains
 stock across reboot; a future candidate can be staged without activation and
 enabled manually only for a parked-car test. This recovery does not claim the
 Drive now removal or route-preview bypass is working.
+
+### Toolbar-only candidate (22 Nov 2026)
+
+Following that recovery, the user clarified that the remaining requested
+change is limited to two map-toolbar actions: remove the dynamic Home/Work
+shortcut and Saved Places, while keeping Search and Settings. A new candidate
+was built from the stock Waze base with only the ActionStrip builder changed;
+it does not alter CarApp templates, Drive now/start state, suggestions, route
+preview behavior, or phone-side Waze. Candidate SHA-256:
+`c6a1d6a543f2819851f5097df533113aa9d1ebb5592512623212a7a86cb48c5b`.
+
+The APK passed Apktool build, zipalign, and `apksigner` v3 verification. It is
+staged in KernelSU storage, but not mounted or tested in the car. Zygote still
+uses the stock Waze APK, and Waze candidate auto-activation remains disabled
+at boot. The dedicated builder is
+`tools/kernelsu/waze-aa-patch/build-waze-aa-toolbar-patch.ps1`.
