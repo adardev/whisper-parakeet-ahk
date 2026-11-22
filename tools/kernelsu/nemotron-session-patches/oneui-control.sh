@@ -5,7 +5,7 @@ set -eu
 pkg=com.sec.android.app.launcher
 source=/data/local/tmp/nemotron-oneui-home-root-candidate.apk
 source_name=nemotron-oneui-home-root-candidate.apk
-candidate_hash=f961a9a156b40f464503d2fdd72baa42602bfaed878ddb9d20c146963cee1b14
+candidate_hash=45ab667243b1b0192267687848c82662ab38c06fcd5a96e55803eefcb635ce4c
 original_hash=b97823026a11786674f49ab0b763b055a539426e6f1221d5d54a8e93a18d9da1
 marker=/data/local/tmp/nemotron-oneui-home.target
 

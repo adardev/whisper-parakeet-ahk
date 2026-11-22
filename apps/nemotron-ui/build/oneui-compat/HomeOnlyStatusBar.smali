@@ -128,10 +128,10 @@
     invoke-direct {v1, v0}, Landroid/os/Handler;-><init>(Landroid/os/Looper;)V
     sget-object v2, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->showHomeStatusRunnable:Ljava/lang/Runnable;
     invoke-virtual {v1, v2}, Landroid/os/Handler;->removeCallbacks(Ljava/lang/Runnable;)V
-    # The state/animation/focus gates above and in the deferred callback already
-    # prevent an early reveal during Quick Switch. Keep only a 100 ms settling
-    # delay so Home's status bar returns promptly after the launcher is stable.
-    const-wide/16 v3, 0x64
+    # State, animation, and focus gates above and in the deferred callback
+    # isolate this to stable Home. Post on the next main-loop turn so Home
+    # status-bar-backed Live notifications do not animate ahead of the bar.
+    const-wide/16 v3, 0x0
     invoke-virtual {v1, v2, v3, v4}, Landroid/os/Handler;->postDelayed(Ljava/lang/Runnable;J)Z
     return-void
 .end method
