@@ -131,7 +131,7 @@ $mapOnly = @'
 
     invoke-direct {v11}, Landroidx/car/app/model/Row$Builder;-><init>()V
 
-    const-string v10, ""
+    const-string v10, " "
 
     invoke-virtual {v11, v10}, Landroidx/car/app/model/Row$Builder;->setTitle(Ljava/lang/CharSequence;)Landroidx/car/app/model/Row$Builder;
 

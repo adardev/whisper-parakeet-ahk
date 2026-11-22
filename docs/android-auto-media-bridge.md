@@ -132,7 +132,7 @@ The Waze Android Auto Car App source was rebuilt from the installed Waze
 5.27.0.1 base APK (versionCode 1030748; source SHA-256
 `3ea14a2669439b240bb59aaa28b7a8557829d125cf103ebde196bc5606c0aefc`). The
 Zygote-private candidate is SHA-256
-`9ab083f75387e8e53580cb9df961d4dd256dd5f8433e86124318b454ea7b5258` and was
+`df9845f0f5f90d473c32bc135cf7751a1cad9e38cea8b341b3fa9ac22516393c` and was
 verified with `apksigner` v3. It is not installed through Package Manager, so
 the phone APK, Package Manager signature state, and phone-side Waze interface
 remain stock.
@@ -165,11 +165,19 @@ check.
 The first map-only template caused Android Auto to reject Waze's screen because
 `MapTemplate.Builder` requires either a Pane or an ItemList. The crash appeared
 as `IllegalStateException: Either Pane or Item List must be set but not both`.
-The active candidate now supplies a minimal empty-title Pane row while retaining
+The active candidate now supplies a Pane row with a single-space title while retaining
 the map controller and action strip. Zygote's mount hash matches this new
 candidate and the installed package remains stock. A fresh car-display launch
 is still required to verify the host accepts the corrected template and that
 the Drive now panel stays absent.
+
+The first Pane correction still crashed because Android Auto rejects an empty
+Row title (`IllegalArgumentException: The title cannot be null or empty`). The
+current candidate uses a single-space title to satisfy that check without
+displaying a visible label. The candidate was rebuilt, signature-verified,
+staged, and activated. No new Waze launch from an Android Auto host appeared in
+the device log after activation, so a new head-unit session must confirm this
+last validation fix opens cleanly.
 
 To inspect the staged/active state:
 
