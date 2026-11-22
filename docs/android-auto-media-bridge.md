@@ -151,16 +151,13 @@ render of that route-preview screen instance as well, so a later model update
 cannot put the preview back. This uses Waze's selected default/best route for
 any destination rather than special-casing Work.
 
-The candidate, expected hash, updated controller, and persistent
-`service.d` boot hook are staged under `/data/adb`. The hook enables the private
-Zygote mount after boot without changing Package Manager's view. The current
-candidate is mounted in Zygote and Waze was restarted to inherit it; the
-installed base APK still reports the stock hash. No reboot was performed.
-The owner reported that an earlier iteration briefly hid Drive now but a later
-update restored it. This build covers both populated and loading Start State
-models to address that regression. Its corrected persistent mount is verified,
-but the new panel and route-preview behavior still need a physical car-display
-check.
+The candidate, expected hash, and updated controller were staged under
+`/data/adb`. Activation was initially configured at boot, but has since been
+removed during recovery after template validation crashes. The installed base
+APK and its signature remain stock. The owner reported that an earlier
+iteration briefly hid Drive now but a later update restored it; the current
+candidate's panel and route-preview behavior have not been validated on the
+car display.
 
 The initial map-only versions caused successive Android Auto template errors:
 the first omitted the required Pane/ItemList; the Pane workaround then failed
@@ -168,11 +165,10 @@ on an empty row title; and the MapTemplate attempt was rejected as a nested
 content template. The current candidate keeps Waze's supported parent
 MapWithContentTemplate and supplies a ListTemplate with a single-space row,
 omitting the Drive now header and destinations while retaining the map action
-strip. Zygote is mounted with candidate SHA-256
-`314b2b99f1bfa0c240a7c638fa45e53763fd26258cc3a8df808db32498d35204`; the
-installed base APK hash remains stock. The latest device log has no new Waze
-launch after this activation, so the Android Auto host still needs to open a
-fresh Waze session to confirm the template renders successfully.
+strip. The candidate has SHA-256
+`314b2b99f1bfa0c240a7c638fa45e53763fd26258cc3a8df808db32498d35204`; it was
+not launched in a fresh Android Auto session and its rendering remains
+unverified.
 
 To inspect the staged/active state:
 
@@ -195,3 +191,22 @@ su -c 'sh /data/adb/modules/nemotron-session-patches/waze-control.sh disable'
 The build and staging scripts are in `tools/kernelsu/waze-aa-patch/`. The
 proprietary Waze APK candidate is device-local and is intentionally not tracked
 in Git.
+
+### Recovery after Android Auto black screen (22 Nov 2026)
+
+The A54's crash buffer showed repeated `com.waze` Car App template validation
+failures from the v3-v5 iterations: the `MapTemplate.Builder` rejected a
+simultaneous Pane and ItemList, the Pane workaround rejected an empty row
+title, and the nested MapTemplate was rejected by
+`ContentTemplateConstraints`. Those failures explain the black Waze surface
+and Samsung's app-error dialog. The current device session was restored by
+unmounting the candidate and verifying both the installed Waze base APK and
+the Zygote-visible APK hash equal the stock hash
+`3ea14a2669439b240bb59aaa28b7a8557829d125cf103ebde196bc5606c0aefc`.
+
+Because v6 had not yet been opened by the Android Auto host, its rendering was
+unknown. I removed Waze auto-activation from the KernelSU boot hook and from
+the candidate installer. Other boot patches are left intact. Waze remains
+stock across reboot; a future candidate can be staged without activation and
+enabled manually only for a parked-car test. This recovery does not claim the
+Drive now removal or route-preview bypass is working.
