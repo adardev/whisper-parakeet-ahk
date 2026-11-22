@@ -18,6 +18,7 @@ class CarMediaSessionListener : NotificationListenerService() {
 
     override fun onListenerConnected() {
         super.onListenerConnected()
+        Log.i(TAG, "Media notification listener connected")
         sessionManager = getSystemService(MediaSessionManager::class.java)
         runCatching {
             sessionManager.addOnActiveSessionsChangedListener(
@@ -74,9 +75,28 @@ class CarMediaSessionListener : NotificationListenerService() {
         val current = CarMusicSessionBridge.controller()?.let { active ->
             supported.firstOrNull { it.sessionToken == active.sessionToken }
         }
-        // Exactly one destination receives controls. Prefer the app that is
-        // actually playing; keep it selected while paused if no other app plays.
-        CarMusicSessionBridge.setController(playing ?: current ?: supported.firstOrNull())
+        // Android can report an old player session in STOPPED state ahead of
+        // the player the user most recently paused. Picking the first session
+        // made Android Auto show (for example) stale YouTube Music metadata and
+        // sent steering-wheel next/previous to the wrong app while Salt was
+        // paused. Prefer an actively playing session, then keep a usable current
+        // session, then prefer paused/buffering media over stopped sessions.
+        // Retain a stopped current session only as a final fallback so Play can
+        // still resume it when it is the only supported source.
+        val selected = playing
+            ?: current?.takeUnless { it.playbackState?.state == PlaybackState.STATE_STOPPED }
+            ?: supported.firstOrNull {
+                it.playbackState?.state == PlaybackState.STATE_PAUSED ||
+                    it.playbackState?.state == PlaybackState.STATE_BUFFERING
+            }
+            ?: current
+            ?: supported.firstOrNull()
+        val changed = CarMusicSessionBridge.controller()?.sessionToken != selected?.sessionToken
+        CarMusicSessionBridge.setController(selected)
+        if (changed) {
+            Log.i(TAG, "Selected Android Auto media source: ${selected?.packageName ?: "none"} " +
+                "state=${selected?.playbackState?.state ?: "none"}")
+        }
     }
 
     @Synchronized
