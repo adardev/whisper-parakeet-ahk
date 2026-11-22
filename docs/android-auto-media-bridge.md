@@ -249,3 +249,78 @@ toolbar-only v1, verified the stock hash, and mounted v3. Zygote now reports
 the v3 hash, Waze has restarted (PID observed), and no new crash is present in
 the crash buffer. Auto-activation at boot remains off. A visual check of the
 head-unit map and centered location marker is still pending.
+
+### Waze patch: consolidated experiment log and current candidate (22 Nov 2026)
+
+This is the authoritative summary of the Waze Android Auto changes. It supersedes earlier statements in this document that described v6 as the current or successful map-only candidate. Do not use the experimental `build-waze-aa-patch.ps1` to rebuild the final APK; it contains the abandoned template and route experiments. The maintained candidate builder is `build-waze-aa-toolbar-patch.ps1`.
+
+#### Requested behavior
+
+1. Keep Waze as the default Android Auto navigation app.
+2. Remove Home/Work and Saved Places from the map toolbar, retaining Search and Settings.
+3. Omit the entire **Drive now** startup pane. The map should occupy the available view without the pane shifting the location marker.
+4. After selecting a destination, start Waze's currently recommended route immediately. Do not show the route alternatives / **Go now** step.
+5. Leave Waze installed normally. No Package Manager install, uninstall, disable, data clear, or signature replacement is part of this patch.
+
+#### Base and patch mechanism
+
+- Device: Samsung SM-A546E (A54), Waze 5.27.0.1, versionCode 1030748.
+- Installed base APK SHA-256: `3ea14a2669439b240bb59aaa28b7a8557829d125cf103ebde196bc5606c0aefc`.
+- Candidates are privately bind-mounted over Waze's `base.apk` inside Zygote's mount namespace by KernelSU. The installed APK/signature and phone-side Waze remain stock.
+- Active final candidate as of 22 Nov, 13:53 CST: SHA-256 `a9cfb44509e275e85ed344c387176607a6da370da494b35b3435eaeca80fb760`.
+- The patch is currently session-mounted only. Waze autostart was deliberately removed from the boot hook after the crashes below. Do not claim v4 survives reboot.
+
+#### Failed approaches and exact errors
+
+1. **Waze trip-suggestion preference/database edit:** set `Trip Suggestions Enabled` to 0 in its local DB and preference file. It did not remove Drive now. After Android Auto reconnected Waze restored the value to 1. The experiment was rolled back; DB/WAL/SHM and preference backups were retained under `/data/local/tmp/` with the `before-drive-now-20261122` suffix.
+2. **MapTemplate with Pane and ItemList both set:** Android Auto crashed Waze with `IllegalStateException: Either Pane or Item List must be set but not both` from `MapTemplate.Builder.build`.
+3. **Pane with blank title:** crashed with `IllegalArgumentException: The title cannot be null or empty`.
+4. **MapTemplate nested inside MapWithContentTemplate:** crashed with `IllegalArgumentException: MapTemplate is not allowed as content within the parent template`, thrown by `ContentTemplateConstraints`.
+5. **Single-space list-row candidate v6:** built and staged, but was not opened by Android Auto. It was unverified and is not the final approach.
+6. **Loading ListTemplate candidate v2:** would still occupy a content-pane area, so it could not meet the user's requirement to remove the component and preserve the map's full view. It was superseded before activation.
+
+The repeated template validation crashes left an Android Auto black surface and Samsung's app-error dialog. They were actual Waze crashes, not harmless logs.
+
+#### Recovery and proven toolbar change
+
+After the crashes, the active mount was removed and the installed and Zygote-visible hashes were both verified as stock (`3ea14a…c0aefc`). Waze auto-activation was removed from the KernelSU boot hook and from the Waze installer. Other KernelSU patches were left intact. That prevents an unverified Waze candidate from being re-mounted automatically at boot.
+
+Toolbar-only candidate v1, SHA-256 `c6a1d6a543f2819851f5097df533113aa9d1ebb5592512623212a7a86cb48c5b`, changed only Waze's map ActionStrip builder. It omitted the dynamic Home/Work action and skipped Saved Places; Search and Settings stayed. A physical car-screen photo confirmed those two buttons were gone. The photo also showed Drive now remained, proving toolbar removal alone was insufficient. V1 was then replaced by the fullscreen candidate.
+
+#### Fullscreen map change that removed the startup pane
+
+Fullscreen candidate v3, SHA-256 `ec1ce014bf61be3410c24d9d89fd3ff05bf9807c9b5e3ed12b54b104059055b5`, branches only when Waze's initial suggestion model is present. It emits Waze's top-level `NavigationTemplate` instead of the `MapWithContentTemplate` that creates the left pane. It passes through Waze's existing toolbar ActionStrip, map-control ActionStrip, and PanModeListener. Other map content, search, route preview, and active navigation follow the stock code path. The build passed Apktool, zipalign, and `apksigner` v3 checks. The user reported the fullscreen map/layout was working and asked to add only the remaining route-start behavior.
+
+This avoids the earlier invalid nested MapTemplate. The Android Car App Library documents NavigationTemplate as a map-oriented top-level template and lists its action-strip APIs: [NavigationTemplate.Builder](https://developer.android.com/reference/androidx/car/app/navigation/model/NavigationTemplate.Builder). MapWithContentTemplate instead requires supported content such as List, Pane, Grid, or Message: [MapWithContentTemplate.Builder](https://developer.android.com/reference/androidx/car/app/navigation/model/MapWithContentTemplate.Builder).
+
+#### Direct route-start change (current v4)
+
+Candidate v4 combines the proven fullscreen startup map and toolbar changes with one isolated route-preview callback change. In Waze's route-preview screen, when the state is the selected-route model (`com.waze.car_lib.r.au`), it invokes the same `onStartNavigation` callback that backs Waze's **Go now** action, then returns without publishing the route-preview screen. A per-screen boolean guard allows the callback to fire once despite template refreshes. The callback starts Waze's currently selected/recommended route; the patch does not choose a hard-coded route or destination. Other search/map/navigation states are not changed.
+
+- v4 candidate SHA-256: `a9cfb44509e275e85ed344c387176607a6da370da494b35b3435eaeca80fb760`.
+- Built from the stock Waze base; Apktool, zipalign, and `apksigner` v3 verification succeeded.
+- The car was confirmed parked before replacing v3. The controller first restored and verified stock, then mounted v4.
+- Current checks: installed base hash is stock; Zygote hash matches v4; `com.waze` process is running; crash buffer contains no new crash after activation (the newest Waze crashes are from 13:02–13:03, before v3/v4).
+- The direct-start behavior still needs one in-car interaction check: search/select a destination and confirm navigation begins immediately on Waze's recommended route, without the alternatives / **Go now** screen. Do not mark this behavior user-verified until that happens.
+
+#### Current controls
+
+Inspect mount hashes:
+
+```sh
+su -c 'sh /data/adb/modules/nemotron-session-patches/waze-control.sh status'
+```
+
+Manually enable staged candidate (restarts Waze; only while parked):
+
+```sh
+su -c 'sh /data/adb/modules/nemotron-session-patches/waze-control.sh enable'
+```
+
+Restore the stock Waze mount and restart Waze:
+
+```sh
+su -c 'sh /data/adb/modules/nemotron-session-patches/waze-control.sh disable'
+```
+
+Waze auto-activation at boot remains off until the final in-car behavior has been confirmed. No reboot was performed. The proprietary APKs and generated screenshots/videos are intentionally not tracked; the builders, installer/controller, and this experiment log are tracked.

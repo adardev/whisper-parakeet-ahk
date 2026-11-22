@@ -1,6 +1,6 @@
 param(
     [string]$InputApk = "$env:TEMP\waze-base.apk",
-    [string]$OutputApk = "$env:TEMP\nemotron-waze-aa-toolbar-v3.apk"
+    [string]$OutputApk = "$env:TEMP\nemotron-waze-aa-toolbar-v4.apk"
 )
 
 $ErrorActionPreference = 'Stop'
@@ -134,6 +134,39 @@ $fullscreen = @'
 $startMethod = $startMethod.Insert($toolbarResultEnd, $fullscreen.Replace("`n", [Environment]::NewLine))
 $startText = $startText.Substring(0, $methodStart) + $startMethod + $startText.Substring($methodEnd)
 [System.IO.File]::WriteAllText($startScreen, $startText, [System.Text.UTF8Encoding]::new($false))
+
+# On the route-preview screen, invoke Waze's existing Go now callback when a
+# ready selected-route model arrives. Guard it per screen instance so repeated
+# template refreshes cannot submit the same navigation action multiple times.
+$routeScreen = Join-Path $decoded 'smali_classes5\com\waze\c\a\b\h.smali'
+$routeText = [System.IO.File]::ReadAllText($routeScreen)
+$fieldsAnchor = '.field private final e:Landroidx/car/app/navigation/model/RoutePreviewNavigationTemplate;'
+if (-not $routeText.Contains($fieldsAnchor)) { throw 'Waze route-preview screen fields changed.' }
+if (-not $routeText.Contains('.field private f:Z')) {
+    $routeText = $routeText.Replace($fieldsAnchor, $fieldsAnchor + [Environment]::NewLine + '.field private f:Z')
+}
+$routeBranch = '    if-eqz v9, :cond_a'
+$routeBranchIndex = $routeText.IndexOf($routeBranch)
+if ($routeBranchIndex -lt 0) { throw 'Could not locate the selected-route branch.' }
+$routeBranchEnd = $routeText.IndexOf([Environment]::NewLine, $routeBranchIndex) + [Environment]::NewLine.Length
+$autoStart = @'
+    iget-boolean v5, v0, Lcom/waze/c/a/b/h;->f:Z
+
+    if-nez v5, :nemotron_auto_start_already_dispatched
+
+    const/4 v5, 0x1
+
+    iput-boolean v5, v0, Lcom/waze/c/a/b/h;->f:Z
+
+    invoke-interface {v11}, Lg/h/a/a;->invoke()Ljava/lang/Object;
+
+    return-void
+
+    :nemotron_auto_start_already_dispatched
+    return-void
+'@
+$routeText = $routeText.Insert($routeBranchEnd, $autoStart.Replace("`n", [Environment]::NewLine))
+[System.IO.File]::WriteAllText($routeScreen, $routeText, [System.Text.UTF8Encoding]::new($false))
 
 & $java -jar $apktool b $decoded -o $rebuilt
 if ($LASTEXITCODE -ne 0) { throw "Apktool build failed ($LASTEXITCODE)" }
