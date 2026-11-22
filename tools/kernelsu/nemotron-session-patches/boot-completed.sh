@@ -14,9 +14,32 @@ ns_hash() { nsenter -t "$zyg" -m -- sha256sum "$1" 2>/dev/null | cut -d' ' -f1; 
 n=0
 while [ "$(getprop sys.boot_completed)" != 1 ] && [ "$n" -lt 90 ]; do sleep 2; n=$((n+1)); done
 [ "$(getprop sys.boot_completed)" = 1 ] || { log boot_not_completed; exit 1; }
-zyg=$(pidof zygote64)
-case "$zyg" in ''|*[!0-9]*) log no_zygote; exit 1;; esac
-nsenter -t "$zyg" -m -- true || { log namespace_denied; exit 1; }
+# boot_completed can be published while Zygote or PackageManager is still
+# restarting. Require a stable Zygote namespace and a responsive PackageManager
+# before invoking any controller; otherwise pm path can return an empty target.
+last_zyg=''
+stable=0
+n=0
+while [ "$n" -lt 90 ] && [ "$stable" -lt 3 ]; do
+  zyg=$(pidof zygote64 2>/dev/null || true)
+  case "$zyg" in ''|*[!0-9]*) stable=0;;
+    *)
+      if [ "$zyg" = "$last_zyg" ] \
+        && nsenter -t "$zyg" -m -- true >/dev/null 2>&1 \
+        && service check package 2>/dev/null | grep -q 'found' \
+        && pm path com.sec.android.app.launcher 2>/dev/null | grep -q '^package:/system/priv-app/TouchWizHome_2017/TouchWizHome_2017.apk$'; then
+        stable=$((stable+1))
+      else
+        stable=0
+      fi
+      last_zyg="$zyg"
+      ;;
+  esac
+  [ "$stable" -ge 3 ] || sleep 2
+  n=$((n+1))
+done
+[ "$stable" -ge 3 ] || { log framework_not_ready; exit 1; }
+log "framework_ready zygote=$zyg"
 boot=$(cat /proc/sys/kernel/random/boot_id)
 case "$boot" in ''|*[!0-9a-f-]*) log invalid_boot_id; exit 1;; esac
 [ -f "$STORE/disabled" ] && { log disabled; exit 0; }
@@ -45,6 +68,26 @@ fi
 settings=nemotron-settings-app-filter-v1.apk
 if prepare "$settings" afcc203b80e8278c7000a17cd0651e37ba3b96aa9673d11fafeaee28b8137d6f; then
  sh "$MODDIR/settings-app-filter-control.sh" enable >> "$LOG" 2>&1 || log settings_filter_failed
+fi
+dialer=nemotron-samsung-dialer-fullscreen.apk
+if prepare "$dialer" f90284b44047fb60817cb2911fbb3cb1aba9ee009fa272db920827b8793e60e5; then
+ sh "$MODDIR/dialer-control.sh" enable >> "$LOG" 2>&1 || log samsung_dialer_failed
+fi
+android_auto=nemotron-aa-18_1-rail1dp.apk
+if prepare "$android_auto" 6e14eb65f4df0293352ed5da478ada2445341b776956746693e75da205d17cd8; then
+ sh "$MODDIR/android-auto-rail-control.sh" enable >> "$LOG" 2>&1 || log android_auto_rail_failed
+fi
+# Only auto-mount the last documented Waze candidate. Earlier template
+# experiments caused Android Auto validation crashes and must never be revived
+# just because a stale APK and hash file remain in the persistent store.
+waze_expected=738db3b2618d47db57a05a3ab69632b9bfdb161c45616795ebe7d79148f6be25
+waze_store_hash=$(cat "$STORE/waze-aa.sha256" 2>/dev/null || true)
+waze_store_apk="$STORE/nemotron-waze-aa-candidate-v1.apk"
+if [ "$waze_store_hash" = "$waze_expected" ] \
+  && [ "$(file_hash "$waze_store_apk")" = "$waze_expected" ]; then
+ sh "$MODDIR/waze-control.sh" enable >> "$LOG" 2>&1 || log waze_aa_failed
+else
+ log waze_aa_candidate_not_v7_skipped
 fi
 # SystemUI is session mounted only after stock/candidate validation. A failed
 # startup is rolled back and never retried until its failure marker is cleared.

@@ -1,6 +1,6 @@
 # Reactivación de parches de sesión
 
-El módulo `nemotron-session-patches` no reemplaza archivos en `/system`; su hook `boot-completed.sh` espera a que Android haya terminado de arrancar y KernelSU esté activo. Guarda los tres candidatos en `/data/adb/nemotron-session-patches`, valida SHA-256 de cada candidato y APK original, y usa montajes en el namespace de Zygote para One UI Home, HoneyBoard y System UI. Mantiene intactos los ajustes de ahorro y no ejecuta reinicios del teléfono.
+El módulo `nemotron-session-patches` no reemplaza archivos en `/system`; su hook `boot-completed.sh` espera a que Android haya terminado de arrancar y KernelSU esté activo. El conjunto actual de parches, hashes, validación de estabilidad de Zygote/Package Manager y las excepciones de Android Auto/Waze están descritos en [`session-patches-boot-2026-11-22.md`](session-patches-boot-2026-11-22.md). Los montajes son privados al namespace de Zygote. Mantiene intactos los ajustes de ahorro y no ejecuta reinicios del teléfono.
 
 El parche de System UI se intenta con un mecanismo de reversión: crea una marca de fallo antes del montaje, inicia una vigilancia y restaura el APK original si System UI no supera las comprobaciones. La versión local impide reintentar tras un fallo hasta revisión manual mediante `/data/adb/nemotron-session-patches/systemui-failed`. Para desactivar las reactivaciones se puede crear `/data/adb/nemotron-session-patches/disabled` o desactivar el módulo desde KernelSU antes del siguiente arranque.
 

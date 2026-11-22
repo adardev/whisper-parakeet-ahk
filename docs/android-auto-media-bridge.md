@@ -323,7 +323,17 @@ Restore the stock Waze mount and restart Waze:
 su -c 'sh /data/adb/modules/nemotron-session-patches/waze-control.sh disable'
 ```
 
-Waze auto-activation at boot remains off until the final in-car behavior has been confirmed. No reboot was performed. The proprietary APKs and generated screenshots/videos are intentionally not tracked; the builders, installer/controller, and this experiment log are tracked.
+El usuario solicitó que los parches también se apliquen al arrancar. El hook
+KernelSU ahora activa únicamente el candidato Waze v7 de hash fijado
+`738db3b2618d47db57a05a3ab69632b9bfdb161c45616795ebe7d79148f6be25`, siempre
+que el APK persistente y el archivo `waze-aa.sha256` coincidan. No activa las
+variantes de templates anteriores que provocaron pantalla negra. El flujo de
+un solo toque para iniciar navegación no está resuelto en v7 y sigue la ruta
+normal de confirmación de Waze. La aplicación Android Auto/Waze de arranque
+requiere comprobarse con una conexión real al coche. La sesión ADB se perdió
+antes de instalar esta última versión del hook en el teléfono; no se reinició.
+Los APK propietarios y capturas generadas no se rastrean; los constructores,
+controladores y bitácora sí.
 
 ### Two-step destination flow and map Settings removal (22 Nov 2026)
 

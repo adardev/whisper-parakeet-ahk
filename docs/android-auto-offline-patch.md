@@ -12,7 +12,14 @@ El tile de Nemotron activa `AndroidAutoRailPatch` al encenderse y limpia el mont
 
 El candidato probado está en `artifacts/android-auto-rail/android-auto-18.1.164344-rail-1dp.apk`, SHA-256 `6e14eb65f4df0293352ed5da478ada2445341b776956746693e75da205d17cd8`. El original tiene SHA-256 `f3e90ea898469991785dbf91500e1d50db4c637e0e67483065ee0813e3b59c73`. Una actualización de Android Auto necesita un parche revisado para la nueva versión.
 
-El montaje no es persistente: un reinicio o reinicio de zygote lo elimina. El root de DFRoot también es temporal y Start at Boot está desactivado. Tras reiniciar, iniciar root y apagar y encender el tile para volver a aplicarlo. No se agregó ningún módulo ni script de arranque para este parche.
+El montaje es privado al namespace de Zygote y se pierde si Zygote se reinicia.
+El módulo KernelSU `nemotron-session-patches` ahora prepara y aplica el
+candidato 18.1.164344 durante su hook de arranque, después de validar que el
+APK original coincide. El tile sigue pudiendo encender y apagar el parche en la
+sesión. Si Android Auto se actualiza y cambia el APK original, el hook omite el
+montaje; requiere reconstruir el candidato para esa versión. El estado y hashes
+del arranque se documentan en
+[`session-patches-boot-2026-11-22.md`](session-patches-boot-2026-11-22.md).
 
 ## Recuperación del candidato y opciones del tile — 14 de noviembre de 2026
 

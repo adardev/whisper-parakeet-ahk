@@ -44,4 +44,5 @@ Build a stock-derived candidate with
 `apps/nemotron-ui/build/prepare-stock-oneui-root-candidate.ps1` using the
 committed 100 ms `HomeOnlyStatusBar.smali`, then package it with
 `tools/kernelsu/nemotron-session-patches/build-update.ps1`. The package builder
-checks the candidate and Settings APK hashes before creating the module ZIP.
+checks the Home, Settings, and Samsung Phone APK hashes before creating the
+module ZIP; supply the latter as `-DialerCandidateApk`.

@@ -78,5 +78,6 @@ Build the candidate from the matching stock APK with
 `apps/nemotron-ui/build/prepare-stock-oneui-root-candidate.ps1`. Package the
 boot-persistent module with
 `tools/kernelsu/nemotron-session-patches/build-update.ps1`, supplying the
-matching Settings candidate as `-SettingsCandidateApk`. The build checks both
-candidate hashes before creating the ZIP.
+matching Settings candidate as `-SettingsCandidateApk` and Samsung Phone
+candidate as `-DialerCandidateApk`. The build checks all candidate hashes
+before creating the ZIP.
