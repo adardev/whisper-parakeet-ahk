@@ -2,10 +2,11 @@ package com.nemotron.voiceime.dhizuku
 
 import android.content.Context
 
-/** Persistent WindowManager policy: hide only the status bar outside One UI Home. */
+/** Hide status bars system-wide; patched One UI Home shows it only on the normal home screen. */
 object ImmersiveStatusBarPolicy {
     const val POLICY_CONTROL = "policy_control"
-    const val ENABLED_VALUE = "immersive.status=apps,-com.sec.android.app.launcher"
+    const val ENABLED_VALUE = "immersive.status=apps"
+    const val HOME_VISIBLE_VALUE = "immersive.status=apps,-com.sec.android.app.launcher"
 
     private const val PREFS = "immersive_status_policy"
     private const val KEY_HAS_PREVIOUS = "has_previous_policy_control"
@@ -20,7 +21,7 @@ object ImmersiveStatusBarPolicy {
 
     fun isEnabled(context: Context): Boolean {
         val current = readCurrent()
-        return if (current != null) current == ENABLED_VALUE
+        return if (current != null) current == ENABLED_VALUE || current == HOME_VISIBLE_VALUE
         else context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getBoolean("last_enabled", false)
     }
@@ -32,7 +33,7 @@ object ImmersiveStatusBarPolicy {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
 
         if (enabled) {
-            if (current == ENABLED_VALUE) {
+            if (current == ENABLED_VALUE || current == HOME_VISIBLE_VALUE) {
                 prefs.edit().putBoolean("last_enabled", true).apply()
                 return true
             }
@@ -50,7 +51,7 @@ object ImmersiveStatusBarPolicy {
             return success
         }
 
-        if (current != ENABLED_VALUE) {
+        if (current != ENABLED_VALUE && current != HOME_VISIBLE_VALUE) {
             prefs.edit().putBoolean("last_enabled", false).apply()
             return true
         }

@@ -64,6 +64,7 @@ try {
     $compatDir = Join-Path $decoded 'smali_classes6\com\nemotron\oneui\compat'
     New-Item -ItemType Directory -Path $compatDir -Force | Out-Null
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'oneui-compat/LauncherCompat-stock.smali') -Destination (Join-Path $compatDir 'LauncherCompat.smali') -Force
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'oneui-compat/RunningTaskLaunch.smali') -Destination (Join-Path $compatDir 'RunningTaskLaunch.smali') -Force
     & (Join-Path $PSScriptRoot 'patch-oneui-behavior.ps1') -DecodedRoot $decoded -StockHost
     & (Join-Path $PSScriptRoot 'patch-finder-opaque-cards.ps1') -DecodedRoot $decoded
 
@@ -79,7 +80,9 @@ try {
         Select-String -SimpleMatch 'Lcom/nemotron/oneui/shaded/' | Select-Object -First 1
     if ($remaining) { throw "Temporary namespace remained in $($remaining.Path)" }
 
-    & $JavaExe -Xmx2g -jar $ApktoolJar b $decoded --jobs 2 -o $unsigned
+    # Force DEX/resource assembly on every candidate; incremental apktool output
+    # can otherwise retain stale compiled classes after a diagnostic edit.
+    & $JavaExe -Xmx2g -jar $ApktoolJar b -f $decoded --jobs 2 -o $unsigned
     if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $unsigned)) { throw 'Could not rebuild patched Samsung One UI Home.' }
 
     # The settings entry opens an in-place picker dialog. This helper is DEX-only
@@ -91,6 +94,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Could not compile the app picker DEX.' }
     $dex = Join-Path $dexDir 'classes.dex'
     if (-not (Test-Path -LiteralPath $dex)) { throw 'D8 did not emit the app picker DEX.' }
+    Add-Type -AssemblyName System.IO.Compression
     Add-Type -AssemblyName System.IO.Compression.FileSystem
     $zip = [IO.Compression.ZipFile]::Open($unsigned, [IO.Compression.ZipArchiveMode]::Update)
     try {
@@ -111,7 +115,7 @@ try {
         OutputApk = $OutputApk
         Sha256 = $hash
         Package = 'com.sec.android.app.launcher'
-        Includes = 'Nemotron Home policy, manual app pin dialog, social icon filtering, native shortcut return matching, package-event filter, scheduler tuning, and opaque Finder cards.'
+        Includes = 'Nemotron Home policy, manual app pin dialog, social icon filtering, native shortcut return matching, read-time Recents task inset normalization, package-event filter, scheduler tuning, and opaque Finder cards.'
         Note = 'Runtime-only candidate. Never install; use only with the per-process root mount controller.'
     } | Format-List
 } catch {

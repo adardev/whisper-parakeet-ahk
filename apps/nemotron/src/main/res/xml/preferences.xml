@@ -26,7 +26,7 @@
         <SwitchPreferenceCompat
             app:key="immersive_status_all_apps"
             app:title="Hide status bar outside One UI Home"
-            app:summary="Applies to current and future apps. Keeps the status bar visible in One UI Home and leaves the navigation bar alone. No background service. Requires KernelSU root."
+            app:summary="Applies to current and future apps and Recents. Keeps the status bar visible on the launcher and leaves the navigation bar alone. No background service. Requires KernelSU root."
             app:defaultValue="false" />
     </PreferenceCategory>
 

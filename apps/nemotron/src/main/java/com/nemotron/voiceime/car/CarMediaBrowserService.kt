@@ -103,10 +103,27 @@ class CarMediaBrowserService : MediaBrowserServiceCompat() {
         }
 
         if (!hasMirroredSession || sourceChanged || state !== lastPlaybackState) {
-            val actions = state?.actions ?: (PlaybackStateCompat.ACTION_PLAY or PlaybackStateCompat.ACTION_PAUSE)
-            val compatState = state?.let(PlaybackStateCompat::fromPlaybackState)
-                ?: PlaybackStateCompat.Builder().setActions(actions)
-                    .setState(PlaybackStateCompat.STATE_PAUSED, 0L, 0f).build()
+            // The proxy implements these callbacks itself, even when the player
+            // session omits play-from-item actions. Advertise the actions that
+            // Android Auto needs to render its transport controls; preserve the
+            // source's state, position and supported next/previous actions.
+            val forwardingActions = if (source == null) 0L else (
+                PlaybackStateCompat.ACTION_PLAY or
+                    PlaybackStateCompat.ACTION_PAUSE or
+                    PlaybackStateCompat.ACTION_STOP or
+                    PlaybackStateCompat.ACTION_PLAY_FROM_MEDIA_ID or
+                    PlaybackStateCompat.ACTION_PLAY_FROM_SEARCH
+                )
+            val actions = (state?.actions ?: 0L) or forwardingActions
+            val compatState = PlaybackStateCompat.Builder()
+                .setActions(actions)
+                .setState(
+                    state?.state ?: PlaybackStateCompat.STATE_STOPPED,
+                    state?.position ?: 0L,
+                    state?.playbackSpeed ?: 0f
+                )
+                .apply { if (state != null) setBufferedPosition(state.bufferedPosition) }
+                .build()
             session.setPlaybackState(compatState)
             lastPlaybackState = state
         }

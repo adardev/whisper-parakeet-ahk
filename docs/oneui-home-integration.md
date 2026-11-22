@@ -422,3 +422,66 @@ izquierdo cerró Ajustes y volvió a Nemotron. Dos deslizamientos desde el borde
 inferior no cerraron Ajustes; por ello Inicio por gesto sigue sin verificar. El
 modo reportado permanece `navigation_mode=2`. No se deshabilitó One UI Home ni se
 reinició el teléfono.
+
+#### Insets inmersivos de Recientes en el A54 (21 nov 2026)
+
+La regla final quedó como `immersive.status=apps,-com.sec.android.app.launcher`:
+las apps actuales/futuras mantienen el status bar oculto, y el launcher Samsung
+conserva visible su barra. Como Inicio y Recientes pertenecen al mismo paquete,
+v71 por sí sola no ocultaba la barra solo en `RecentsActivity`; la barra de
+navegación no se modifica.
+
+La build v71 normalizaba insets, capturas y transiciones de tareas; no ocultaba
+por sí sola la status bar en Recientes, porque Inicio y Recientes pertenecen al
+mismo paquete. La versión v72 intentó resolverlo con el tema del manifest, pero
+PackageManager seguía leyendo el manifest stock fuera del montaje privado de
+KernelSU.
+
+La versión v73 conserva los ajustes geométricos de v71 y añade un hook al ciclo
+de vida de `RecentsActivity` (`onCreate`, `onResume` y cambio de foco). El hook
+lee `policy_control` y aplica fullscreen/immersive flags solo a Recientes. La
+excepción de paquete `-com.sec.android.app.launcher` continúa mostrando la barra
+en el Home normal; las demás apps siguen bajo `immersive.status=apps`. La ruta
+de swipe también conserva el ajuste de starting window. SHA-256 de v73:
+`f4ecd46b5fbc7a3ba0d015a517fc83237810890fc4628d34fb9a221f4d44ee00`.
+
+Validación en vivo el 21 nov 2026, sin reiniciar: la captura de Home muestra el
+indicador de batería; en Recientes ya no aparece ese indicador; WhatsApp se ve
+edge-to-edge sin status bar. El control de KernelSU reporta el mismo hash v73
+en el candidato y el proceso de One UI Home, mientras que `/system` conserva el
+APK original. El script `boot-completed.sh` apunta al candidato v73 para
+reaplicarlo al siguiente arranque. Las capturas quedaron fuera del repositorio
+porque contienen información personal.
+
+#### Barra de estado solo en Inicio estable (21 nov 2026, v77)
+
+Se reemplazó la excepción fija de paquete por un cambio dinámico de `policy_control`:
+`immersive.status=apps` es la política base y oculta la barra en apps, cajón y Recientes. El parche de One UI Home solo cambia a
+`immersive.status=apps,-com.sec.android.app.launcher` cuando `HoneyScreenManager` confirma la pantalla Normal de Inicio, sin transición ni animación activa. Al salir de Inicio, perder foco o empezar un cambio de estado vuelve a la política base.
+
+Para evitar que la barra se asome al comenzar el gesto de regreso desde una app o Recientes, el parche mantiene la política base durante 800 ms después de que Inicio gana foco. Una tarea diferida revalida el estado antes de mostrarla; si ya comenzó otro gesto, no la muestra. Recientes conserva su propio hook fullscreen. No se cambia `navigation_bar` ni la política de ahorro de batería.
+
+En el A54, sin reiniciar, el montaje KernelSU activo coincide en Zygote y en `com.sec.android.app.launcher` con SHA-256
+`3ae75749aeefc1abebdb912fb8ff86605772cfc3aee30cc15f7c9824cea44988`; `/system/priv-app/TouchWizHome_2017/TouchWizHome_2017.apk` conserva el hash stock `b97823026a11786674f49ab0b763b055a539426e6f1221d5d54a8e93a18d9da1`.
+
+Verificación repetida por ADB: Inicio estable termina en `immersive.status=apps,-com.sec.android.app.launcher` y el inset `statusBars` está visible; al abrir el cajón, Recientes o WhatsApp la política es `immersive.status=apps` y el inset está oculto. Al volver desde una app, sigue oculto durante el margen de 800 ms y aparece al asentarse Inicio. Tres ciclos de cajón/retorno mantuvieron el comportamiento. Se guardó el APK v76 anterior en `/data/adb/nemotron-session-patches/backup-before-v77-20261121/`; no hubo reinicio.
+
+`ImmersiveStatusBarPolicy.isEnabled()` también reconoce la excepción dinámica como estado encendido, para que el control de Nemotron no la reemplace por la política base al consultarse.
+
+#### Protección del gesto lateral desde Recientes (21 nov 2026, v78)
+
+El video `Recording 2026-11-21 145748.mp4` reporta un destello de la status bar durante el swipe lateral entre tareas. Para cerrar esa ventana, el candidato v78 extiende el hook de Recientes: al primer `onUserInteraction()` cambia la política dinámica `apps,-com.sec.android.app.launcher` a `apps` antes de que comience el movimiento de la tarjeta; `onResume`, `onWindowFocusChanged` y la salida de Recientes conservan la política inmersiva. La excepción solo vuelve a activarse después de que el Home Normal queda estable por 800 ms.
+
+El candidato se compiló y verificó con firma v3. SHA-256: `b0e570b915b188a4de251106a5a96bf1c3e0627d9cd1ad2f4feaeaa90645cc05`. Tras reconectar ADB, v78 se instaló mediante el montaje KernelSU, sin reiniciar. Se simuló una excepción de Home mientras Recientes estaba al frente; al iniciar un swipe, `onUserInteraction()` la cambió inmediatamente a `immersive.status=apps`, y el inset `statusBars` permaneció oculto. El montaje activo en Zygote y launcher coincide con el hash v78; el APK original de `/system` conserva el hash stock. Se guardó v77 en `/data/adb/nemotron-session-patches/backup-before-v78-20261121/`.
+
+#### Quick Switch lateral antes de Recientes (21 nov 2026, v79)
+
+El destello del video ocurre en el cambio lateral directo entre tareas, antes de que exista `RecentsActivity`; por eso el hook de v78 no podía interceptarlo. v79 añade el hook en `OtherActivityInputConsumer.onMotionEvent(ACTION_DOWN)`, que recibe el gesto iniciado en la app activa. Si la política dinámica de Home está vigente, la revoca inmediatamente a `immersive.status=apps`, antes de iniciar la animación de Quick Switch. Si la política ya está inmersiva, no escribe ningún ajuste. Al regresar al Inicio, su espera de estabilidad de 800 ms vuelve a habilitar la excepción solo para la pantalla principal.
+
+v79 está montado en Zygote y en el proceso de One UI Home con SHA-256 `37bd45611f0162727dfdbb851c7b52a7aa109d3dcf4ef107b28e2e3de28b3f12`; el APK stock de `/system` sigue intacto. Se probaron swipes horizontales en WhatsApp con la excepción de Home puesta intencionalmente: ambos ACTION_DOWN restauraron la política `immersive.status=apps` y el inset `statusBars` permaneció oculto. El gesto programático no confirmó un cambio real de tarea; verificar el cambio físico de app requiere repetir el Quick Switch del video. Sin reinicio; v78 quedó respaldado en `/data/adb/nemotron-session-patches/backup-before-v79-20261121/`.
+
+#### Evitar que reaparezca la barra por un callback atrasado (21 nov 2026, v80)
+
+El video `Recording 2026-11-21 211118.mp4` muestra que el destello es intermitente durante cambios laterales entre tareas. La excepción de Inicio se programaba para 800 ms después de detectar una pantalla principal estable, pero el callback podía ejecutarse después de que One UI Home perdiera el foco y volver a habilitar la barra sobre otra app. v80 cancela los callbacks anteriores al programar uno nuevo, elimina cualquier revelado pendiente al empezar Quick Switch y exige que la ventana del launcher aún tenga foco antes de mostrar la barra. La política sigue siendo `immersive.status=apps` fuera de Inicio.
+
+El parche conserva el hook v79 de `OtherActivityInputConsumer.onMotionEvent(ACTION_DOWN)` y añade las comprobaciones en `HomeOnlyStatusBar`. v80 quedó montado en Zygote y One UI Home con SHA-256 `f961a9a156b40f464503d2fdd72baa42602bfaed878ddb9d20c146963cee1b14`; el APK stock de `/system` conserva el hash `b97823026a11786674f49ab0b763b055a539426e6f1221d5d54a8e93a18d9da1`. Se probó por ADB: Inicio estable habilita la barra; al abrir WhatsApp queda oculta; al volver a Inicio y abrir WhatsApp a los 120 ms, el callback viejo no vuelve a habilitarla y el inset `statusBars` sigue invisible; al asentarse de nuevo Inicio, la barra vuelve. v79 quedó respaldado en `/data/adb/nemotron-session-patches/backup-before-v80-20261121/`. Sin reinicio. La transición física de dedo conviene confirmarla en uso normal; el video permite localizar la carrera, mientras que la prueba rápida verifica directamente que el callback tardío ya no puede reactivar la barra fuera de Inicio.

@@ -101,7 +101,12 @@ object AutoAndroidAuto {
         val result = RootAccessManager.runRoot(arrayOf("sh", "-c", script), timeoutMs = 8_000L)
         val marker = result.detail.lineSequence().firstOrNull { it.startsWith("__NEMO_MEDIA__") }
         val fields = marker?.removePrefix("__NEMO_MEDIA__")?.split('|')
-        val success = result.success && fields?.size == 4
+        // A successful root shell only proves that the commands ran. The old
+        // check reported success even when `cmd notification allow_listener`
+        // returned an error or Android left the listener disabled, which made
+        // the car source appear connected while it could not see media sessions.
+        val success = result.success && fields?.size == 4 &&
+            fields[0] == "0" && fields[1] == "0" && fields[2] == "1" && fields[3] == "1"
         Log.i(TAG, "Android Auto tile media setup success=$success aaCmd=${fields?.getOrNull(0)} bridgeCmd=${fields?.getOrNull(1)} aaListener=${fields?.getOrNull(2)} bridge=${fields?.getOrNull(3)} elapsed=${android.os.SystemClock.elapsedRealtime() - startedAt}ms")
         // Listener denial is logged, but must not undo the successful package
         // unhide/unstop or make the tile report itself as off.

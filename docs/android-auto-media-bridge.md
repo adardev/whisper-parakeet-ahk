@@ -30,3 +30,31 @@ from mirrored metadata, while preserving track data and album art.
 
 Android Auto may cache its available media sources. After installation, refresh
 the media source list from Android Auto while parked if Nemotron does not appear.
+
+## A54 fixes (21 Nov 2026)
+
+The tile setup now reports media readiness only when both
+`cmd notification allow_listener` commands succeed and Android confirms both
+listeners enabled. Previously a successful root shell alone was treated as
+success, even when notification access was missing.
+
+The mirrored session now advertises the play, pause, stop, play-from-media-ID,
+and play-from-search actions implemented by the bridge callbacks, in addition
+to the selected player's existing seek/next/previous actions. It preserves the
+source playback state, position, speed, and buffered position. This lets Android
+Auto render controls that match the commands the proxy can forward.
+
+The corrected Nemotron APK compiled and installed on the A54. An isolated
+service check confirmed `CarMediaBridge` starts without crashing and publishes
+its stopped session with the expected action set. No media was started. The
+head-unit transport controls still need an in-car check with the Android Auto
+tile on and a supported player active.
+
+Google Maps remains installed, enabled, and launchable on the phone. Only its
+Android Auto projection service,
+`com.google.android.apps.maps/com.google.android.apps.gmm.car.GmmCarProjectionService`,
+is disabled through Package Manager. This removes its Android Auto navigation
+entry without disabling or uninstalling the phone app. Waze was already checked
+in Android Auto's Customize launcher list. The Android Auto package was restored
+to its prior hidden/stopped state after inspecting that list. A car-display
+check is still needed to confirm Waze becomes the selected navigation app there.

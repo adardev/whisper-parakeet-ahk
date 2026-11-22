@@ -53,13 +53,14 @@ class Fit3TileService : AppFreezeTileService() {
     // into another "connect" action when the user is trying to switch it off.
     override fun isTileFrozen(): Boolean {
         val states = RootShellManager.getPackageStates(
-            listOf(targetPackage, SAMSUNG_WEARABLE_PLUGIN, SAMSUNG_ACCESSORY_PACKAGE)
+            listOf(targetPackage, SAMSUNG_WEARABLE_PLUGIN, SAMSUNG_ACCESSORY_PACKAGE, SMART_FIT_PACKAGE)
         ) ?: throw IllegalStateException("No se pudo consultar el estado de Fit3")
         val health = states[targetPackage]
         val plugin = states[SAMSUNG_WEARABLE_PLUGIN]
         val healthAndPluginFrozen = (health?.hidden == true || health?.disabled == true) &&
             (plugin?.hidden == true || plugin?.disabled == true)
-        return healthAndPluginFrozen && !isFit3Connected()
+        val smartFitFrozen = states[SMART_FIT_PACKAGE]?.let { it.hidden || it.disabled } ?: true
+        return healthAndPluginFrozen && smartFitFrozen && !isFit3Connected()
     }
 
     override fun onStartListening() {
@@ -114,7 +115,8 @@ class Fit3TileService : AppFreezeTileService() {
                 val controlledPackages = listOf(
                     targetPackage,
                     SAMSUNG_WEARABLE_PLUGIN,
-                    SAMSUNG_ACCESSORY_PACKAGE
+                    SAMSUNG_ACCESSORY_PACKAGE,
+                    SMART_FIT_PACKAGE
                 )
                 val packageStates = RootShellManager.getPackageStates(controlledPackages)
                     ?: throw IllegalStateException("No se pudo consultar el estado de Samsung Health")
@@ -235,6 +237,10 @@ class Fit3TileService : AppFreezeTileService() {
                         // already paused so the tile remains usable.
                         RootShellManager.unhideApp(SAMSUNG_WEARABLE_PLUGIN)
                         RootShellManager.unstopApp(SAMSUNG_WEARABLE_PLUGIN)
+                        if (SMART_FIT_PACKAGE in packageStates) {
+                            RootShellManager.unhideApp(SMART_FIT_PACKAGE)
+                            RootShellManager.unstopApp(SMART_FIT_PACKAGE)
+                        }
                         if (!hasConnectedBluetoothPeripherals()) {
                             RootShellManager.unhideApp(SAMSUNG_ACCESSORY_PACKAGE)
                             RootShellManager.unstopApp(SAMSUNG_ACCESSORY_PACKAGE)
@@ -245,26 +251,48 @@ class Fit3TileService : AppFreezeTileService() {
                         return@Thread
                     }
                     RootShellManager.stopApp(targetPackage)
+                    if (SMART_FIT_PACKAGE in packageStates) {
+                        val smartFitStopped = RootShellManager.stopApp(SMART_FIT_PACKAGE)
+                        val smartFitHidden = RootShellManager.hideApp(SMART_FIT_PACKAGE)
+                        Log.i(TAG, "Smart Fit force-stopped=$smartFitStopped hidden=$smartFitHidden")
+                        if (!smartFitHidden) {
+                            RootShellManager.unstopApp(SMART_FIT_PACKAGE)
+                            RootShellManager.unhideApp(targetPackage)
+                            RootShellManager.unstopApp(targetPackage)
+                            RootShellManager.unhideApp(SAMSUNG_WEARABLE_PLUGIN)
+                            RootShellManager.unstopApp(SAMSUNG_WEARABLE_PLUGIN)
+                            if (!hasConnectedBluetoothPeripherals()) {
+                                RootShellManager.unhideApp(SAMSUNG_ACCESSORY_PACKAGE)
+                                RootShellManager.unstopApp(SAMSUNG_ACCESSORY_PACKAGE)
+                            }
+                            Log.e(TAG, "No se pudo ocultar Smart Fit; se revirtió el apagado de Fit3")
+                            showMessage("No se pudo ocultar Smart Fit; Fit3 quedó activa")
+                            return@Thread
+                        }
+                    }
                     val frozen = RootShellManager.getHiddenPackages(
                         listOf(
                             targetPackage,
                             SAMSUNG_WEARABLE_PLUGIN,
-                            SAMSUNG_ACCESSORY_PACKAGE
+                            SAMSUNG_ACCESSORY_PACKAGE,
+                            SMART_FIT_PACKAGE
                         )
                     ).orEmpty()
                     check(targetPackage in frozen && SAMSUNG_WEARABLE_PLUGIN in frozen &&
-                        (hasConnectedBluetoothPeripherals() || SAMSUNG_ACCESSORY_PACKAGE in frozen)) {
-                        "No se confirmó que Samsung Health y Fit3 Plugin quedaran ocultos"
+                        (hasConnectedBluetoothPeripherals() || SAMSUNG_ACCESSORY_PACKAGE in frozen) &&
+                        (SMART_FIT_PACKAGE !in packageStates || SMART_FIT_PACKAGE in frozen)) {
+                        "No se confirmó que el grupo de Fit3 quedara oculto"
                     }
-                    Log.i(TAG, "Apagado completado: subidaConfirmada=$uploaded, Fit3 desconectada; Samsung Health y Fit3 Plugin ocultos sin deshabilitar sus permisos; Galaxy Wearable queda bajo control manual; SAP pausado cuando no hay otros periféricos")
+                    Log.i(TAG, "Apagado completado: subidaConfirmada=$uploaded, Fit3 desconectada; Samsung Health, Fit3 Plugin y Smart Fit ocultos sin deshabilitar sus permisos; Galaxy Wearable queda bajo control manual; SAP pausado cuando no hay otros periféricos")
                 } else {
                     // Restore packages before waking Samsung's background
                     // health receiver, which initializes its own HostManager.
-                    for (pkg in listOf(
+                    val packagesToRestore = listOf(
                         SAMSUNG_ACCESSORY_PACKAGE,
                         SAMSUNG_WEARABLE_PLUGIN,
                         targetPackage
-                    )) {
+                    ) + if (SMART_FIT_PACKAGE in packageStates) listOf(SMART_FIT_PACKAGE) else emptyList()
+                    for (pkg in packagesToRestore) {
                         if ((pkg in hiddenPackages || pkg in disabledPackages) && !RootShellManager.unhideApp(pkg)) {
                             Log.e(TAG, "No se pudo habilitar $pkg para conectar Fit3")
                             return@Thread
@@ -495,7 +523,8 @@ class Fit3TileService : AppFreezeTileService() {
                 tile.state = when {
                     states == null -> Tile.STATE_UNAVAILABLE
                     (states[targetPackage]?.let { it.hidden || it.disabled } == true) &&
-                        (states[SAMSUNG_WEARABLE_PLUGIN]?.let { it.hidden || it.disabled } == true) && !connected -> Tile.STATE_INACTIVE
+                        (states[SAMSUNG_WEARABLE_PLUGIN]?.let { it.hidden || it.disabled } == true) &&
+                        (states[SMART_FIT_PACKAGE]?.let { it.hidden || it.disabled } != false) && !connected -> Tile.STATE_INACTIVE
                     else -> Tile.STATE_ACTIVE
                 }
                 tile.updateTile()
@@ -534,6 +563,7 @@ class Fit3TileService : AppFreezeTileService() {
         private const val SAMSUNG_HEALTH_PACKAGE = "com.sec.android.app.shealth"
         private const val SAMSUNG_WEARABLE_PLUGIN = "com.samsung.wearable.fit3plugin"
         private const val SAMSUNG_ACCESSORY_PACKAGE = "com.samsung.accessory"
+        private const val SMART_FIT_PACKAGE = "com.eokoe.smartfitcoach"
         private const val HOST_MANAGER_SERVICE = "com.samsung.wearable.hostmanager.service.HostManager"
         private const val HOST_MANAGER_START_ACTION = "com.samsung.android.hostmanager.service.NSHostManager"
         private const val SAMSUNG_ACCESSORY_SERVICE = "com.samsung.accessory/.services.SAFrameworkService"

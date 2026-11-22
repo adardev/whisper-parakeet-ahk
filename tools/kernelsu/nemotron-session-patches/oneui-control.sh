@@ -1,11 +1,11 @@
 #!/system/bin/sh
-# Session-only One UI Home patch. PackageManager and /system keep Samsung's APK.
+# KernelSU bind mount reapplied by boot-completed.sh; /system keeps Samsung's APK.
 set -eu
 
 pkg=com.sec.android.app.launcher
 source=/data/local/tmp/nemotron-oneui-home-root-candidate.apk
 source_name=nemotron-oneui-home-root-candidate.apk
-candidate_hash=91065022a24e092a9174b503d26850aa99ff78c3971dd4e12b4fc53db11e84a2
+candidate_hash=f961a9a156b40f464503d2fdd72baa42602bfaed878ddb9d20c146963cee1b14
 original_hash=b97823026a11786674f49ab0b763b055a539426e6f1221d5d54a8e93a18d9da1
 marker=/data/local/tmp/nemotron-oneui-home.target
 

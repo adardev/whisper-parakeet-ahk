@@ -32,7 +32,7 @@
     check-cast p0, Lcom/honeyspace/sdk/source/entity/ShortcutItem;
     invoke-virtual {p0}, Lcom/honeyspace/sdk/source/entity/ShortcutItem;->getIntent()Landroid/content/Intent;
     move-result-object v0
-    const-string v1, "com.nemotron.voiceime2"
+    const-string v1, "com.nemotron.core"
     invoke-virtual {v0}, Landroid/content/Intent;->getPackage()Ljava/lang/String;
     move-result-object v2
     invoke-virtual {v1, v2}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
@@ -118,6 +118,50 @@
     :none
     const/4 v0, 0x0
     return-object v0
+.end method
+
+# Reopen the exact live top activity for a Nemotron-pinned app, with an opaque
+# extra. Targeting the existing activity makes Android deliver a new intent to
+# that record instead of showing its stale task snapshot during warm resume.
+.method public static launchWarmShortcut(Landroid/content/Context;Lcom/honeyspace/sdk/source/entity/ShortcutItem;Landroid/os/Bundle;)Z
+    .locals 6
+    :warm_try_start
+    invoke-static {p1}, Lcom/nemotron/oneui/compat/ShortcutCloseTarget;->targetPackage(Lcom/honeyspace/sdk/source/entity/BaseItem;)Ljava/lang/String;
+    move-result-object v0
+    if-eqz v0, :warm_fallback
+    const-string v1, "com.sec.android.app.launcher"
+    invoke-virtual {v1, v0}, Ljava/lang/String;->equals(Ljava/lang/Object;)Z
+    move-result v1
+    if-eqz v1, :warm_shortcut_not_home
+    goto :warm_fallback
+    :warm_shortcut_not_home
+    invoke-static {p0, v0}, Lcom/nemotron/oneui/compat/RunningTaskLaunch;->isProcessRunning(Landroid/content/Context;Ljava/lang/String;)Z
+    move-result v1
+    if-eqz v1, :warm_fallback
+    invoke-static {p0, v0}, Lcom/nemotron/oneui/compat/RunningTaskLaunch;->findTopActivity(Landroid/content/Context;Ljava/lang/String;)Landroid/content/ComponentName;
+    move-result-object v2
+    if-eqz v2, :warm_fallback
+    new-instance v3, Landroid/content/Intent;
+    invoke-direct {v3}, Landroid/content/Intent;-><init>()V
+    invoke-virtual {v3, v2}, Landroid/content/Intent;->setComponent(Landroid/content/ComponentName;)Landroid/content/Intent;
+    const-string v4, "com.nemotron.oneui.extra.SKIP_TASK_SNAPSHOT"
+    const/4 v5, 0x1
+    invoke-virtual {v3, v4, v5}, Landroid/content/Intent;->putExtra(Ljava/lang/String;Z)Landroid/content/Intent;
+    const v4, 0x30000000
+    invoke-virtual {v3, v4}, Landroid/content/Intent;->addFlags(I)Landroid/content/Intent;
+    invoke-virtual {p0, v3, p2}, Landroid/content/Context;->startActivity(Landroid/content/Intent;Landroid/os/Bundle;)V
+    const/4 v0, 0x1
+    :warm_try_end
+    return v0
+
+    :warm_fallback
+    const/4 v0, 0x0
+    return v0
+    .catch Ljava/lang/RuntimeException; {:warm_try_start .. :warm_try_end} :warm_failed
+    :warm_failed
+    move-exception v0
+    const/4 v0, 0x0
+    return v0
 .end method
 
 .method public static matches(Lcom/honeyspace/sdk/source/entity/BaseItem;Lcom/honeyspace/sdk/transition/CloseTarget$Key;)Z
