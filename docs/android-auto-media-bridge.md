@@ -110,16 +110,17 @@ suggestions disabled.
 Root inspection found Waze's persisted car preference at
 `config_values(preferences, CarPlay, Trip Suggestions Enabled)` in
 `waze_config.db`, mirrored as `CarPlay.Trip Suggestions Enabled` in Waze's
-native preferences file. Both were `1`. Before changing them, the original
-database, WAL, SHM, and preferences file were backed up under
-`/data/local/tmp/` with the `before-drive-now-20261122` suffix. Both preference
-copies were changed to `0`; the database passed `PRAGMA integrity_check`, and
-the installed files retain Waze's UID, mode, and app-data SELinux context.
-Android Auto had to be stopped briefly so Waze would release the SQLite
-database. The phone-side **Back** key did not dismiss the head-unit panel.
+native preferences file. Both initially read `1`. Before the experiment, the
+database, WAL, SHM, and preferences file were backed up under `/data/local/tmp/`
+with the `before-drive-now-20261122` suffix. Setting the two local copies to
+`0` did not remove **Drive now**. On the next Android Auto connection Waze
+reloaded the database value to `1`; the text preference was restored to `1` as
+well. The experiment was rolled back and is not an active fix. The local
+database passed `PRAGMA integrity_check` during the check. The phone-side
+**Back** key also did not dismiss the head-unit panel.
 
-The updated value is present on the device, but **Drive now has not yet been
-verified absent after Android Auto reconnects**. The car projection uses a
+The separate in-car **Trip suggestions** setting remains the correct next
+step, but has not yet been turned off or verified. The car projection uses a
 private/secure virtual display; ADB captures it as black and cannot inspect its
 controls or reliably inject taps. Do not disable Waze's car service as a
 workaround, since that would remove navigation rather than only dismissing the
