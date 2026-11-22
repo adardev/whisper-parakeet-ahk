@@ -34,8 +34,8 @@ prepare() {
  mv -f "$dst.new" "$dst" || return 1
 }
 # Each controller checks both stock and candidate hashes before mounting.
-oneui=nemotron-oneui-home-root-candidate-v83.apk
-if prepare "$oneui" fc48b7df73308343eddfa7694d3bfa634d5a7818f004c96476867e72ae6a882e; then
+oneui=nemotron-oneui-home-root-candidate-v84.apk
+if prepare "$oneui" 5404c7e10cff0dbd8276326f855f9f976b508725c8085b1f43312eea10a60df5; then
  sh "$MODDIR/oneui-control.sh" enable >> "$LOG" 2>&1 || log oneui_failed
 fi
 keyboard=nemotron-honeyboard-root-candidate-waveform.apk

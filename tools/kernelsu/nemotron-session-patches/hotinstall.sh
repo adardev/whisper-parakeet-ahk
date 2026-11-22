@@ -1,8 +1,8 @@
 #!/system/bin/sh
 set -eu
 MODDIR=${0%/*}
-candidate=nemotron-oneui-home-root-candidate-v83.apk
-expected=fc48b7df73308343eddfa7694d3bfa634d5a7818f004c96476867e72ae6a882e
+candidate=nemotron-oneui-home-root-candidate-v84.apk
+expected=5404c7e10cff0dbd8276326f855f9f976b508725c8085b1f43312eea10a60df5
 dst="/data/local/tmp/$candidate"
 sha() { sha256sum "$1" | cut -d ' ' -f 1; }
 [ "$(sha "$MODDIR/$candidate")" = "$expected" ] || { echo candidate_hash_mismatch; exit 1; }

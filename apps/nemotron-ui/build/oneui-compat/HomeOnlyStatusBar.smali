@@ -5,6 +5,7 @@
 .field private static showHomeStatusRunnable:Ljava/lang/Runnable;
 .field private static externalAppGestureActive:Z
 .field private static homeGestureTargetActive:Z
+.field private static appLaunchActive:Z
 
 .method static constructor <clinit>()V
     .locals 1
@@ -66,6 +67,7 @@
 
     if-eqz p0, :done
     const/4 v0, 0x0
+    sput-boolean v0, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->appLaunchActive:Z
     sput-boolean v0, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->externalAppGestureActive:Z
     invoke-static {p0}, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->attachAndApply(Lcom/sec/android/app/launcher/Launcher;)V
 
@@ -110,6 +112,14 @@
 
     if-eqz p0, :done
     if-eqz p1, :done
+
+    sget-boolean v0, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->appLaunchActive:Z
+    if-eqz v0, :check_home_gesture_target
+    const/4 v0, 0x0
+    invoke-static {p0, v0}, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->setImmersivePolicy(Landroid/content/Context;Z)V
+    goto :done
+
+    :check_home_gesture_target
 
     invoke-interface {p1}, Lcom/honeyspace/sdk/HoneyScreenManager;->isNormalHomescreen()Z
     move-result v0
@@ -158,9 +168,25 @@
     sput-boolean p1, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->homeGestureTargetActive:Z
     if-eqz p1, :not_home
     const/4 v0, 0x0
+    sput-boolean v0, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->appLaunchActive:Z
     sput-boolean v0, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->externalAppGestureActive:Z
     :not_home
     invoke-static {p0, p1}, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->setImmersivePolicy(Landroid/content/Context;Z)V
+    return-void
+.end method
+
+.method public static onHomeAppLaunch(Landroid/content/Context;)V
+    .locals 1
+
+    if-eqz p0, :done
+    const/4 v0, 0x1
+    sput-boolean v0, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->appLaunchActive:Z
+    const/4 v0, 0x0
+    sput-boolean v0, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->homeGestureTargetActive:Z
+    sput-boolean v0, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->externalAppGestureActive:Z
+    invoke-static {p0, v0}, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->setImmersivePolicy(Landroid/content/Context;Z)V
+
+    :done
     return-void
 .end method
 
@@ -202,6 +228,8 @@
     invoke-virtual {v2}, Landroid/view/View;->hasWindowFocus()Z
     move-result v2
     if-eqz v2, :done
+    sget-boolean v2, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->appLaunchActive:Z
+    if-nez v2, :done
     invoke-static {v0}, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->managerFor(Lcom/sec/android/app/launcher/Launcher;)Lcom/honeyspace/sdk/HoneyScreenManager;
     move-result-object v1
     if-eqz v1, :done

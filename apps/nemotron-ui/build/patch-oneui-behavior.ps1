@@ -829,6 +829,11 @@ $replacement = @'
     invoke-virtual {p0, p1}, Landroid/app/Activity;->startActivity(Landroid/content/Intent;)V
     :nemotron_app_launch_done
 '@
+$launchHide = '    invoke-static {p0}, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->onHomeAppLaunch(Landroid/content/Context;)V'
+$replacement = $replacement.Replace(
+    '    invoke-virtual {p0, p1}, Landroid/app/Activity;->startActivity',
+    ($launchHide + "`n" + '    invoke-virtual {p0, p1}, Landroid/app/Activity;->startActivity')
+)
 $methodBody = $methodBody.Replace($needle,$replacement)
 $callbackPattern = '(?m)^    if-nez p2, :cond_\d+$'
 if ([regex]::Matches($methodBody, $callbackPattern).Count -ne 1) { throw 'HoneySystemController callback launch branch was not unique.' }
@@ -842,6 +847,7 @@ $warmTaskGuard = @'
     move-result-object v0
     check-cast v0, Landroid/app/Activity;
     if-eqz v0, :nemotron_callback_launch
+    invoke-static {v0}, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->onHomeAppLaunch(Landroid/content/Context;)V
     invoke-static {v0, p1}, Lcom/nemotron/oneui/compat/RunningTaskLaunch;->launchRunningTask(Landroid/app/Activity;Landroid/content/Intent;)Z
     move-result v1
     if-eqz v1, :nemotron_callback_launch

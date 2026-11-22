@@ -1,76 +1,82 @@
-# Status bar on the Home gesture (One UI Home)
+# One UI Home status bar: gestures and app launches
 
-## Goal
+## Required behavior
 
-Show the status bar as soon as Samsung's gesture handler has selected **Home** as
-the destination. Keep it hidden in immersive apps, Recents, and app-to-app swipe
-gestures. The normal Home screen is the only destination where this patch allows
-the launcher exception.
+Show the status bar on the normal launcher Home screen. Hide it in immersive
+apps, Recents, and while switching between apps. Show it as soon as the Home
+gesture selects Home, and hide it before an app launched from a Home icon begins
+its opening animation. Preserve the existing back gesture and Recents behavior.
 
-## Root cause and fix
+## Home gesture timing and the v83 cleanup fix
 
-Waiting for `Launcher.onWindowFocusChanged(true)` revealed the status bar too
-late: it ran after the Home animation had started. One UI Home already knows the
-gesture destination earlier, in
-`RecentsAnimationManager.setEndTarget(GestureEndTarget)`. The patch in
-`apps/nemotron-ui/build/patch-oneui-behavior.ps1` calls
-`HomeOnlyStatusBar.onHomeGestureTargetChanged()` there, using
-`GestureEndTarget.isHome()`.
+One UI Home knows the gesture destination in
+`RecentsAnimationManager.setEndTarget(GestureEndTarget)`, before Home regains
+window focus. `patch-oneui-behavior.ps1` hooks that method and calls
+`HomeOnlyStatusBar.onHomeGestureTargetChanged()` with `GestureEndTarget.isHome()`.
+This enables the Home exception as soon as Home is selected.
 
-One UI Home also calls `setEndTarget(null)` while cleaning up a completed
-transition. Treating that cleanup as a non-Home destination immediately hid the
-bar again and caused the brief flash. The hook now ignores a null target. An
-explicit `APP` or `RECENTS` target still revokes the launcher exception.
+Samsung later calls `setEndTarget(null)` while cleaning up a completed
+transition. Treating this cleanup as a non-Home destination hid the bar again
+and caused a brief flash. The hook ignores null targets. Explicit app and
+Recents targets still revoke the Home exception. `HomeOnlyStatusBar` retains
+that decision through the transition and clears the temporary latch after Home
+is stable. Horizontal Quick Switch remains guarded separately.
 
-`HomeOnlyStatusBar` keeps the Home gesture state through the transition and
-reasserts the immersive policy from the existing screen-state callbacks. Once
-Home is stable, it clears the temporary gesture latch while leaving the normal
-Home exception enabled. The separate external-app gesture guard remains in
-place, so horizontal quick-switch gestures do not reveal the bar.
+## App opening from Home: the v84 fix
 
-## Build and live result
+The supplied `mira.mp4` showed a separate regression: when an app opened from a
+normal Home icon, its first frames briefly used the wrong top inset and shifted
+the content. `Launcher.onPause()` was too late to correct this reliably.
 
-- Source APK: Samsung stock `TouchWizHome_2017.apk`, SHA-256
+Home icon taps go through the One UI implementation of
+`HoneySystemController.startActivity`. The patch now clears the launcher
+exception immediately before each direct launch, and before its callback/task
+launch branch. It sets an `appLaunchActive` latch so delayed Home-state
+callbacks cannot restore the status bar over the incoming app. The latch clears
+when One UI Home regains window focus or when a new Home gesture selects Home.
+Recents task launches do not use this Home icon path, so their existing
+behavior is preserved.
+
+## Build and live verification
+
+- Stock Samsung `TouchWizHome_2017.apk` SHA-256:
   `b97823026a11786674f49ab0b763b055a539426e6f1221d5d54a8e93a18d9da1`.
-- Runtime candidate: `oneui-home-homegesture-null-guard-20261121.apk`, SHA-256
-  `fc48b7df73308343eddfa7694d3bfa634d5a7818f004c96476867e72ae6a882e`.
-- Signature: candidate verified with APK Signature Scheme v3. It is a
-  root-mounted runtime candidate; it is not installed through Package Manager.
-- The system APK remains stock. KernelSU mounts the candidate in Zygote's mount
-  namespace and restarts only `com.sec.android.app.launcher` to refresh it.
-- Live check on the A54: Zygote and Launcher both reported the candidate hash;
-  `/system` continued to report the stock hash.
-- Gesture check: when WhatsApp was foreground, policy was
-  `immersive.status=apps`; after the Home gesture it became
-  `immersive.status=apps,-com.sec.android.app.launcher`. Two repeated
-  WhatsApp-to-Home cycles retained that result after the transition cleanup.
-- No phone reboot, System UI restart, battery-setting change, or change to the
-  back gesture was made.
+- Current runtime candidate v84 SHA-256:
+  `5404c7e10cff0dbd8276326f855f9f976b508725c8085b1f43312eea10a60df5`.
+- Candidate verified with APK Signature Scheme v3. It is mounted by root; it
+  is not installed through Package Manager. The APK at `/system` remains stock.
+- Live A54 verification: Zygote and the Launcher process both report the v84
+  hash; `/system` still reports the stock hash.
+- Opened YouTube Music by tapping its Home icon. The screen recording shows the
+  app entering without a status-bar flash or the delayed downward content shift.
+  During the app, `policy_control` is `immersive.status=apps`.
+- Swiped back to Home. The status bar was visible there and
+  `policy_control` became `immersive.status=apps,-com.sec.android.app.launcher`.
+- The Home gesture was repeated after the app launch. The exception returned
+  correctly. No System UI or phone restart and no battery-setting change was
+  made.
 
 ## KernelSU persistence
 
-KernelSU Session Patches v1.5 (version code 6) was packaged with the v83 One UI
-candidate, Settings app-list filter candidate, and boot controller. The boot
-hook also retains support for the existing HoneyBoard candidate in the
-candidate store. KernelSU accepted the ZIP and reported
-`nemotron-session-patches` with `update=true`. This means the package is staged
-for the next natural reboot; the phone was deliberately not rebooted. The boot
-hook validates candidate hashes, prepares the One UI APK, and reapplies its
-Zygote mount. The APK under `/system` remains untouched.
+KernelSU Session Patches v1.6 (version code 7) contains the v84 candidate and
+boot controller. It also retains the Settings app-list filter and the existing
+keyboard boot support. KernelSU accepted the module and reports
+`update=true`; it is staged for the next natural reboot. The phone was not
+rebooted. At boot, the module validates the candidate hash, stages the APK, and
+reapplies the Zygote mount.
 
-The One UI controller labels the verified candidate `u:object_r:system_file:s0`.
-On this A54, `chcon` to `apk_data_file` is denied from the KernelSU shell, while
-the `system_file` label succeeds. The candidate hash is checked before mounting.
+The One UI controller labels the validated candidate
+`u:object_r:system_file:s0`. On this A54, labeling a staged APK as `apk_data_file`
+is denied from the KernelSU shell; `system_file` succeeds. The Settings and
+HoneyBoard controllers in the v1.6 source use the accepted label as well.
 
-The v1.5 module archive also carries the existing Settings filter and keyboard
-boot support. Generated APKs and ZIPs are local build artifacts and are not
-committed.
+Generated APKs and module ZIPs are local build artifacts and are not committed.
 
 ## Rebuild
 
-Build the runtime candidate from the matching stock APK with
-`apps/nemotron-ui/build/prepare-stock-oneui-root-candidate.ps1`, then package the
+Build the candidate from the matching stock APK with
+`apps/nemotron-ui/build/prepare-stock-oneui-root-candidate.ps1`. Package the
 boot-persistent module with
-`tools/kernelsu/nemotron-session-patches/build-update.ps1`. Supply the matching
-Settings candidate as `-SettingsCandidateApk`; the build script verifies both
+`tools/kernelsu/nemotron-session-patches/build-update.ps1`, supplying the
+matching Settings candidate as `-SettingsCandidateApk`. The build checks both
 candidate hashes before creating the ZIP.

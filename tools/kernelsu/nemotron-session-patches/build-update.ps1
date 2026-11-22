@@ -1,11 +1,11 @@
 param(
     [Parameter(Mandatory = $true)][string]$CandidateApk,
     [Parameter(Mandatory = $true)][string]$SettingsCandidateApk,
-    [string]$OutputZip = (Join-Path $env:TEMP 'nemotron-session-patches-v1.5.zip')
+    [string]$OutputZip = (Join-Path $env:TEMP 'nemotron-session-patches-v1.6.zip')
 )
 $ErrorActionPreference = 'Stop'
 $module = $PSScriptRoot
-$expected = 'fc48b7df73308343eddfa7694d3bfa634d5a7818f004c96476867e72ae6a882e'
+$expected = '5404c7e10cff0dbd8276326f855f9f976b508725c8085b1f43312eea10a60df5'
 $actual = (Get-FileHash -LiteralPath $CandidateApk -Algorithm SHA256).Hash.ToLowerInvariant()
 if ($actual -ne $expected) { throw "Candidate hash mismatch: $actual" }
 $settingsExpected = 'afcc203b80e8278c7000a17cd0651e37ba3b96aa9673d11fafeaee28b8137d6f'
@@ -24,7 +24,7 @@ try {
         Copy-Item -LiteralPath (Join-Path $module $name) -Destination $stage
     }
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot '..\settings-app-filter\control.sh') -Destination (Join-Path $stage 'settings-app-filter-control.sh')
-    Copy-Item -LiteralPath $CandidateApk -Destination (Join-Path $stage 'nemotron-oneui-home-root-candidate-v83.apk')
+    Copy-Item -LiteralPath $CandidateApk -Destination (Join-Path $stage 'nemotron-oneui-home-root-candidate-v84.apk')
     Copy-Item -LiteralPath $SettingsCandidateApk -Destination (Join-Path $stage 'nemotron-settings-app-filter-v1.apk')
     $null = [System.Reflection.Assembly]::LoadWithPartialName('System.IO.Compression.FileSystem')
     if (Test-Path -LiteralPath $OutputZip) { Remove-Item -LiteralPath $OutputZip -Force }
