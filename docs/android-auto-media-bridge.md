@@ -243,9 +243,9 @@ App implementation; Android's Car App Library defines it as a map-first
 navigation template with action strips.
 
 Candidate SHA-256:
-`ec1ce014bf61be3410c24d9d89fd3ff05bf9807c9b5e3ed12b54b104059055b5`. It
-passed Apktool, zipalign, and `apksigner` v3 verification, and is staged in
-KernelSU storage. It has not been activated yet: the toolbar-only v1 remains
-mounted until the car is confirmed parked, because activation force-stops
-Waze to make Android Auto load the new code. Auto-activation at boot remains
-off.
+`ec1ce014bf61be3410c24d9d89fd3ff05bf9807c9b5`. It passed Apktool, zipalign,
+and `apksigner` v3 verification. With the car confirmed parked, I unmounted
+toolbar-only v1, verified the stock hash, and mounted v3. Zygote now reports
+the v3 hash, Waze has restarted (PID observed), and no new crash is present in
+the crash buffer. Auto-activation at boot remains off. A visual check of the
+head-unit map and centered location marker is still pending.
