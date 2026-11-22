@@ -101,17 +101,26 @@ Salt Player, then skips the active track in YouTube Music after switching to
 that player. This supersedes the earlier pending transport-control check.
 
 The phone-side Waze **Show trip suggestions** switch was turned off, but that
-did not remove **Drive now** from Android Auto. Waze has a separate in-car
-setting: **Waze on car screen > Settings > Privacy > Personalisation > Trip
-suggestions > Show trip suggestions**. The in-car toggle still needs to be
-changed and checked after a fresh Android Auto connection. Waze's [official
-instructions](https://support.google.com/waze/answer/9747181?hl=en) note that
-planned drives and calendar events can remain visible even with trip
+did not remove **Drive now** from Android Auto. Waze exposes a separate in-car
+setting at **Waze on car screen > Settings > Privacy > Personalisation > Trip
+suggestions > Show trip suggestions**. Waze's [official instructions](https://support.google.com/waze/answer/9747181?hl=en)
+note that planned drives and calendar events can remain visible even with trip
 suggestions disabled.
 
-On the fresh connection, Android reports Waze's `WazeCarAppService` bound to
-Android Auto. The car projection uses a private/secure virtual display; ADB
-captures it as black and cannot inspect its controls or reliably inject taps.
-The in-car setting therefore remains pending direct verification on the head
-unit. Do not patch or disable Waze's car service as a workaround, since that
-would remove navigation rather than only dismissing this panel.
+Root inspection found Waze's persisted car preference at
+`config_values(preferences, CarPlay, Trip Suggestions Enabled)` in
+`waze_config.db`, mirrored as `CarPlay.Trip Suggestions Enabled` in Waze's
+native preferences file. Both were `1`. Before changing them, the original
+database, WAL, SHM, and preferences file were backed up under
+`/data/local/tmp/` with the `before-drive-now-20261122` suffix. Both preference
+copies were changed to `0`; the database passed `PRAGMA integrity_check`, and
+the installed files retain Waze's UID, mode, and app-data SELinux context.
+Android Auto had to be stopped briefly so Waze would release the SQLite
+database. The phone-side **Back** key did not dismiss the head-unit panel.
+
+The updated value is present on the device, but **Drive now has not yet been
+verified absent after Android Auto reconnects**. The car projection uses a
+private/secure virtual display; ADB captures it as black and cannot inspect its
+controls or reliably inject taps. Do not disable Waze's car service as a
+workaround, since that would remove navigation rather than only dismissing the
+panel.
