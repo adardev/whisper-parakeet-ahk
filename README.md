@@ -17,6 +17,7 @@ Las nuevas instalaciones y reactivaciones no crean iconos automáticamente. Inst
 - [Instalación y estado de microG en A54](docs/microg-noogle-kernelsu-setup.md)
 - [HMA-OSS: evitar el cierre de Ajustes en Running services](docs/hma-oss-settings-running-services-2026-11-07.md)
 - [Backend root de Nemotron Core con KernelSU](docs/nemotron-kernelsu.md)
+- [Patch root de Alarmy 4.17.3: bloquear altas y duplicados](patches/alarmy-root/README.md)
 - [Limpieza de intermediarios y archivos conservados](docs/oneui-home-cleanup.md)
 - [Código fuente de Nemotron Core](apps/nemotron)
 - [Integración y compatibilidad de Nemotron UI](apps/nemotron-ui/build)
