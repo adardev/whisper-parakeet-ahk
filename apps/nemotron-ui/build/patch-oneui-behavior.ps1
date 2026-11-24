@@ -201,10 +201,9 @@ if ($StockHost) {
 .end method
 '@
     }
-    # The package-level immersive rule includes One UI Home. Restore its status
-    # bar as soon as the Home transition completes, without waiting for the
-    # remaining launcher animation frames. External Quick Switch gestures hold
-    # a guard until Home regains window focus.
+    # The package-level immersive rule includes One UI Home. Restore the status
+    # bar only after Samsung's Normal home state stays settled for 800 ms; this
+    # avoids revealing it while Home is entering during app/Recents gestures.
     Edit-Class 'Launcher.smali' {
         param($text)
         $resume = '(?s)(\.method public final onResume\(\)V.*?invoke-super \{p0\}, L(?:com/nemotron/oneui/shaded/)?androidx/fragment/app/FragmentActivity;->onResume\(\)V\r?\n)'
@@ -219,7 +218,7 @@ if ($StockHost) {
         if ([regex]::Matches($text, $focus).Count -ne 1) { throw 'Launcher.onWindowFocusChanged hook was not unique.' }
         $focusHook = '$0' + @'
     if-eqz p1, :nemotron_home_focus_done
-    invoke-static {p0}, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->onHomeWindowFocusChanged(Lcom/sec/android/app/launcher/Launcher;)V
+    invoke-static {p0}, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->attachAndApply(Lcom/sec/android/app/launcher/Launcher;)V
     :nemotron_home_focus_done
 '@
         $text = [regex]::Replace($text, $focus, $focusHook, 1)
@@ -233,30 +232,6 @@ if ($StockHost) {
         $stateWrite = '(?m)^([ \t]*)iput-boolean (?:v\d+|p\d+), (p0|v\d+), Lh3/i;->q:Z\r?$'
         if ([regex]::Matches($text, $stateWrite).Count -lt 5) { throw 'HoneyScreenManager transition sites changed; refusing to patch.' }
         [regex]::Replace($text, $stateWrite, ('$0' + "`n`$1invoke-static {`$2}, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->onStateChanged(Lcom/honeyspace/sdk/HoneyScreenManager;)V"))
-    }
-    # The gesture destination is known before Home regains window focus. Switch
-    # only the Launcher exception at that point so the bar is ready as Home
-    # enters; other Recents/app destinations keep the immersive policy.
-    Edit-RelativePath 'smali_classes3/com/honeyspace/gesture/recentsanimation/RecentsAnimationManager.smali' {
-        param($text)
-        if ($text.Contains('onHomeGestureTargetChanged')) { return $text }
-        $method = [regex]::Match($text, '(?s)\.method private final setEndTarget\(Lcom/honeyspace/gesture/recentsanimation/GestureEndTarget;\)V.*?\.end method')
-        if (-not $method.Success) { throw 'RecentsAnimationManager.setEndTarget was not found.' }
-        $block = $method.Value
-        if ($block -notmatch '(?m)^    \.locals 3\r?$') { throw 'RecentsAnimationManager.setEndTarget locals changed.' }
-        $block = [regex]::Replace($block, '(?m)^    \.locals 3\r?$', '    .locals 5', 1)
-        $setter = '(?m)^([ \t]*)invoke-interface \{[^}]+\}, L(?:com/nemotron/oneui/shaded/)?kotlin/properties/ReadWriteProperty;->setValue\(Ljava/lang/Object;L(?:com/nemotron/oneui/shaded/)?kotlin/reflect/KProperty;Ljava/lang/Object;\)V\r?$'
-        if ([regex]::Matches($block, $setter).Count -ne 1) { throw 'RecentsAnimationManager end-target setter site was not unique.' }
-        $hook = @'
-    iget-object v0, p0, Lcom/honeyspace/gesture/recentsanimation/RecentsAnimationManager;->context:Landroid/content/Context;
-    if-eqz p1, :nemotron_home_target_null
-    invoke-virtual {p1}, Lcom/honeyspace/gesture/recentsanimation/GestureEndTarget;->isHome()Z
-    move-result v1
-    invoke-static {v0, v1}, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->onHomeGestureTargetChanged(Landroid/content/Context;Z)V
-    :nemotron_home_target_null
-'@
-        $block = [regex]::Replace($block, $setter, ('$0' + "`n" + $hook), 1)
-        $text.Remove($method.Index, $method.Length).Insert($method.Index, $block)
     }
     # The horizontal Quick Switch gesture starts in the foreground task and is
     # delivered to OtherActivityInputConsumer before RecentsActivity exists.
@@ -829,11 +804,6 @@ $replacement = @'
     invoke-virtual {p0, p1}, Landroid/app/Activity;->startActivity(Landroid/content/Intent;)V
     :nemotron_app_launch_done
 '@
-$launchHide = '    invoke-static {p0}, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->onHomeAppLaunch(Landroid/content/Context;)V'
-$replacement = $replacement.Replace(
-    '    invoke-virtual {p0, p1}, Landroid/app/Activity;->startActivity',
-    ($launchHide + "`n" + '    invoke-virtual {p0, p1}, Landroid/app/Activity;->startActivity')
-)
 $methodBody = $methodBody.Replace($needle,$replacement)
 $callbackPattern = '(?m)^    if-nez p2, :cond_\d+$'
 if ([regex]::Matches($methodBody, $callbackPattern).Count -ne 1) { throw 'HoneySystemController callback launch branch was not unique.' }
@@ -847,7 +817,6 @@ $warmTaskGuard = @'
     move-result-object v0
     check-cast v0, Landroid/app/Activity;
     if-eqz v0, :nemotron_callback_launch
-    invoke-static {v0}, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->onHomeAppLaunch(Landroid/content/Context;)V
     invoke-static {v0, p1}, Lcom/nemotron/oneui/compat/RunningTaskLaunch;->launchRunningTask(Landroid/app/Activity;Landroid/content/Intent;)Z
     move-result v1
     if-eqz v1, :nemotron_callback_launch

@@ -1,6 +1,6 @@
 id=nemotron-session-patches
 name=Nemotron Session Patches
-version=1.6
-versionCode=7
+version=1.9.2
+versionCode=12
 author=Nemotron
-description=Boot-persistent root patches with Home app-launch status bar timing and Settings filter; no system overlay.
+description=Boot-persistent root patches with folder-aware Home status bar and Settings filter; no system overlay.

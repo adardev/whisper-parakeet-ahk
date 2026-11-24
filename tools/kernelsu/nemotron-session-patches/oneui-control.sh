@@ -3,9 +3,9 @@
 set -eu
 
 pkg=com.sec.android.app.launcher
-source=/data/local/tmp/nemotron-oneui-home-root-candidate-v84.apk
-source_name=nemotron-oneui-home-root-candidate-v84.apk
-candidate_hash=5404c7e10cff0dbd8276326f855f9f976b508725c8085b1f43312eea10a60df5
+source=/data/local/tmp/nemotron-oneui-home-root-candidate-home100ms.apk
+source_name=nemotron-oneui-home-root-candidate-home100ms.apk
+candidate_hash=3a21d458abd33c29f1f531b0822c2020ade72d6ecfb9ad4808e4cad159e3ab19
 original_hash=b97823026a11786674f49ab0b763b055a539426e6f1221d5d54a8e93a18d9da1
 marker=/data/local/tmp/nemotron-oneui-home.target
 

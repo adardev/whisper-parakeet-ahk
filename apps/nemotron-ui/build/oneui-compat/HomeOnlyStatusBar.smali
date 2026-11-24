@@ -3,9 +3,6 @@
 
 .field private static activityRef:Ljava/lang/ref/WeakReference;
 .field private static showHomeStatusRunnable:Ljava/lang/Runnable;
-.field private static externalAppGestureActive:Z
-.field private static homeGestureTargetActive:Z
-.field private static appLaunchActive:Z
 
 .method static constructor <clinit>()V
     .locals 1
@@ -62,19 +59,6 @@
     return-void
 .end method
 
-.method public static onHomeWindowFocusChanged(Lcom/sec/android/app/launcher/Launcher;)V
-    .locals 1
-
-    if-eqz p0, :done
-    const/4 v0, 0x0
-    sput-boolean v0, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->appLaunchActive:Z
-    sput-boolean v0, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->externalAppGestureActive:Z
-    invoke-static {p0}, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->attachAndApply(Lcom/sec/android/app/launcher/Launcher;)V
-
-    :done
-    return-void
-.end method
-
 .method public static detach(Lcom/sec/android/app/launcher/Launcher;)V
     .locals 1
 
@@ -113,77 +97,32 @@
     if-eqz p0, :done
     if-eqz p1, :done
 
-    sget-boolean v0, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->appLaunchActive:Z
-    if-eqz v0, :check_home_gesture_target
-    const/4 v0, 0x0
+    # An open Home folder is still part of the launcher surface. Keep its
+    # status bar exception even while Samsung reports the folder animation as
+    # a non-normal/transitional Home state.
+    invoke-interface {p1}, Lcom/honeyspace/sdk/HoneyScreenManager;->isOpenFolderMode()Z
+    move-result v0
+    if-eqz v0, :check_normal_home
+    const/4 v0, 0x1
     invoke-static {p0, v0}, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->setImmersivePolicy(Landroid/content/Context;Z)V
     goto :done
 
-    :check_home_gesture_target
+    :check_normal_home
 
     invoke-interface {p1}, Lcom/honeyspace/sdk/HoneyScreenManager;->isNormalHomescreen()Z
     move-result v0
-    sget-boolean v1, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->homeGestureTargetActive:Z
-    if-eqz v1, :normal_home_logic
-    if-eqz v0, :show_for_home_gesture
-    invoke-interface {p1}, Lcom/honeyspace/sdk/HoneyScreenManager;->isOnStateTransition()Z
-    move-result v0
-    if-nez v0, :show_for_home_gesture
-    const/4 v1, 0x0
-    sput-boolean v1, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->homeGestureTargetActive:Z
-    const/4 v0, 0x1
-    invoke-static {p0, v0}, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->setImmersivePolicy(Landroid/content/Context;Z)V
-    goto :done
-
-    :show_for_home_gesture
-    const/4 v0, 0x1
-    invoke-static {p0, v0}, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->setImmersivePolicy(Landroid/content/Context;Z)V
-    goto :done
-
-    :normal_home_logic
     if-eqz v0, :hide
-    sget-boolean v0, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->externalAppGestureActive:Z
-    if-nez v0, :hide
     invoke-interface {p1}, Lcom/honeyspace/sdk/HoneyScreenManager;->isOnStateTransition()Z
     move-result v0
     if-nez v0, :hide
-    # Apply in this focus/state callback itself. Posting even a zero-delay
-    # runnable leaves one main-loop turn where Home's live header can move
-    # before the status bar becomes visible.
-    const/4 v0, 0x1
-    invoke-static {p0, v0}, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->setImmersivePolicy(Landroid/content/Context;Z)V
+    invoke-interface {p1}, Lcom/honeyspace/sdk/HoneyScreenManager;->isOnGoingAnimationRunning()Z
+    move-result v0
+    if-nez v0, :hide
+    invoke-static {p0}, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->scheduleHomeStatusBar(Landroid/content/Context;)V
     goto :done
 
     :hide
     const/4 v0, 0x0
-    invoke-static {p0, v0}, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->setImmersivePolicy(Landroid/content/Context;Z)V
-
-    :done
-    return-void
-.end method
-
-.method public static onHomeGestureTargetChanged(Landroid/content/Context;Z)V
-    .locals 1
-
-    sput-boolean p1, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->homeGestureTargetActive:Z
-    if-eqz p1, :not_home
-    const/4 v0, 0x0
-    sput-boolean v0, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->appLaunchActive:Z
-    sput-boolean v0, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->externalAppGestureActive:Z
-    :not_home
-    invoke-static {p0, p1}, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->setImmersivePolicy(Landroid/content/Context;Z)V
-    return-void
-.end method
-
-.method public static onHomeAppLaunch(Landroid/content/Context;)V
-    .locals 1
-
-    if-eqz p0, :done
-    const/4 v0, 0x1
-    sput-boolean v0, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->appLaunchActive:Z
-    const/4 v0, 0x0
-    sput-boolean v0, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->homeGestureTargetActive:Z
-    sput-boolean v0, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->externalAppGestureActive:Z
     invoke-static {p0, v0}, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->setImmersivePolicy(Landroid/content/Context;Z)V
 
     :done
@@ -201,10 +140,10 @@
     invoke-direct {v1, v0}, Landroid/os/Handler;-><init>(Landroid/os/Looper;)V
     sget-object v2, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->showHomeStatusRunnable:Ljava/lang/Runnable;
     invoke-virtual {v1, v2}, Landroid/os/Handler;->removeCallbacks(Ljava/lang/Runnable;)V
-    # State-transition and focus gates above and in the deferred callback
-    # isolate this to Home. Do not wait for the final launcher
-    # animation frames; Live notifications and the status bar should arrive together.
-    const-wide/16 v3, 0x0
+    # The state/animation/focus gates above and in the deferred callback already
+    # prevent an early reveal during Quick Switch. Keep only a 100 ms settling
+    # delay so Home's status bar returns promptly after the launcher is stable.
+    const-wide/16 v3, 0x64
     invoke-virtual {v1, v2, v3, v4}, Landroid/os/Handler;->postDelayed(Ljava/lang/Runnable;J)Z
     return-void
 .end method
@@ -228,19 +167,22 @@
     invoke-virtual {v2}, Landroid/view/View;->hasWindowFocus()Z
     move-result v2
     if-eqz v2, :done
-    sget-boolean v2, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->appLaunchActive:Z
-    if-nez v2, :done
     invoke-static {v0}, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->managerFor(Lcom/sec/android/app/launcher/Launcher;)Lcom/honeyspace/sdk/HoneyScreenManager;
     move-result-object v1
     if-eqz v1, :done
+    invoke-interface {v1}, Lcom/honeyspace/sdk/HoneyScreenManager;->isOpenFolderMode()Z
+    move-result v2
+    if-nez v2, :show_for_open_folder
     invoke-interface {v1}, Lcom/honeyspace/sdk/HoneyScreenManager;->isNormalHomescreen()Z
     move-result v2
     if-eqz v2, :done
     invoke-interface {v1}, Lcom/honeyspace/sdk/HoneyScreenManager;->isOnStateTransition()Z
     move-result v2
     if-nez v2, :done
-    sget-boolean v1, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->externalAppGestureActive:Z
+    invoke-interface {v1}, Lcom/honeyspace/sdk/HoneyScreenManager;->isOnGoingAnimationRunning()Z
+    move-result v1
     if-nez v1, :done
+    :show_for_open_folder
     const/4 v1, 0x1
     invoke-static {v0, v1}, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->setImmersivePolicy(Landroid/content/Context;Z)V
 
@@ -250,9 +192,6 @@
 
 .method public static onExternalAppGestureStart(Landroid/content/Context;)V
     .locals 3
-
-    const/4 v0, 0x1
-    sput-boolean v0, Lcom/nemotron/oneui/compat/HomeOnlyStatusBar;->externalAppGestureActive:Z
 
     # Cancel every pending Home reveal first. A delayed callback can otherwise
     # race the launcher losing focus during the lateral task switch.
