@@ -17,8 +17,19 @@ orig_line=$($BB sha256sum "$TARGET"); orig=${orig_line%% *}
 [ "$orig" = "$EXPECTED_ORIGINAL" ] || { echo "skip: stock APK hash mismatch $orig"; exit 1; }
 patch_line=$($BB sha256sum "$SOURCE"); patch=${patch_line%% *}
 [ "$patch" = "$EXPECTED_PATCHED" ] || { echo "skip: patch APK hash mismatch $patch"; exit 1; }
-zyg_line=$(ps | $BB grep '[z]ygote$' | $BB head -n 1); set -- $zyg_line; zyg=$2
-ss_line=$(ps | $BB grep '[s]ystem_server$' | $BB head -n 1); set -- $ss_line; system_server=$2
+attempt=0
+zyg_line=
+ss_line=
+while [ -z "$zyg_line" ] || [ -z "$ss_line" ]; do
+  zyg_line=$(ps | $BB grep '[z]ygote$' | $BB head -n 1)
+  ss_line=$(ps | $BB grep '[s]ystem_server$' | $BB head -n 1)
+  [ -n "$zyg_line" ] && [ -n "$ss_line" ] && break
+  if [ "$attempt" -ge 30 ]; then echo "skip: zygote/system_server not ready after 60 seconds"; exit 1; fi
+  attempt=$((attempt + 1))
+  sleep 2
+done
+set -- $zyg_line; zyg=$2
+set -- $ss_line; system_server=$2
 case "$zyg:$system_server" in *[!0-9:]*|:*) echo "skip: process ids unavailable"; exit 1;; esac
 chown system:system "$SOURCE"
 chmod 0644 "$SOURCE"

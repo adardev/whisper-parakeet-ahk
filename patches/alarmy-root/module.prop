@@ -1,6 +1,6 @@
 id=alarmy_root_patch
 name=Alarmy Root UI Lock
-version=1.3
-versionCode=4
+version=1.4
+versionCode=5
 author=Codex
 description=Block alarm creation, duplication, and row-click editing in Alarmy 4.17.3

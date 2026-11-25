@@ -4,12 +4,14 @@ Patch local para impedir crear, duplicar o editar alarmas en Alarmy sin desinsta
 
 ## Versión del patch
 
-La v1.1 sigue activa hasta el próximo arranque. La v1.2 introdujo un `finish()`
+La v1.3 está montada actualmente en Zygote y `system_server`. La v1.2 introdujo un `finish()`
 temprano en `AddAlarmActivity`; se retiró porque no era el comportamiento pedido
 y podía interrumpir la apertura normal.
-La v1.3 deshabilita directamente el clic de la tarjeta y quita su listener. El
-ZIP v1.3 reemplaza la actualización pendiente de Magisk; no reinicié el
-teléfono, así que el cambio todavía no está activo ni verificado en pantalla.
+La v1.3 deshabilita directamente el clic de la tarjeta y quita su listener. Al
+primer arranque, el hook buscó `zygote` antes de que estuviera listo y salió sin
+montar. Apliqué el montaje en vivo después de completar el arranque. La v1.4
+añade hasta 60 segundos de espera para ambos procesos en futuros arranques; está
+preparada en Magisk y no requiere otro reinicio ahora.
 
 ## Resultado solicitado
 
@@ -32,8 +34,7 @@ Se preparó para el SM-G532M conectado durante el trabajo:
 | ABI | ARM de 32 bits |
 | Root | Magisk 30.6, con Zygisk disponible |
 | APK instalado original | SHA-256 `4568eebab6b2517cbe57dc94121b2baff5638f0367026980e67c83a6735f3d8a` |
-| APK parcheado v1.1 actualmente montado | SHA-256 `3bf934a5c0ad640c2730b84bd9c71551fc56a75b0975dd46dd9d6aea947adc31` |
-| APK parcheado v1.3 (sin clic de edición en la tarjeta) | SHA-256 `c5702363c328db853ebf0f1ad517c52d38937c36dd6e303787d6c4c46e841744` |
+| APK parcheado v1.3 (sin clic de edición en la tarjeta; activo) | SHA-256 `c5702363c328db853ebf0f1ad517c52d38937c36dd6e303787d6c4c46e841744` |
 
 Estos hashes fijan la versión que se probó. El `service.sh` se niega a montar si no coinciden; una actualización de Alarmy requiere revisar y rehacer el parche, no cambiar los hashes a ciegas.
 
@@ -82,10 +83,10 @@ Requisitos usados: Apktool 2.12.1, Java 17, Android Build Tools (`zipalign`/`apk
 
 El APK final no se incluye en GitHub. La v1.3 está en
 `%LOCALAPPDATA%\Temp\alarmy-no-edit-v1\alarmy-v13.apk` durante esta sesión.
-Magisk debe procesar el ZIP v1.3 en el próximo arranque. La alarma configurada
-no se editó ni eliminó; `dumpsys alarm` siguió mostrando
-`droom.sleepIfUCan.ALARM_ALERT`. No se reinició el teléfono; la v1.1 continúa
-activa hasta que se procese la actualización pendiente.
+Magisk aceptó la v1.4 para el próximo arranque. La v1.3 está montada en los
+espacios de `system_server` y Zygote (hash verificado en ambos). La alarma
+configurada no se editó ni eliminó; `dumpsys alarm` sigue mostrando
+`droom.sleepIfUCan.ALARM_ALERT`.
 
 ## Validación realizada
 
@@ -95,7 +96,9 @@ activa hasta que se procese la actualización pendiente.
 - La v1.3 se reconstruyó desde el APK stock verificado, aplicando el diff. `apksigner` verificó la firma; SHA-256: `c5702363c328db853ebf0f1ad517c52d38937c36dd6e303787d6c4c46e841744`.
 - El diff completo aplica sin conflictos al árbol stock de Alarmy 4.17.3 con `--unidiff-zero`.
 - La versión anterior añadía `finish()` a `AddAlarmActivity.onCreate`, lo que no correspondía al objetivo. La v1.3 elimina ese cambio y deshabilita el clic de la tarjeta en XML y adaptador.
-- La verificación funcional de la tarjeta queda pendiente hasta aplicar v1.3; el patch no altera ni elimina la alarma actual.
+- El montaje en vivo de v1.3 quedó verificado en los dos procesos; la verificación visual del toque en la tarjeta queda pendiente.
+- Magisk aceptó v1.4 con la espera de procesos para que el montaje persista después de un reinicio.
+- En el relanzamiento en frío de esta sesión, Android mostró la pantalla principal tras unos 6.3 segundos. No se observó un cierre causado por el parche, pero no se ha comparado ese tiempo con el APK stock; queda pendiente confirmar en el teléfono que tocar el cuerpo de la tarjeta ya no abre el editor.
 - Se ejecutó el cierre y el broadcast de inicialización que usa el script; el evento de alarma seguía programado.
 - No se reinició el teléfono en esta sesión. Por tanto, la persistencia después de un reinicio está configurada por `service.sh`, pero todavía **no está validada en un arranque real**.
 
