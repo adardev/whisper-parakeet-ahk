@@ -6,7 +6,8 @@ PKG=droom.sleepIfUCan
 SOURCE="$MODDIR/alarmy.apk"
 EXPECTED_ORIGINAL=4568eebab6b2517cbe57dc94121b2baff5638f0367026980e67c83a6735f3d8a
 PREVIOUS_PATCHED=3bf934a5c0ad640c2730b84bd9c71551fc56a75b0975dd46dd9d6aea947adc31
-EXPECTED_PATCHED=5aef1479ba32749db264d9a819c95fc1700280ed7382a2372ca124f8c4ee7d11
+PREVIOUS_PATCHED_ALT=5aef1479ba32749db264d9a819c95fc1700280ed7382a2372ca124f8c4ee7d11
+EXPECTED_PATCHED=c5702363c328db853ebf0f1ad517c52d38937c36dd6e303787d6c4c46e841744
 BB=/data/adb/magisk/busybox
 set -- /data/app/droom.sleepIfUCan-*/base.apk
 [ -f "$1" ] || { echo "skip: installed APK path not found"; exit 1; }
@@ -26,7 +27,7 @@ mount_candidate() {
   pid="$1"
   line=$($BB nsenter -t "$pid" -m -- $BB sha256sum "$TARGET") || return 1
   hash=${line%% *}
-  if [ "$hash" = "$PREVIOUS_PATCHED" ]; then
+  if [ "$hash" = "$PREVIOUS_PATCHED" ] || [ "$hash" = "$PREVIOUS_PATCHED_ALT" ]; then
     $BB nsenter -t "$pid" -m -- $BB umount -l "$TARGET" || return 1
     line=$($BB nsenter -t "$pid" -m -- $BB sha256sum "$TARGET") || return 1
     hash=${line%% *}
