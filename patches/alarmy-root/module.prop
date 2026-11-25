@@ -1,6 +1,6 @@
 id=alarmy_root_patch
 name=Alarmy Root UI Lock
-version=1.1
-versionCode=2
+version=1.2
+versionCode=3
 author=Codex
-description=Hide alarm creation and duplication in Alarmy 4.17.3
+description=Block alarm creation, duplication, and editing in Alarmy 4.17.3

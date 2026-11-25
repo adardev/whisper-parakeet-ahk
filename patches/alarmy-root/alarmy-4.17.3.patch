@@ -120,13 +120,10 @@ index 9f70b99..aae5bfa 100644
  .end method
  
 diff --git a/smali_classes4/droom/sleepIfUCan/view/activity/AddAlarmActivity.smali b/smali_classes4/droom/sleepIfUCan/view/activity/AddAlarmActivity.smali
-index f6cb2a0..3e0d17b 100644
+index f6cb2a0..0ed980a 100644
 --- a/smali_classes4/droom/sleepIfUCan/view/activity/AddAlarmActivity.smali
 +++ b/smali_classes4/droom/sleepIfUCan/view/activity/AddAlarmActivity.smali
-@@ -2669,6 +2669,21 @@
- .method private i0()V
-     .locals 12
- 
+@@ -2671,0 +2672,15 @@
 +        invoke-virtual {p0}, Landroid/app/Activity;->getIntent()Landroid/content/Intent;
 +    move-result-object v0
 +    invoke-static {v0}, Ldroom/sleepIfUCan/utils/j;->a(Landroid/content/Intent;)Ldroom/sleepIfUCan/db/model/Alarm;
@@ -142,11 +139,10 @@ index f6cb2a0..3e0d17b 100644
 +    invoke-virtual {p0}, Landroid/app/Activity;->finish()V
 +    return-void
 +    :alarmLockout_allow_edit
-     .line 1
-     invoke-virtual {p0}, Landroid/app/Activity;->getIntent()Landroid/content/Intent;
- 
-@@ -5468,3 +5483,4 @@
- 
-     return-void
- .end method
+@@ -4927,0 +4943,4 @@
++    # Alarmy lock: keep the configured alarm read-only; do not open editor.
++    invoke-virtual {p0}, Landroid/app/Activity;->finish()V
++    return-void
++
+@@ -5470,0 +5490 @@
 +

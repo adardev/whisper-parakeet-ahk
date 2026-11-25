@@ -1,14 +1,21 @@
 # Alarmy Root UI Lock (4.17.3)
 
-Patch local para restringir la creación de alarmas en Alarmy sin desinstalar la app, reemplazar globalmente su APK ni tocar los datos de las alarmas.
+Patch local para impedir crear, duplicar o editar alarmas en Alarmy sin desinstalar la app, reemplazar globalmente su APK ni tocar los datos de las alarmas.
+
+## Versión del patch
+
+La v1.1 sigue activa hasta el próximo arranque. La v1.2 ya está preparada y
+Magisk la marcó como actualización pendiente (`update`) con `magisk
+--install-module`; no reinicié el teléfono. El intento de montaje en vivo se
+detuvo porque SELinux denegó cambiar propietario, permisos y etiqueta desde la
+sesión ADB. Por eso el bloqueo de edición todavía no se ha validado en pantalla.
 
 ## Resultado solicitado
 
 - Ocultar e inutilizar el botón flotante `+` para crear alarmas.
 - Quitar `Duplicate alarm` de los menús de alarma.
-- Bloquear también la apertura del flujo de alta, incluso si se invoca por otro camino.
-- Permitir editar alarmas existentes.
-- Conservar la alarma existente de 5:14 a. m. entre semana.
+- Bloquear también la apertura del flujo de alta y del editor de alarmas existentes.
+- Conservar intacta la alarma configurada y sus días: el patch no escribe en la base de datos.
 
 La protección es una barrera de interfaz/flujo de la app. No impide que alguien con root modifique la base de datos o quite el módulo.
 
@@ -24,7 +31,8 @@ Se preparó para el SM-G532M conectado durante el trabajo:
 | ABI | ARM de 32 bits |
 | Root | Magisk 30.6, con Zygisk disponible |
 | APK instalado original | SHA-256 `4568eebab6b2517cbe57dc94121b2baff5638f0367026980e67c83a6735f3d8a` |
-| APK parcheado local | SHA-256 `3bf934a5c0ad640c2730b84bd9c71551fc56a75b0975dd46dd9d6aea947adc31` |
+| APK parcheado v1.1 actualmente montado | SHA-256 `3bf934a5c0ad640c2730b84bd9c71551fc56a75b0975dd46dd9d6aea947adc31` |
+| APK parcheado local v1.2 (sin edición) | SHA-256 `5aef1479ba32749db264d9a819c95fc1700280ed7382a2372ca124f8c4ee7d11` |
 
 Estos hashes fijan la versión que se probó. El `service.sh` se niega a montar si no coinciden; una actualización de Alarmy requiere revisar y rehacer el parche, no cambiar los hashes a ciegas.
 
@@ -38,7 +46,7 @@ El archivo [`alarmy-4.17.3.patch`](alarmy-4.17.3.patch) contiene el diff unifica
    - `q0()V`, que reactivaba/mostraba el menú flotante, pasa a ser no-op.
    - `l0()V` fuerza el menú a `GONE` al configurar la pantalla.
    - `onActivityCreated(Bundle)` vuelve a ocultar el menú después de inicializar el fragmento. Esta segunda defensa es necesaria porque la librería FloatingActionMenu volvía a dibujar el FAB aunque solo se cambiara el XML.
-4. `smali_classes4/droom/sleepIfUCan/view/activity/AddAlarmActivity.smali`, método `i0()V`: sin un objeto Alarm válido o con ID `<= 0`, termina la Activity; solo deja continuar cuando el ID es positivo, que corresponde a editar una alarma existente.
+5. `smali_classes4/droom/sleepIfUCan/view/activity/AddAlarmActivity.smali`, método `onCreate(Bundle)`: termina la Activity inmediatamente después de la llamada a `super`, antes de inflar la pantalla. Así se bloquean tanto el alta como la edición; tocar una alarma ya configurada vuelve a la lista sin mostrar el formulario ni cambiar su hora.
 
 El diff guarda el código smali/XML concreto para revisión. No se suben el APK de Alarmy, el keystore ni la base de datos privada.
 
@@ -68,15 +76,21 @@ Requisitos usados: Apktool 2.12.1, Java 17, Android Build Tools (`zipalign`/`apk
 4. Alinear con `zipalign` y firmar con `apksigner` usando una clave local. La firma reconstruida no coincide con la firma del APK de tienda; por eso no se instala encima con `adb install -r`.
 5. Guardar el resultado como `alarmy.apk` dentro del módulo Magisk, confirmar que su SHA-256 coincide con `EXPECTED_PATCHED` de `service.sh` y comprimir los archivos del módulo. Instalar/actualizar el módulo desde Magisk requiere privilegios root y un reinicio para la aplicación estándar de módulos; durante esta sesión se montó/activó sin reiniciar.
 
-El APK final ya construido no se incluye. El usuario conservó localmente su APK parcheado y el módulo aplicado en el teléfono.
+El APK final ya construido no se incluye en GitHub. La v1.2 está en
+`%LOCALAPPDATA%\Temp\alarmy-no-edit-v1\alarmy-no-edit-v2.apk` durante esta
+sesión. El ZIP v1.2 se entregó a Magisk y quedó pendiente para el próximo
+arranque. La alarma configurada no se editó ni eliminó; `dumpsys alarm` siguió
+mostrando `droom.sleepIfUCan.ALARM_ALERT`. No se reinició el teléfono. La v1.1
+permanece activa hasta que Magisk procese la actualización pendiente.
 
 ## Validación realizada
 
 - Se confirmó que el módulo estaba habilitado y que el montaje expuesto a `system_server` y Zygote coincidía con el hash esperado.
 - Se abrió Alarmy y se verificó visualmente que desapareciera `+`.
 - Se abrió el menú de una alarma: quedaron `Delete`, `Preview alarm` y `Skip next alarm`; `Duplicate alarm` ya no apareció.
-- Se probó editar la alarma existente: el ID positivo sigue permitido.
-- Se confirmó la alarma habilitada de 5:14 a. m. de lunes a viernes y `dumpsys alarm` mostró `droom.sleepIfUCan.ALARM_ALERT`.
+- La v1.2 se reconstruyó desde el APK stock verificado, aplicando el diff. `apksigner` verificó las firmas v1/v2/v3; SHA-256: `5aef1479ba32749db264d9a819c95fc1700280ed7382a2372ca124f8c4ee7d11`.
+- El diff completo aplica sin conflictos al árbol stock de Alarmy 4.17.3.
+- Magisk aceptó el ZIP como actualización y creó el marcador `update`. La verificación del nuevo bloqueo queda pendiente hasta el siguiente arranque y al tocar una alarma existente; el patch no altera ni elimina la alarma actual.
 - Se ejecutó el cierre y el broadcast de inicialización que usa el script; el evento de alarma seguía programado.
 - No se reinició el teléfono en esta sesión. Por tanto, la persistencia después de un reinicio está configurada por `service.sh`, pero todavía **no está validada en un arranque real**.
 

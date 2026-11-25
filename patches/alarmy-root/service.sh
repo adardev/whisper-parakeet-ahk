@@ -5,8 +5,8 @@ exec >> "$LOG" 2>&1
 PKG=droom.sleepIfUCan
 SOURCE="$MODDIR/alarmy.apk"
 EXPECTED_ORIGINAL=4568eebab6b2517cbe57dc94121b2baff5638f0367026980e67c83a6735f3d8a
-PREVIOUS_PATCHED=904a66d3720c2731f2b915f339016c19c4fee37340d5a86772221a143728228f
-EXPECTED_PATCHED=3bf934a5c0ad640c2730b84bd9c71551fc56a75b0975dd46dd9d6aea947adc31
+PREVIOUS_PATCHED=3bf934a5c0ad640c2730b84bd9c71551fc56a75b0975dd46dd9d6aea947adc31
+EXPECTED_PATCHED=5aef1479ba32749db264d9a819c95fc1700280ed7382a2372ca124f8c4ee7d11
 BB=/data/adb/magisk/busybox
 set -- /data/app/droom.sleepIfUCan-*/base.apk
 [ -f "$1" ] || { echo "skip: installed APK path not found"; exit 1; }
