@@ -24,3 +24,7 @@ Las nuevas instalaciones y reactivaciones no crean iconos automáticamente. Inst
 - [Dependencia HiddenApiBypass 6.2 y procedencia](apps/nemotron-ui/build/vendor/hiddenapibypass-6.2/README.md)
 
 Las APK fallidas de prueba no se publican como versiones funcionales. Los cambios se guardan con commit y push antes de limpiar los archivos generados.
+
+## Fire TV
+
+- [Configuración del Fire TV AFTKM en 192.168.100.4:5555](docs/firetv-aftkm-192-168-100-4-2026-11-25.md)
